@@ -348,21 +348,28 @@
 
         @if (_useForkSource)
         {
-            <div class="cmd" style="margin:.3rem 0 0 1.7rem">
+            <div style="margin:.3rem 0 0 1.7rem">
                 @if (_loadingForks)
                 {
                     <span class="install-hint">Looking for forks…</span>
                 }
                 else if (_forks.Count > 0)
                 {
-                    <select class="ipt" style="flex:1" @bind="_sourceFork">
+                    @* One control at a time — a list and a free-text box side by side showed the
+                       same value twice, both truncated. *@
+                    <select class="ipt" style="width:100%" title="@_sourceFork"
+                            value="@SourceForkChoice" @onchange="OnSourceForkChoiceChanged">
                         @foreach (var f in _forks)
                         {
                             <option value="@f.FullName">@f.FullName@(f.Stars > 0 ? $" · ★ {f.Stars}" : "")</option>
                         }
+                        <option value="@OtherFork">Another repository…</option>
                     </select>
                 }
-                <input class="ipt" style="flex:1" placeholder="owner/repo" @bind="_sourceFork" />
+                @if (_sourceForkOther || (!_loadingForks && _forks.Count == 0))
+                {
+                    <input class="ipt" style="width:100%;margin-top:.3rem" placeholder="owner/repo" @bind="_sourceFork" />
+                }
             </div>
             @* Without this, an asset nobody has forked shows an empty box and no reason why. *@
             @if (!_loadingForks && _forks.Count == 0)
@@ -582,6 +589,20 @@
     private bool _useForkSource;
     private string _sourceRef = "";
     private bool _loadingForks;
+    private bool _sourceForkOther;
+
+    private const string OtherFork = "__other";
+
+    /// <summary>What the list should show: the picked fork, or the escape hatch.</summary>
+    private string SourceForkChoice =>
+        _sourceForkOther || !_forks.Any(f => f.FullName == _sourceFork) ? OtherFork : _sourceFork;
+
+    private void OnSourceForkChoiceChanged(ChangeEventArgs e)
+    {
+        var value = (string?)e.Value ?? "";
+        _sourceForkOther = value == OtherFork;
+        _sourceFork = _sourceForkOther ? "" : value;
+    }
     private IReadOnlyList<StrideAssetStore.Core.Local.Git.AssetFork> _forks = [];
 
     /// <summary>Picking "a fork" preselects the first one found; with none, the field stays empty
