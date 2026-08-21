@@ -1,11 +1,11 @@
 @* Copyright (c) <YEAR> <COPYRIGHT HOLDER> - MIT license *@
 
-@* The card is a div with a stretched link over it, not an <a> wrapping everything: the tag chips
-   are real buttons, and a button inside a link is invalid HTML with unpredictable keyboard
-   behaviour. The chips sit above the overlay (z-index), so they get their own clicks. *@
+@* The link wraps the thumbnail and the text, and the tag chips sit outside it. A <button> inside
+   an <a> is invalid HTML with unpredictable keyboard behaviour, and an absolutely-positioned
+   overlay link would make the whole card dead the moment its stylesheet doesn't load. *@
 <div class="card @(Asset.Certified.Count > 0 ? "cert" : "uncert")"
      @onpointerenter="() => _hover = true" @onpointerleave="() => _hover = false">
-    <a class="card-link" href="@($"a/{Uri.EscapeDataString(Asset.Id)}")" aria-label="@Asset.Manifest.Name"></a>
+    <a class="card-link" href="@($"a/{Uri.EscapeDataString(Asset.Id)}")">
     <div class="card-thumb">
         @Initial
         @if (ThumbUrl is not null)
@@ -69,33 +69,34 @@
                 <span class="badge warn">@(Asset.ValidationStatus == "unavailable" ? "⚠ unavailable" : "⚠ validation failed")</span>
             }
         </div>
-        @if (Asset.Manifest.Tags.Count > 0)
+        </div>
+    </a>
+    @if (Asset.Manifest.Tags.Count > 0)
+    {
+        <div class="card-tags">
+            @foreach (var tag in _tagsExpanded ? Asset.Manifest.Tags : Asset.Manifest.Tags.Take(3))
         {
-            <div class="card-tags">
-                @foreach (var tag in _tagsExpanded ? Asset.Manifest.Tags : Asset.Manifest.Tags.Take(3))
-                {
-                    <button type="button" class="tag-chip" title="@($"Filter by #{tag}")"
-                            @onclick="() => OnTagClick.InvokeAsync(tag)"
-                            @onclick:stopPropagation>#@tag</button>
-                }
-                @if (Asset.Manifest.Tags.Count > 3)
-                {
-                    @if (_tagsExpanded)
-                    {
-                        <button type="button" class="tag-chip tag-more" title="Show fewer tags"
-                                @onclick="() => _tagsExpanded = false"
-                                @onclick:stopPropagation>−</button>
-                    }
-                    else
-                    {
-                        <button type="button" class="tag-chip tag-more" title="@($"Show all {Asset.Manifest.Tags.Count} tags")"
-                                @onclick="() => _tagsExpanded = true"
-                                @onclick:stopPropagation>+@(Asset.Manifest.Tags.Count - 3)</button>
-                    }
-                }
-            </div>
+            <button type="button" class="tag-chip" title="@($"Filter by #{tag}")"
+                    @onclick="() => OnTagClick.InvokeAsync(tag)"
+                    @onclick:stopPropagation>#@tag</button>
         }
-    </div>
+        @if (Asset.Manifest.Tags.Count > 3)
+        {
+            @if (_tagsExpanded)
+            {
+                <button type="button" class="tag-chip tag-more" title="Show fewer tags"
+                        @onclick="() => _tagsExpanded = false"
+                        @onclick:stopPropagation>−</button>
+            }
+            else
+            {
+                <button type="button" class="tag-chip tag-more" title="@($"Show all {Asset.Manifest.Tags.Count} tags")"
+                        @onclick="() => _tagsExpanded = true"
+                        @onclick:stopPropagation>+@(Asset.Manifest.Tags.Count - 3)</button>
+            }
+        }
+        </div>
+    }
 </div>
 
 @code {

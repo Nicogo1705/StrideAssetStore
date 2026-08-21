@@ -102,11 +102,11 @@ a.theme-toggle:hover { text-decoration: none; }
     overflow: hidden; display: flex; flex-direction: column; transition: border-color .15s, transform .15s;
 }
 .card:hover { border-color: var(--accent); transform: translateY(-2px); text-decoration: none; }
-/* Stretched link: the whole card is clickable, while the tag chips stay real buttons above it. */
-.card { position: relative; }
-/* Above .card-thumb, which is positioned and would otherwise swallow clicks on the image. */
-.card-link { position: absolute; inset: 0; z-index: 1; }
-.card-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* The link is the card's content, so it stays clickable with or without this stylesheet. The tag
+   chips are siblings of it: a <button> inside an <a> is invalid HTML. */
+.card-link { display: flex; flex-direction: column; flex: 1; color: inherit; }
+.card-link:hover { text-decoration: none; }
+.card-link:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 /* Certification at a glance: green edge for certified, accent-blue for the rest. */
 .card.cert { border-color: rgba(74, 222, 128, .45); }
 .card.cert:hover { border-color: var(--ok); }
@@ -138,7 +138,7 @@ a.theme-toggle:hover { text-decoration: none; }
 .badge.stars { color: #facc15; border-color: rgba(250,204,21,.4); }
 .badge.warn { color: var(--warn); border-color: var(--warn); }
 .tag { font-size: .7rem; color: var(--muted); }
-.card-tags { display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; position: relative; z-index: 2; }
+.card-tags { display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; padding: 0 .9rem .8rem; margin-top: -.4rem; }
 .tag-chip {
     font-size: .68rem; padding: .12rem .5rem; border-radius: 999px; cursor: pointer;
     background: transparent; color: var(--muted); border: 1px dashed var(--border);
