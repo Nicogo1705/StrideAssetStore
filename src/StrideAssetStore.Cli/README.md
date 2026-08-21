@@ -47,7 +47,6 @@ Each version is cloned into its own folder of a shared per-machine cache, so sev
 the same asset coexist and different projects can follow different ones. The reference written into
 your `.csproj` is portable — a teammate who runs `strideassetstore update` gets the same code.
 
-Use `--into <dir>` to clone inside your own repository instead, with a relative reference.
 
 ### Solutions with more than one project
 

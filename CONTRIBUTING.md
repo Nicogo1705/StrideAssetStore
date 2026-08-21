@@ -26,8 +26,9 @@ dotnet run --project src/StrideAssetStore.Desktop    # desktop app, http://local
 ```
 
 The desktop app installs assets into real projects and clones into a shared per-machine cache
-(`%APPDATA%/StrideAssetStore` on Windows, `~/.config/StrideAssetStore` elsewhere). If you are
-experimenting, install with `--into` so clones land next to your test project instead.
+(`%APPDATA%/StrideAssetStore` on Windows, `~/.config/StrideAssetStore` elsewhere) — the only place
+clones ever go. If you are experimenting, `strideassetstore list --cached` shows what is in there
+and `remove --delete-clone` cleans it up.
 
 ## The one architectural rule
 

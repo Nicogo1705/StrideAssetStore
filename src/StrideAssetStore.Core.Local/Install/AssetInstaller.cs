@@ -136,7 +136,7 @@ public sealed class AssetInstaller(GitClient? git = null)
     /// <summary>
     /// True when a .csproj is an installed store asset (not a user project): either it sits under the
     /// global asset cache (matches even after its files were deleted, leaving a dangling .sln entry),
-    /// or an ancestor has an <c>AssetData/manifest.json</c> (covers "into a folder" installs).
+    /// or an ancestor has an <c>AssetData/manifest.json</c> (a forked asset checked out elsewhere).
     /// </summary>
     private static bool IsStoreAssetProject(string csprojAbs) =>
         csprojAbs.StartsWith(GlobalCacheRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)

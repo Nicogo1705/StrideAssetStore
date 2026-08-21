@@ -313,7 +313,6 @@ else
     private void PickPath(string path)
     {
         _picked = path;
-        // Default folder for the "Into a folder" mode (Global mode ignores this and uses the fixed cache).
         try
         {
             _targets = Installer.ReadTargets(path).ToList();
