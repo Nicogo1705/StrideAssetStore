@@ -74,7 +74,13 @@
         _other = false;
         _loading = true;
 
-        _forks = await Forks.ListAsync(Repo); // never throws: an unreachable API yields an empty list
+        var forks = await Forks.ListAsync(Repo); // never throws: an unreachable API yields an empty list
+        if (!string.Equals(_loadedRepo, Repo, StringComparison.OrdinalIgnoreCase))
+        {
+            return; // the asset changed while we were asking; a newer load owns the state now
+        }
+
+        _forks = forks;
         _loading = false;
 
         // A fork already in use may not be in the list — deleted, private, renamed, or simply past

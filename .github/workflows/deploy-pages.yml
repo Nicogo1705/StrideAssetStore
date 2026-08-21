@@ -66,6 +66,22 @@ jobs:
             exit 1
           }
 
+      # app.css and interop.js live outside the WebAssembly payload, so a browser keeps them across
+      # deploys. That matters most for interop.js: its contract changes with the C# that calls it
+      # (assetStoreEnv.copy returns a boolean now), and a stale copy makes every copy button report
+      # failure. Stamped with the release version, and verified like the base href.
+      - name: Version the static assets
+        run: |
+          V="${{ steps.ver.outputs.version || '1.0.0' }}"
+          for f in "app.css" "js/interop.js"; do
+            sed -i "s|_content/StrideAssetStore.UI/$f\"|_content/StrideAssetStore.UI/$f?v=$V\"|g" publish/wwwroot/index.html
+            grep -q "_content/StrideAssetStore.UI/$f?v=$V\"" publish/wwwroot/index.html || {
+              echo "::error::$f was not versioned - a stale browser copy would be served against new markup."
+              grep -o "_content/StrideAssetStore.UI/[^\"]*" publish/wwwroot/index.html || true
+              exit 1
+            }
+          done
+
       - name: Generate per-asset OG pages + sitemap
         run: |
           curl -fsSL "https://raw.githubusercontent.com/Nicogo1705/AssetContainer/main/index.lock.json" -o index.lock.json

@@ -199,6 +199,47 @@ public sealed class DesktopInstallerTests
     }
 
     [Fact]
+    public void An_official_clone_made_over_ssh_is_not_mistaken_for_a_fork()
+    {
+        using var ws = new InstallerWorkspace();
+        var (cloneRoot, head) = ws.CreateAssetClone(
+            Path.Combine("appdata", "StrideAssetStore", "Assets", "master", "TestAsset"),
+            "com.t.asset", "TestAsset", origin: "git@github.com:test/TestAsset.git");
+        var gameCsproj = ws.CreateGameProject(Path.Combine("Game", "Game.csproj"));
+        var installer = new AssetInstaller();
+        var catalog = InstallerWorkspace.Catalog(
+            InstallerWorkspace.CatalogEntry("com.t.asset", "TestAsset", latestCommit: head));
+
+        Assert.True(installer.AttachCached(cloneRoot, [gameCsproj], catalog).Success);
+
+        // Otherwise the project records Fork="git@github.com:test/TestAsset", and every later update
+        // tries to fetch https://github.com/git@github.com:test/TestAsset.
+        Assert.DoesNotContain("Fork=", File.ReadAllText(gameCsproj));
+    }
+
+    [Fact]
+    public void Installing_into_a_cache_folder_holding_another_repository_fails()
+    {
+        using var ws = new InstallerWorkspace();
+        // Two registry assets whose repositories share a name want the same folder: SafeRepoFolderName
+        // keeps only the last URL segment. Reusing it would hand the project the other one's code.
+        var (_, head) = ws.CreateAssetClone(
+            Path.Combine("appdata", "StrideAssetStore", "Assets", "master", "Utils"),
+            "com.a.utils", "Utils", origin: "https://github.com/a/Utils");
+        var gameCsproj = ws.CreateGameProject(Path.Combine("Game", "Game.csproj"));
+        var installer = new AssetInstaller();
+        var other = InstallerWorkspace.CatalogEntry("com.b.utils", "Utils", latestCommit: head) with
+        {
+            Repo = "https://github.com/b/Utils",
+        };
+
+        var result = installer.Install(other, "master", [gameCsproj], InstallerWorkspace.Catalog(other));
+
+        Assert.False(result.Success);
+        Assert.Contains(result.Messages, m => m.Contains("already holds a clone of https://github.com/a/Utils"));
+    }
+
+    [Fact]
     public void DeleteClone_refuses_a_folder_outside_the_shared_cache()
     {
         using var ws = new InstallerWorkspace();

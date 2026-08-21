@@ -689,6 +689,11 @@ else
         }
         catch
         {
+            if (_loadedCommit != commit)
+            {
+                return; // a slow failure for a version the user left must not clear the new one
+            }
+
             _readme = null;
         }
 
@@ -737,6 +742,11 @@ else
             }
             catch
             {
+                if (_loadedCommit != commit)
+                {
+                    return;
+                }
+
                 _fileTree = null;
                 _fileCount = 0;
             }

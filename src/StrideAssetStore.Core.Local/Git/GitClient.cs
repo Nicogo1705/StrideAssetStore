@@ -163,6 +163,22 @@ public sealed class GitClient(string gitExecutable = "git")
         return first;
     }
 
+    /// <summary>
+    /// Removes a sparse-checkout restriction from an existing clone and restores the full working
+    /// tree. No-op when there is none.
+    /// </summary>
+    public void DisableSparseCheckout(string repositoryPath)
+    {
+        if (Run(repositoryPath, "config", "--get", "core.sparseCheckout").ExitCode != 0)
+        {
+            return;
+        }
+
+        Run(repositoryPath, "sparse-checkout", "disable");
+        Run(repositoryPath, "config", "--unset", "core.sparseCheckout");
+        Run(repositoryPath, [.. SafeProtocol, "checkout", "--", "."]);
+    }
+
     /// <summary>The URL a clone was made from, or null. The only reliable answer to "where does this
     /// folder come from" — a folder name is a sanitized, lossy rendering of it.</summary>
     public string? GetRemoteUrl(string repositoryPath, string remote = "origin")
@@ -173,23 +189,37 @@ public sealed class GitClient(string gitExecutable = "git")
     }
 
     /// <summary>Whether two repository URLs name the same repository (scheme, case and .git suffix aside).</summary>
-    public static bool SameRepository(string? a, string? b)
-    {
-        static string Normalize(string url)
-        {
-            var value = url.Trim().TrimEnd('/');
-            if (value.EndsWith(".git", StringComparison.OrdinalIgnoreCase))
-            {
-                value = value[..^4];
-            }
+    public static bool SameRepository(string? a, string? b) =>
+        a is not null && b is not null && OwnerRepo(a) is { } x && OwnerRepo(b) is { } y
+        && x.Equals(y, StringComparison.OrdinalIgnoreCase);
 
-            // Compare owner/repo: the same repository is reachable over https, ssh and with or
-            // without a credential in the URL.
-            var parts = value.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            return parts.Length >= 2 ? $"{parts[^2]}/{parts[^1]}".ToLowerInvariant() : value.ToLowerInvariant();
+    /// <summary>
+    /// The <c>owner/repo</c> a clone URL names, or null when it names neither. Case is preserved:
+    /// this value is also what gets written to a project file as the fork it follows.
+    /// </summary>
+    /// <remarks>
+    /// Handles git's scp-like short form (<c>git@github.com:owner/repo.git</c>) as well as URLs.
+    /// Splitting on '/' alone read that form as owner <c>git@github.com:owner</c>, so a clone made
+    /// over SSH — what the "Code → SSH" button and `gh repo clone` give you — did not match the
+    /// registry's https URL, and the official asset was recorded as a fork of a repository nobody
+    /// can clone.
+    /// </remarks>
+    public static string? OwnerRepo(string url)
+    {
+        var value = url.Trim().TrimEnd('/');
+        if (value.EndsWith(".git", StringComparison.OrdinalIgnoreCase))
+        {
+            value = value[..^4];
         }
 
-        return a is not null && b is not null && Normalize(a) == Normalize(b);
+        // scp-like: everything up to the first ':' is the host, unless this is a real URL scheme.
+        if (!value.Contains("://", StringComparison.Ordinal) && value.IndexOf(':') is var colon and >= 0)
+        {
+            value = value[(colon + 1)..];
+        }
+
+        var parts = value.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2 ? $"{parts[^2]}/{parts[^1]}" : null;
     }
 
     /// <summary>ISO-8601 committer date of a commit in a local checkout, or null.</summary>

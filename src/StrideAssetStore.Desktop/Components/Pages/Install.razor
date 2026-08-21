@@ -212,7 +212,7 @@ else
     {
         <section class="panel">
             <h2>@(_result.Success ? "✓ Done" : "✗ Failed")</h2>
-            <ul class="problems" style="color:var(--text)">
+            <ul class="bullets">
                 @foreach (var m in _result.Messages)
                 {
                     <li>@m</li>

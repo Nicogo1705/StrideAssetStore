@@ -43,8 +43,9 @@ public sealed class InstallerWorkspace : IDisposable
     /// for a clone that isn't actually on the ref it was asked for, and that is how it checks.
     /// </param>
     /// <param name="origin">
-    /// Remote to record. A cache clone always has one, and it is how the installer tells an official
-    /// asset from a fork — the folder name is a lossy rendering of it.
+    /// Remote to record. Defaults to the URL <see cref="CatalogEntry"/> gives the asset, because a
+    /// cache clone is always made by `git clone` and always has one — and it is how the installer
+    /// tells an official asset from a fork, the folder name being a lossy rendering of it.
     /// </param>
     public (string CloneRoot, string Head) CreateAssetClone(
         string relativePath, string id, string name, string strideVersion = "4.4.0.2", string? tag = null,
@@ -81,10 +82,7 @@ public sealed class InstallerWorkspace : IDisposable
             Git(cloneRoot, "tag", tag);
         }
 
-        if (origin is not null)
-        {
-            Git(cloneRoot, "remote", "add", "origin", origin);
-        }
+        Git(cloneRoot, "remote", "add", "origin", origin ?? $"https://github.com/test/{name}");
 
         return (cloneRoot, Git(cloneRoot, "rev-parse", "HEAD").Trim());
     }

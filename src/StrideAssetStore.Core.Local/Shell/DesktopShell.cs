@@ -49,7 +49,12 @@ public static class DesktopShell
     /// </summary>
     public static bool RevealFile(string path)
     {
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false; // GetFullPath("") throws — the guard has to come first, not share a branch
+        }
+
+        if (!File.Exists(path))
         {
             return OpenFolder(Path.GetDirectoryName(Path.GetFullPath(path)) ?? "");
         }

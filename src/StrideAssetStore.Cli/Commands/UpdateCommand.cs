@@ -150,18 +150,19 @@ internal sealed class UpdateCommand : AsyncCommand<UpdateSettings>
         string target,
         UpdateSettings settings)
     {
-        if (installed.Count > 1)
+        var distinct = installed.Select(x => x.Asset.Id).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (distinct.Count > 1)
         {
-            var distinct = installed.Select(x => x.Asset.Id).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-            if (distinct.Count > 1)
-            {
-                AnsiConsole.MarkupLineInterpolated(
-                    $"[red]'{settings.Asset}' matches {distinct.Count} installed assets:[/] {string.Join(", ", distinct)}.");
-                AnsiConsole.MarkupLine("[grey]Use the full id.[/]");
-                return 1;
-            }
+            AnsiConsole.MarkupLineInterpolated(
+                $"[red]'{settings.Asset}' matches {distinct.Count} installed assets:[/] {string.Join(", ", distinct)}.");
+            AnsiConsole.MarkupLine("[grey]Use the full id.[/]");
+            return 1;
+        }
 
-            // Same asset, several projects: the id can't disambiguate it — the project can.
+        // One asset, several projects. --all-projects is an answer to that, so honour it instead of
+        // suggesting it back to someone who already passed it.
+        if (installed.Count > 1 && !settings.AllProjects)
+        {
             var projects = string.Join(", ", installed.Select(x => x.Project.Name).Distinct());
             AnsiConsole.MarkupLineInterpolated(
                 $"[red]{installed[0].Asset.Name} is referenced by {installed.Count} projects:[/] {projects}.");
@@ -169,25 +170,32 @@ internal sealed class UpdateCommand : AsyncCommand<UpdateSettings>
             return 1;
         }
 
-        var (project, current) = installed[0];
-        if (current.Kind != "local")
+        if (installed[0].Asset.Kind != "local")
         {
             AnsiConsole.MarkupLine("[red]This asset was installed as a NuGet package.[/] Change its version with dotnet add package.");
             return 1;
         }
 
-        if (!catalog.TryGetValue(current.Id, out var asset))
+        if (!catalog.TryGetValue(installed[0].Asset.Id, out var asset))
         {
-            AnsiConsole.MarkupLineInterpolated($"[red]'{current.Id}' is no longer in the catalog[/] — nothing to switch to.");
+            AnsiConsole.MarkupLineInterpolated($"[red]'{installed[0].Asset.Id}' is no longer in the catalog[/] — nothing to switch to.");
             return 1;
         }
 
         var newRef = settings.Ref ?? ResolveVersionRef(asset, settings.Version!);
-        AnsiConsole.MarkupLineInterpolated($"[grey]{current.Name}:[/] {current.Ref} → {newRef}");
+        var solution = ProjectTarget.SolutionOf(target);
+        var failed = 0;
+        foreach (var (project, current) in installed)
+        {
+            AnsiConsole.MarkupLineInterpolated(
+                $"[grey]{current.Name} in {project.Name}:[/] {current.Ref} → {newRef}");
+            if (CliOutput.Report(installer.SwitchRef(asset, current, project.CsprojPath, newRef, catalog, solution)) != 0)
+            {
+                failed++;
+            }
+        }
 
-        var result = installer.SwitchRef(
-            asset, current, project.CsprojPath, newRef, catalog, ProjectTarget.SolutionOf(target));
-        return CliOutput.Report(result);
+        return failed > 0 ? 1 : 0;
     }
 
     private static string ResolveVersionRef(IndexedAsset asset, string version)

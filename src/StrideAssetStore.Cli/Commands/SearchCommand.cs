@@ -65,7 +65,8 @@ internal sealed class SearchCommand : AsyncCommand<SearchSettings>
         table.AddColumn("★");
         table.AddColumn("");
 
-        foreach (var asset in results.Take(Math.Max(1, settings.Take)))
+        var take = Math.Max(1, settings.Take);
+        foreach (var asset in results.Take(take))
         {
             table.AddRow(
                 Markup.Escape(asset.Id),
@@ -76,9 +77,9 @@ internal sealed class SearchCommand : AsyncCommand<SearchSettings>
         }
 
         AnsiConsole.Write(table);
-        if (results.Count > settings.Take)
+        if (results.Count > take)
         {
-            AnsiConsole.MarkupLineInterpolated($"[grey]{results.Count - settings.Take} more — refine the query or raise --take.[/]");
+            AnsiConsole.MarkupLineInterpolated($"[grey]{results.Count - take} more — refine the query or raise --take.[/]");
         }
 
         return 0;

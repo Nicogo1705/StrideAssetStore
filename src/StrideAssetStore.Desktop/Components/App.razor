@@ -9,7 +9,7 @@
     <title>Community Stride Asset Store</title>
     @* Versioned: the page markup ships inside the assembly, this stylesheet does not, and a browser
        holding on to the previous one styles new markup with old rules. *@
-    <link rel="stylesheet" href="@($"_content/StrideAssetStore.UI/app.css?v={AppVersion}")" />
+    <link rel="stylesheet" href="@($"_content/StrideAssetStore.UI/app.css?v={AssetVersion}")" />
     <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
@@ -50,13 +50,40 @@
         </span>
     </div>
 
-    <script src="_content/StrideAssetStore.UI/js/interop.js"></script>
+    @* Versioned like the stylesheet, and for a sharper reason: this file's contract changes with the
+       C# that calls it — assetStoreEnv.copy started returning a boolean, and a browser holding the
+       previous one makes every copy button report failure. *@
+    <script src="@($"_content/StrideAssetStore.UI/js/interop.js?v={AssetVersion}")"></script>
     <script src="_framework/blazor.web.js"></script>
 </body>
 
 </html>
 
 @code {
-    private static readonly string AppVersion =
-        System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "dev";
+    /// <summary>
+    /// Cache-busting token for the static assets that ship outside the assembly. A released build
+    /// uses its version; a local build has a fixed one (0.0.0 in Debug, 99.0.0 in Release), which
+    /// would never change and leave a developer editing CSS against a cached copy — so those fall
+    /// back to the build time of the assembly itself.
+    /// </summary>
+    private static readonly string AssetVersion = ResolveAssetVersion();
+
+    private static string ResolveAssetVersion()
+    {
+        var assembly = System.Reflection.Assembly.GetEntryAssembly();
+        var version = assembly?.GetName().Version;
+        if (version is not null && version.Major is not (0 or 99))
+        {
+            return version.ToString(3);
+        }
+
+        try
+        {
+            return File.GetLastWriteTimeUtc(assembly!.Location).Ticks.ToString();
+        }
+        catch
+        {
+            return "dev";
+        }
+    }
 }

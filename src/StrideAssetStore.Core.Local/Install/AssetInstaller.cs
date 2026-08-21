@@ -1121,14 +1121,9 @@ public sealed class AssetInstaller(GitClient? git = null)
             return null; // the registry's own repository
         }
 
-        var parts = origin.TrimEnd('/').Split('/');
-        if (parts.Length < 2)
-        {
-            return null;
-        }
-
-        var repo = parts[^1].EndsWith(".git", StringComparison.OrdinalIgnoreCase) ? parts[^1][..^4] : parts[^1];
-        return $"{parts[^2]}/{repo}";
+        // Through the same parser as the comparison above: splitting the URL again by hand is how
+        // an SSH origin turned into a "fork" named git@github.com:owner/repo.
+        return GitClient.OwnerRepo(origin);
     }
 
     // Walks up from a referenced .csproj to the store clone root: the first ancestor with an AssetData/
@@ -1205,7 +1200,16 @@ public sealed class AssetInstaller(GitClient? git = null)
             // same folder. Reusing it would fetch from whichever got there first and hand the
             // project someone else's code — the content hash only warns.
             var origin = _git.GetRemoteUrl(dest);
-            if (origin is not null && !GitClient.SameRepository(origin, repo))
+            if (origin is null)
+            {
+                // Unreadable provenance is not proof of innocence: this is the folder we would
+                // otherwise fetch someone else's repository into.
+                throw new InvalidOperationException(
+                    $"Can't tell what the cache folder '{folder}' is a clone of (no readable git remote). "
+                    + "Remove it and install again.");
+            }
+
+            if (!GitClient.SameRepository(origin, repo))
             {
                 throw new InvalidOperationException(
                     $"The cache folder '{folder}' already holds a clone of {origin}, not {repo}. "
@@ -1229,6 +1233,14 @@ public sealed class AssetInstaller(GitClient? git = null)
 
                 messages.Add($"• {folder} was already at {reference} ({Short(before)}); couldn't reach the remote to confirm.");
                 return folder;
+            }
+
+            // A clone made before forks were checked out in full still carries the /AssetData/ sparse
+            // filter, and updating it never removes one. Without this, an existing fork clone stays
+            // trimmed and the "look through the whole clone" fallback finds nothing.
+            if (!assetDataOnly)
+            {
+                _git.DisableSparseCheckout(dest);
             }
 
             var after = _git.ResolveCommit(dest, "HEAD");

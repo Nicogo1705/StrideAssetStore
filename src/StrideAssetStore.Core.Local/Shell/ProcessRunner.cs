@@ -49,6 +49,8 @@ public static class ProcessRunner
         // not have, and the Git Credential Manager would pop a window behind the browser.
         info.Environment["GIT_TERMINAL_PROMPT"] = "0";
         info.Environment["GCM_INTERACTIVE"] = "never";
+        info.Environment["GIT_ASKPASS"] = "";
+        info.Environment["SSH_ASKPASS"] = ""; // an SSH remote can pop its own window otherwise
 
         try
         {

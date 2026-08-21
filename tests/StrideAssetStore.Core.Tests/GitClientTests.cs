@@ -39,4 +39,25 @@ public sealed class GitClientTests
     [InlineData("../evil/StrideGrassSystem")]   // owner is traversal
     public void SafeForkFolderName_rejects_what_it_cannot_place(string fork) =>
         Assert.Throws<InvalidOperationException>(() => GitClient.SafeForkFolderName(fork));
+
+    [Theory]
+    // An SSH clone — what "Code → SSH" and `gh repo clone` give you — must match the registry's
+    // https URL. Splitting on '/' alone read "git@github.com:owner" as the owner, so the official
+    // asset was recorded as a fork of a repository nobody can clone.
+    [InlineData("https://github.com/Nicogo1705/Grass", "git@github.com:Nicogo1705/Grass.git", true)]
+    [InlineData("https://github.com/Nicogo1705/Grass", "ssh://git@github.com/Nicogo1705/Grass", true)]
+    [InlineData("https://github.com/Nicogo1705/Grass", "https://github.com/Nicogo1705/Grass.git/", true)]
+    [InlineData("https://github.com/Nicogo1705/Grass", "https://github.com/nicogo1705/grass", true)]
+    [InlineData("https://github.com/Nicogo1705/Grass", "https://github.com/someone/Grass", false)]
+    [InlineData("https://github.com/Nicogo1705/Grass", "https://gitlab.com/Nicogo1705/Other", false)]
+    public void SameRepository_sees_through_url_forms(string a, string b, bool same) =>
+        Assert.Equal(same, GitClient.SameRepository(a, b));
+
+    [Fact]
+    public void OwnerRepo_keeps_the_case_it_was_given()
+    {
+        // This value is written into project files as the fork to follow, so it must stay readable.
+        Assert.Equal("Nicogo1705/Grass", GitClient.OwnerRepo("git@github.com:Nicogo1705/Grass.git"));
+        Assert.Null(GitClient.OwnerRepo("not-a-url"));
+    }
 }

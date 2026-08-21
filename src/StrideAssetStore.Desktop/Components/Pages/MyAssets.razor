@@ -437,7 +437,19 @@ else
         // Sequence guard: an older in-flight refresh must never overwrite a newer one's result
         // (e.g. Untrack's refresh finishing before a slower earlier refresh resurrects the repo).
         var seq = ++_refreshSeq;
-        var authors = await Task.Run(() => Authors.List().Select(Authors.Inspect).ToList());
+        List<AuthorRepo> authors;
+        try
+        {
+            authors = await Task.Run(() => Authors.List().Select(Authors.Inspect).ToList());
+        }
+        catch (Exception ex)
+        {
+            // Reached from OnInitializedAsync: an unreadable tracked path here took the circuit down
+            // on page load, which is the failure this page's error modal exists for.
+            _error = ex.Message;
+            return;
+        }
+
         if (seq != _refreshSeq)
         {
             return;
@@ -760,7 +772,7 @@ else
             _loading = false;
         }
         _ = Attention.RefreshAsync(); // update/delete funnel through here - keep the nav dots honest
-        await RefreshAuthors();
+        await RefreshAuthors(); // guarded internally
     }
 
     private async Task Update(CachedAsset asset)
