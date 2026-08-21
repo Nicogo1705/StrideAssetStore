@@ -18,6 +18,19 @@ build avec nuget.org seul → 0 erreur.
 
 ---
 
+## 🔴 Le site public est cassé — un push le répare
+
+Le rename du repo a changé l'URL Pages. Vérifié à l'instant :
+`https://nicogo1705.github.io/AssetStore/` → 404, et
+`https://nicogo1705.github.io/StrideAssetStore/` → 200 mais sert encore
+`<base href="/AssetStore/">`, donc tous ses scripts et assets pointent dans le vide.
+
+Le correctif est déjà committé (`deploy-pages.yml` génère `/StrideAssetStore/`) : il suffit de
+pousser `main` pour que le workflow redéploie. **Rien n'est poussé sans ton accord**, donc le site
+reste cassé jusque-là.
+
+---
+
 ## Ce qui a été demandé
 
 ### 1. Rename complet en `StrideAssetStore`
