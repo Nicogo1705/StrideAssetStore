@@ -346,7 +346,21 @@ public sealed class AssetInstaller(GitClient? git = null)
             var assetCsproj = CsprojInspector.FindProjects(assetData).FirstOrDefault();
             if (assetCsproj is null)
             {
-                return new InstallResult(false, [.. messages, "No .csproj found in the asset's AssetData folder."]);
+                // Whatever was cloned isn't a store asset. Don't leave it in the shared cache, where
+                // it would sit forever as a "broken" entry nobody can explain — this is the common
+                // outcome of naming a fork that was never an asset, or one that has moved on.
+                var cloneRoot = Path.Combine(refRoot, assetFolder);
+                var removed = DeleteClone(cloneRoot);
+
+                messages.Add(fork is null
+                    ? "✗ No .csproj under AssetData/ — this repository doesn't look like a store asset."
+                    : $"✗ {fork} has no .csproj under AssetData/ — it doesn't look like a store asset.");
+                if (!removed)
+                {
+                    messages.Add($"⚠ The clone at {cloneRoot} couldn't be removed; delete it by hand.");
+                }
+
+                return new InstallResult(false, messages);
             }
 
             clonedCsprojs.Insert(0, assetCsproj);

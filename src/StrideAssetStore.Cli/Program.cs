@@ -42,6 +42,10 @@ app.Configure(config =>
         .WithExample("add", "com.nicogo.grass")
         .WithExample("add", "grass", "--version", "1.0.0");
 
+    config.AddCommand<ForkListCommand>("forks")
+        .WithDescription("List an asset's forks — the names `add --fork` accepts.")
+        .WithExample("forks", "grass");
+
     config.AddCommand<ListCommand>("list")
         .WithDescription("Show the assets this project references, or --cached for everything downloaded.")
         .WithExample("list")

@@ -19,9 +19,12 @@ public sealed class IndexLockSchemaTests
             return;
         }
 
+        // Every optional field carries a value: the serializer omits nulls, so a sample that leaves
+        // them unset validates whatever the schema says — which is how `forks` reached the published
+        // index while the schema still forbade it, with this test green throughout.
         var index = Index(
-            Asset("com.test.a", "A", "Scripts", tags: ["x"], certified: true),
-            Asset("com.test.b", "B", "Shaders"));
+            Asset("com.test.a", "A", "Scripts", tags: ["x"], certified: true) with { Stars = 3, Forks = 1 },
+            Asset("com.test.b", "B", "Shaders") with { Stars = 0, Forks = 0 });
 
         var json = StrideAssetStoreJson.Serialize(index);
         var report = new ValidationReport();
