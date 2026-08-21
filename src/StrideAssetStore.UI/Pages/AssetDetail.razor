@@ -162,7 +162,10 @@ else
         {
             <section>
                 <h2>Files (@_fileCount)</h2>
-                <p class="install-hint">What gets cloned into your project — the asset's <span class="mono">AssetData/</span> at the pinned commit.</p>
+                <p class="install-hint">
+                    The asset's <span class="mono">AssetData/</span> on <span class="mono">@Asset.Latest.Ref</span> — this is the folder
+                    installing brings into your project.
+                </p>
                 <div class="filetree">
                     @RenderNode(_fileTree)
                 </div>
@@ -263,13 +266,13 @@ else
             <h2>Details</h2>
             <div class="kv">
                 <span class="k">License</span><span>@m.License</span>
-                <span class="k">Stride version</span><span>@(v.DetectedStrideVersion ?? "unknown")</span>
-                <span class="k">.NET</span><span>@(v.TargetFramework ?? "unknown")</span>
+                <span class="k">Stride version</span><span>@(v.DetectedStrideVersion ?? "unknown")@LatestOnly</span>
+                <span class="k">.NET</span><span>@(v.TargetFramework ?? "unknown")@LatestOnly</span>
                 <span class="k">Default import</span><span>@(m.DefaultImport ?? "local")</span>
-                <span class="k">Repository</span><span><a href="@GitLinks.TreeAtCommit(Asset.Repo, ActiveRef)" target="_blank" rel="noopener">@Asset.Repo</a></span>
+                <span class="k">Repository</span><span><a href="@GitLinks.TreeAtCommit(Asset.Repo, ActiveCommit)" target="_blank" rel="noopener">@Asset.Repo</a></span>
                 <span class="k">Pinned commit</span><span class="mono">@ActiveCommit</span>
-                <span class="k">Content hash</span><span class="mono">@ShortHash(v.ContentHash)</span>
-                <span class="k">Size</span><span>@FormatSize(v.SizeBytes)</span>
+                <span class="k">Content hash</span><span class="mono">@ShortHash(v.ContentHash)@LatestOnly</span>
+                <span class="k">Size</span><span>@FormatSize(v.SizeBytes)@LatestOnly</span>
                 @if (m.Tags.Count > 0)
                 {
                     <span class="k">Tags</span>
@@ -479,6 +482,14 @@ else
         Asset?.Manifest is { Nuget: not null, DefaultImport: "nuget" } ? "nuget" : "local";
 
     private string ActiveRef => _versionRef ?? Asset!.Latest.Ref;
+
+    /// <summary>
+    /// Marks a value the catalog only records for <c>latest</c>. Tag entries carry a version, a tag and
+    /// a commit and nothing else, so claiming these follow the selector would be inventing data.
+    /// </summary>
+    private MarkupString LatestOnly => OnLatest
+        ? new MarkupString("")
+        : new MarkupString($" <span class=\"install-hint\">(on {System.Net.WebUtility.HtmlEncode(Asset!.Latest.Ref)})</span>");
 
     private string ActiveCommit =>
         _versionRef is null || _versionRef == Asset!.Latest.Ref

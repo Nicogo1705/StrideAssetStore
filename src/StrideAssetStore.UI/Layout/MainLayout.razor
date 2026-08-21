@@ -1,5 +1,6 @@
 @* Copyright (c) <YEAR> <COPYRIGHT HOLDER> - MIT license *@
 @inherits LayoutComponentBase
+@implements IDisposable
 @inject AppEnvironment Env
 @inject UpdateService Updater
 @inject AppInfo AppFacts
@@ -220,6 +221,17 @@
     private sealed record TerminalLaunch(bool Opened, string Command, bool ToolMissing);
 
     private void OnAttentionChanged() => InvokeAsync(StateHasChanged);
+
+    /// <summary>
+    /// Drops the subscription and the release poll. Without this the timer outlives the layout and
+    /// keeps calling StateHasChanged on a component that is gone.
+    /// </summary>
+    public void Dispose()
+    {
+        Attention.Changed -= OnAttentionChanged;
+        _publishingPoll?.Dispose();
+        _publishingPoll = null;
+    }
 
     private static string FormatSize(long bytes) => bytes switch
     {

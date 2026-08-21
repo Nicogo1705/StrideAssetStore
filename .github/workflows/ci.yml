@@ -1,10 +1,12 @@
 name: "Build & test the solution"
 
-# Build the whole solution and run the tests on every push/PR.
+# Build the whole solution and run the tests on every push to main, every PR, and every release
+# tag — a tag ships the CLI to nuget.org, and nothing else on that path runs the test suite.
 
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 

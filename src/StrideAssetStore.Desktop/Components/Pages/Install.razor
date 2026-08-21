@@ -219,7 +219,7 @@ else
             }
             @if (platformCount > 0)
             {
-                <button class="btn" style="margin-top:.3rem" @onclick="() => _showPlatform = !_showPlatform">
+                <button class="btn" style="margin-top:.3rem" @onclick="TogglePlatformProjects">
                     @(_showPlatform ? "Hide" : "Show") platform projects (@platformCount)
                 </button>
             }
@@ -327,6 +327,22 @@ else
     private bool _browsing;
     private bool _showPlatform;
 
+    /// <summary>
+    /// Shows or hides the platform heads. Hiding also unchecks them: a box the user can no longer
+    /// see must not keep counting towards "Install into N project(s)".
+    /// </summary>
+    private void TogglePlatformProjects()
+    {
+        _showPlatform = !_showPlatform;
+        if (!_showPlatform)
+        {
+            foreach (var head in _targets.Where(p => IsPlatformHead(p.Name)))
+            {
+                _checked.Remove(head.Path);
+            }
+        }
+    }
+
     // Stride generates a per-platform head project (…​.Windows/.Linux/.Android/.iOS); assets go in the core
     // game project, not the heads, so those are hidden by default.
     private static readonly string[] StridePlatformSuffixes =
@@ -375,6 +391,16 @@ else
         _targets = [];
         _checked.Clear();
         _result = null;
+
+        // The whole fork choice belongs to the asset that was on screen. Blazor reuses this
+        // component when only ?id= changes, so keeping it would offer another asset's forks — and
+        // install from the wrong repository entirely.
+        _useFork = false;
+        _fork = "";
+        _forkOther = false;
+        _forks = [];
+        _loadingForks = false;
+        _showPlatform = false;
     }
 
     // Pre-select the version carried over from the asset page (?ref=), falling back to latest.

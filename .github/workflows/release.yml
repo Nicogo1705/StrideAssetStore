@@ -100,8 +100,11 @@ jobs:
         shell: bash
         run: |
           TAG="${{ steps.ver.outputs.tag }}"
-          # Create the release if it doesn't exist yet (tolerate the matrix race).
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --generate-notes || true
+          # Create the release if it doesn't exist yet (tolerate the matrix race). As a draft: the
+          # first matrix leg to finish would otherwise publish a "latest" release carrying one
+          # platform's archive, which is exactly what the update check and `app install` read.
+          # The checksums job flips it public once every archive is attached.
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --draft --title "$TAG" --generate-notes || true
           gh release upload "$TAG" StrideAssetStore-${{ matrix.rid }}.* --clobber
 
   # The CLI ships to nuget.org as `StrideAssetStore`, so `dotnet tool install -g StrideAssetStore`
