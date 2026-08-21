@@ -21,8 +21,8 @@
 <p class="lead">
     Publish, certify or remove assets in
     <a href="@($"https://github.com/{Registry.Owner}/{Registry.Repo}")" target="_blank" rel="noopener">@Registry.Owner/@Registry.Repo</a>.
-    Every action is a <strong>pull request</strong> against the registry — nothing about your asset is copied or
-    re-hosted: the registry stores a pointer, and the catalog is rebuilt from your repository.
+    Every action is a <strong>pull request</strong> against the registry. Your asset stays in your
+    repository; nothing is copied there.
 </p>
 
 <div class="modes" role="tablist">
@@ -166,8 +166,7 @@
         <h2>2 · Submit to the registry</h2>
         <p class="install-hint">
             Point us at your asset. Both methods below open a pull request adding
-            <code>registry/@(DisplayId).json</code> — the pointer the registry uses to find your asset.
-            The asset id is read from your manifest; you never re-enter it here.
+            <code>registry/@(DisplayId).json</code>. The asset id is read from your manifest.
         </p>
 
         <div class="form">

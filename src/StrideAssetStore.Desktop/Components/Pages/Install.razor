@@ -196,12 +196,10 @@ else
             @if (!IsNuget)
             {
                 <p class="install-hint">
-                    The asset and its dependencies are cloned into the shared cache below, and the reference
-                    written into your project resolves there on any machine — commit it, and teammates just
-                    download the asset. To own and modify an asset instead, fork it.
+                    Downloaded once here and shared by all your projects. The reference is safe to commit:
+                    it resolves to this folder on any machine.
                 </p>
                 <p class="mono install-hint">@AssetInstaller.GlobalCacheRoot</p>
-
             }
 
             <button class="btn primary" style="margin-top:.8rem" @onclick="DoInstall" disabled="@(_busy || _checked.Count == 0 || (_useFork && string.IsNullOrWhiteSpace(_fork)))">
