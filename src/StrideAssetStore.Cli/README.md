@@ -53,11 +53,10 @@ your `.csproj` is portable — a teammate who runs `strideassetstore update` get
 To use someone's fork of an asset — or your own — instead of the author's repository:
 
 ```bash
+strideassetstore forks grass                                  # what exists on GitHub
 strideassetstore add grass --fork someone/StrideGrassSystem
 strideassetstore add grass --fork you/StrideGrassSystem --ref my-branch
 ```
-
-The desktop app lists an asset's forks for you; from here you name the one you want.
 
 A fork keeps its own tags and its own history, so **nothing the registry says about the asset
 applies to it**: the content hash isn't verified and no certification carries over. It is cached
@@ -79,7 +78,8 @@ strideassetstore add grass --project MyGame.Windows
 strideassetstore add grass --all-projects
 ```
 
-Without either, a solution containing several projects stops and lists them rather than picking one.
+Both apply to `remove` as well. Without either, a command that would touch several projects stops
+and lists them rather than picking one.
 
 ### Stride versions
 

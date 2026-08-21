@@ -1023,6 +1023,11 @@ public sealed class AssetInstaller(GitClient? git = null)
             ? $"{GlobalCacheInclude}\\{Path.GetRelativePath(GlobalCacheRoot, assetCsproj).Replace('/', '\\')}"
             : null;
 
+        // A cached fork lives in a "<repo>__<owner>" folder. Attaching it without recording the fork
+        // would leave a reference the registry claims to own: `update` would then resolve it against
+        // the official repository and quietly walk the project back off the fork.
+        var fork = ForkFromCloneFolder(cloneRoot);
+
         var clonedCsprojs = new List<string> { assetCsproj };
         var manifest = TryReadManifest(Path.Combine(cloneRoot, "AssetData", "manifest.json"));
         if (manifest is not null && catalog.TryGetValue(manifest.Id, out var entry))
@@ -1056,8 +1061,8 @@ public sealed class AssetInstaller(GitClient? git = null)
             try
             {
                 var added = globalInclude is not null
-                    ? CsprojEditor.AddRawProjectReference(target, globalInclude)
-                    : CsprojEditor.AddProjectReference(target, assetCsproj);
+                    ? CsprojEditor.AddRawProjectReference(target, globalInclude, fork)
+                    : CsprojEditor.AddProjectReference(target, assetCsproj, fork);
                 messages.Add(added
                     ? $"✓ Added reference to {Path.GetFileName(target)}"
                     : $"• {Path.GetFileName(target)} already references the asset");
@@ -1071,6 +1076,19 @@ public sealed class AssetInstaller(GitClient? git = null)
 
         AddToSolution(solutionPath, clonedCsprojs, messages);
         return new InstallResult(!anyTargetError, messages);
+    }
+
+    /// <summary>
+    /// The <c>owner/repo</c> a cached clone came from when its folder is a fork folder
+    /// (<c>&lt;repo&gt;__&lt;owner&gt;</c>, written by <see cref="GitClient.SafeForkFolderName"/>), else null.
+    /// </summary>
+    private static string? ForkFromCloneFolder(string cloneRoot)
+    {
+        var folder = Path.GetFileName(cloneRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        var separator = folder.LastIndexOf("__", StringComparison.Ordinal);
+        return separator > 0 && separator + 2 < folder.Length
+            ? $"{folder[(separator + 2)..]}/{folder[..separator]}"
+            : null;
     }
 
     // Walks up from a referenced .csproj to the store clone root: the first ancestor with an AssetData/

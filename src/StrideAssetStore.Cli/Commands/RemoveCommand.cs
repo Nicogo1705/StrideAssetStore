@@ -33,7 +33,18 @@ internal sealed class RemoveCommand : AsyncCommand<RemoveSettings>
         var target = ProjectTarget.Resolve(settings.Target);
         var view = installer.Analyze(target, CatalogAccess.ById(index));
 
+        // --project / --all-projects are inherited options that this command used to ignore: it
+        // removed the asset from every project holding it, which is the silent damage the ambiguity
+        // check below exists to prevent. Without either flag, a solution-wide removal must be asked
+        // for explicitly.
+        var scope = settings.AllProjects || settings.Project is not null
+            ? ProjectTarget.SelectProjects(installer, target, settings.Project, settings.AllProjects)
+                .Select(Path.GetFullPath)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : null;
+
         var matches = view.Projects
+            .Where(p => scope is null || scope.Contains(Path.GetFullPath(p.CsprojPath)))
             .SelectMany(p => p.Assets.Select(a => (Project: p, Asset: a)))
             .Where(x => x.Asset.Id.Contains(settings.Asset, StringComparison.OrdinalIgnoreCase)
                 || x.Asset.Name.Contains(settings.Asset, StringComparison.OrdinalIgnoreCase))
@@ -41,7 +52,9 @@ internal sealed class RemoveCommand : AsyncCommand<RemoveSettings>
 
         if (matches.Count == 0)
         {
-            AnsiConsole.MarkupLineInterpolated($"[red]'{settings.Asset}' is not installed in this project.[/]");
+            AnsiConsole.MarkupLineInterpolated(scope is null
+                ? $"[red]'{settings.Asset}' is not installed in this project.[/]"
+                : (FormattableString)$"[red]'{settings.Asset}' is not installed in the selected project(s).[/]");
             return 1;
         }
 
@@ -54,7 +67,16 @@ internal sealed class RemoveCommand : AsyncCommand<RemoveSettings>
         }
 
         var name = matches[0].Asset.Name;
-        var targets = string.Join(", ", matches.Select(m => m.Project.Name));
+        var projectCount = matches.Select(m => m.Project.CsprojPath).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+        if (scope is null && projectCount > 1)
+        {
+            AnsiConsole.MarkupLineInterpolated(
+                $"[red]{name} is referenced by {projectCount} projects:[/] {string.Join(", ", matches.Select(m => m.Project.Name).Distinct())}.");
+            AnsiConsole.MarkupLine("[grey]Pick one with --project <NAME>, or remove it everywhere with --all-projects.[/]");
+            return 1;
+        }
+
+        var targets = string.Join(", ", matches.Select(m => m.Project.Name).Distinct());
         if (!CliOutput.Confirm($"Remove {name} from {targets}?", settings.Yes))
         {
             return 1;

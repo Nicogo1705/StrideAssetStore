@@ -12,12 +12,12 @@ public static class CsprojEditor
     /// Adds a <c>&lt;ProjectReference&gt;</c> from <paramref name="csprojPath"/> to
     /// <paramref name="referencedCsprojPath"/> (idempotent). Returns true if the file was modified.
     /// </summary>
-    public static bool AddProjectReference(string csprojPath, string referencedCsprojPath)
+    public static bool AddProjectReference(string csprojPath, string referencedCsprojPath, string? fork = null)
     {
         var csprojDir = Path.GetDirectoryName(Path.GetFullPath(csprojPath))!;
         var include = Path.GetRelativePath(csprojDir, Path.GetFullPath(referencedCsprojPath))
             .Replace('/', '\\'); // MSBuild convention
-        return AddProjectReferenceInclude(csprojPath, include);
+        return AddProjectReferenceInclude(csprojPath, include, fork);
     }
 
     /// <summary>

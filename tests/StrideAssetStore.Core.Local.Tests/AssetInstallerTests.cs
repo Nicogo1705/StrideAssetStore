@@ -180,6 +180,28 @@ public sealed class DesktopInstallerTests
     }
 
     [Fact]
+    public void AttachCached_records_the_fork_a_cached_clone_came_from()
+    {
+        using var ws = new InstallerWorkspace();
+        // The folder shape SafeForkFolderName writes: <repo>__<owner>.
+        var (cloneRoot, head) = ws.CreateAssetClone(
+            Path.Combine("appdata", "StrideAssetStore", "Assets", "main", "TestAsset__someone"),
+            "com.t.asset", "TestAsset");
+        var gameCsproj = ws.CreateGameProject(Path.Combine("Game", "Game.csproj"));
+        var installer = new AssetInstaller();
+        var catalog = InstallerWorkspace.Catalog(
+            InstallerWorkspace.CatalogEntry("com.t.asset", "TestAsset", latestCommit: head));
+
+        Assert.True(installer.AttachCached(cloneRoot, [gameCsproj], catalog).Success);
+
+        // Without this attribute, `update` resolves the reference against the registry's repository
+        // and walks the project off the fork without saying so.
+        Assert.Contains(@"Fork=""someone/TestAsset""", File.ReadAllText(gameCsproj));
+        var installed = Assert.Single(Assert.Single(installer.Analyze(gameCsproj, catalog).Projects).Assets);
+        Assert.Equal("someone/TestAsset", installed.Fork);
+    }
+
+    [Fact]
     public void SwitchRef_swaps_the_reference_to_an_already_cached_ref_without_network()
     {
         using var ws = new InstallerWorkspace();
