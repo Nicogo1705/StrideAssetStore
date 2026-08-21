@@ -7,11 +7,14 @@ name: "Install an asset and run a Stride game (Win/Linux/macOS)"
 # or run — instead of "the workflow is red". That distinction is the whole point: the store can
 # look perfectly healthy while its assets are impossible for a stranger to restore.
 #
+# The asset is installed the normal way, into the shared per-machine cache. Cloning inside the
+# game's own folder (--into) makes the asset compiler see the package twice and is not what the
+# default install does, so testing it would measure a path nobody takes.
+#
 # What a green run does NOT prove: that the asset's Stride CONTENT compiles. The default asset is
-# a code asset (no .sdpkg), so the asset compiler runs and legitimately produces nothing. Packs
-# that do ship content (the texture packs, which declare RootAssets) currently CRASH the asset
-# compiler when added to a code-only game — "Cannot add the asset [guid] to package" — so they are
-# not covered here yet. Tracked in WORK.md; do not read this workflow as covering content.
+# a code asset with no .sdpkg, so the asset compiler runs and legitimately produces nothing. Point
+# the `asset` input at a texture pack to exercise content — those declare RootAssets and produce a
+# real bundle.
 #
 # Known limits, deliberately not hidden:
 #  - GitHub runners have no GPU. Linux renders through Mesa's software rasteriser under Xvfb.
@@ -191,7 +194,7 @@ jobs:
       # ── 3. The store's actual job ──
       - name: Install the asset with the CLI
         working-directory: ${{ runner.temp }}/game
-        run: '"$GITHUB_WORKSPACE/tools/strideassetstore" add "$ASSET" --into ./Assets --stride "$STRIDE" --yes'
+        run: '"$GITHUB_WORKSPACE/tools/strideassetstore" add "$ASSET" --stride "$STRIDE" --yes'
 
       - name: The asset is listed as installed
         working-directory: ${{ runner.temp }}/game
@@ -226,7 +229,7 @@ jobs:
           wait "$PID" 2>/dev/null || true
           cat run.log || true
 
-      - name: The game reached a rendered frame (code asset; content not covered)
+      - name: The game reached a rendered frame
         working-directory: ${{ runner.temp }}/game
         run: |
           [ -f rendered.ok ] \
@@ -240,5 +243,4 @@ jobs:
           name: e2e-${{ matrix.os }}
           path: |
             ${{ runner.temp }}/game/run.log
-            ${{ runner.temp }}/game/Assets/**/*.csproj
           if-no-files-found: ignore

@@ -32,9 +32,6 @@ internal sealed class AddSettings : ProjectScopedSettings
     [Description("Clone the source even when the asset suggests its NuGet package.")]
     public bool Source { get; init; }
 
-    [CommandOption("--into <DIR>")]
-    [Description("Clone into this folder instead of the shared per-machine cache. The reference becomes relative to your project.")]
-    public string? Into { get; init; }
 
     [CommandOption("--stride <VERSION>")]
     [Description("Rewrite the installed asset's Stride package references to this version, when it targets another one.")]
@@ -89,8 +86,6 @@ internal sealed class AddCommand : AsyncCommand<AddSettings>
             reference,
             projects,
             CatalogAccess.ById(index),
-            cloneDir: settings.Into ?? "",
-            globalCache: settings.Into is null,
             solutionPath: ProjectTarget.SolutionOf(target));
 
         var exit = CliOutput.Report(result);

@@ -250,17 +250,20 @@ public sealed class AssetInstaller(GitClient? git = null)
 
     /// <summary>
     /// Installs <paramref name="asset"/> at <paramref name="reference"/> into each target project by cloning
-    /// the asset (and resolved dependencies) and adding a ProjectReference to it. When
-    /// <paramref name="globalCache"/> is true the clone lives in the shared per-machine cache and the reference
-    /// is a portable MSBuild path; otherwise it clones into <paramref name="cloneDir"/> with a relative reference.
+    /// the asset (and resolved dependencies) into the shared per-machine cache and adding a ProjectReference
+    /// resolved through an MSBuild property function, so the reference stays valid on any machine.
     /// </summary>
+    /// <remarks>
+    /// There is deliberately no "clone into my project" mode. It produced a relative reference that only
+    /// worked on one machine, and putting an asset package inside the consuming project made the asset
+    /// compiler load it twice and the SDK sweep its build output into the game's own compile items. To own
+    /// and modify an asset, fork its repository — that is a different thing, and it is what forking is for.
+    /// </remarks>
     public InstallResult Install(
         IndexedAsset asset,
         string reference,
         IReadOnlyList<string> targetCsprojPaths,
         IReadOnlyDictionary<string, IndexedAsset> catalog,
-        string cloneDir,
-        bool globalCache = false,
         string? solutionPath = null)
     {
         var messages = new List<string>();
@@ -275,14 +278,9 @@ public sealed class AssetInstaller(GitClient? git = null)
             return new InstallResult(false, ["Select at least one target project."]);
         }
 
-        if (!globalCache && string.IsNullOrWhiteSpace(cloneDir))
-        {
-            return new InstallResult(false, ["Choose a folder to clone assets into."]);
-        }
-
         try
         {
-            var storeRoot = globalCache ? GlobalCacheRoot : Path.GetFullPath(cloneDir);
+            var storeRoot = GlobalCacheRoot;
 
             // Versioned layout: <root>/<ref>/<repo-folder> — the followed ref is part of the path.
             var refRoot = Path.Combine(storeRoot, SafeRefFolderName(reference));
@@ -327,10 +325,8 @@ public sealed class AssetInstaller(GitClient? git = null)
 
             clonedCsprojs.Insert(0, assetCsproj);
 
-            // In global mode the reference is portable (resolves via MSBuild on any machine); otherwise relative.
-            var globalInclude = globalCache
-                ? $"{GlobalCacheInclude}\\{Path.GetRelativePath(storeRoot, assetCsproj).Replace('/', '\\')}"
-                : null;
+            // Portable: MSBuild resolves this to the cache root on whatever machine opens the project.
+            var globalInclude = $"{GlobalCacheInclude}\\{Path.GetRelativePath(storeRoot, assetCsproj).Replace('/', '\\')}";
 
             // Each target is edited independently so one locked/malformed .csproj can't leave the batch half-done.
             var anyTargetError = false;
@@ -338,9 +334,7 @@ public sealed class AssetInstaller(GitClient? git = null)
             {
                 try
                 {
-                    var added = globalInclude is not null
-                        ? CsprojEditor.AddRawProjectReference(target, globalInclude)
-                        : CsprojEditor.AddProjectReference(target, assetCsproj);
+                    var added = CsprojEditor.AddRawProjectReference(target, globalInclude);
                     messages.Add(added
                         ? $"✓ Added reference to {Path.GetFileName(target)}"
                         : $"• {Path.GetFileName(target)} already references the asset");
@@ -356,10 +350,7 @@ public sealed class AssetInstaller(GitClient? git = null)
             // projects — a ProjectReference to a project that isn't in the .sln shows as "project not found".
             AddToSolution(solutionPath, clonedCsprojs, messages);
 
-            if (globalCache)
-            {
-                messages.Add("✓ Reference is portable — commit your source and teammates just download the asset.");
-            }
+            messages.Add("✓ Reference is portable — commit your source and teammates just download the asset.");
 
             return new InstallResult(!missingDeps && !anyTargetError, messages);
         }

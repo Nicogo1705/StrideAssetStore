@@ -172,32 +172,12 @@ else
 
             @if (!IsNuget)
             {
-                <div class="clone-modes">
-                    <div class="install-hint" style="margin-bottom:.35rem">Where to put the asset's source:</div>
-                    <label class="check">
-                        <input type="radio" name="clonemode" checked="@(_cloneMode == CloneMode.Global)"
-                               @onchange="() => _cloneMode = CloneMode.Global" />
-                        <span>Global cache <span class="badge cat">shareable</span>
-                            <span class="install-hint">— one fixed folder for every project; the reference is <strong>portable</strong>, so you can commit &amp; share your source and teammates just download the asset (it shows as <em>missing</em> until they do).</span></span>
-                    </label>
-                    @if (_cloneMode == CloneMode.Global)
-                    {
-                        <p class="mono install-hint" style="margin:.15rem 0 .5rem 1.7rem">@AssetInstaller.GlobalCacheRoot</p>
-                    }
-                    <label class="check">
-                        <input type="radio" name="clonemode" checked="@(_cloneMode == CloneMode.Custom)"
-                               @onchange="() => _cloneMode = CloneMode.Custom" />
-                        <span>Into a folder
-                            <span class="install-hint">— pick a folder (e.g. inside the repo); the reference is <strong>relative</strong>, so committing it vendors the asset with your source.</span></span>
-                    </label>
-                    @if (_cloneMode == CloneMode.Custom)
-                    {
-                        <div class="cmd" style="margin:.15rem 0 0 1.7rem">
-                            <input class="ipt" style="flex:1" @bind="_cloneDir" />
-                            <button class="btn" @onclick="() => _browsingClone = true">Browse…</button>
-                        </div>
-                    }
-                </div>
+                <p class="install-hint">
+                    The asset and its dependencies are cloned into the shared cache below, and the reference
+                    written into your project resolves there on any machine — commit it, and teammates just
+                    download the asset. To own and modify an asset instead, fork it.
+                </p>
+                <p class="mono install-hint">@AssetInstaller.GlobalCacheRoot</p>
             }
 
             <button class="btn primary" style="margin-top:.8rem" @onclick="DoInstall" disabled="@(_busy || _checked.Count == 0)">
@@ -219,14 +199,6 @@ else
         </section>
     }
 
-    <Modal Visible="_browsingClone" Title="Choose a folder to clone into" Size="wide" OnClose="() => _browsingClone = false">
-        <p class="install-hint" style="margin-top:0">The asset (and its dependencies) will be cloned into the folder shown below.</p>
-        <FileBrowser FilesSelectable="false" StorageKey="assetstore.clonedir" OnDirChanged="OnCloneDirChanged" />
-        <p class="mono install-hint">@_cloneDir</p>
-        <div class="modal-foot">
-            <button class="btn primary" @onclick="() => _browsingClone = false">Use this folder</button>
-        </div>
-    </Modal>
 }
 
 @code {
@@ -242,16 +214,12 @@ else
     [SupplyParameterFromQuery(Name = "ref")]
     public string? Ref { get; set; }
 
-    private enum CloneMode { Global, Custom }
 
     private string _importMode = "local"; // "local" | "nuget" — switchable when the asset publishes a package
-    private CloneMode _cloneMode = CloneMode.Global;
     private string _ref = "main";
     private string? _picked;
-    private string _cloneDir = "";
     private bool _busy;
     private bool _browsing;
-    private bool _browsingClone;
     private bool _showPlatform;
 
     // Stride generates a per-platform head project (…​.Windows/.Linux/.Android/.iOS); assets go in the core
@@ -328,7 +296,6 @@ else
     {
         if (!string.IsNullOrEmpty(dir))
         {
-            _cloneDir = dir;
         }
     }
 
@@ -347,7 +314,6 @@ else
     {
         _picked = path;
         // Default folder for the "Into a folder" mode (Global mode ignores this and uses the fixed cache).
-        _cloneDir = Path.Combine(Path.GetDirectoryName(path)!, "StoreAssets");
         try
         {
             _targets = Installer.ReadTargets(path).ToList();
@@ -388,15 +354,13 @@ else
         var asset = Asset!;
         var reference = _ref;
         var targets = _checked.ToList();
-        var cloneDir = _cloneDir;
-        var globalCache = _cloneMode == CloneMode.Global;
         var nuget = IsNuget;
         var solution = _picked; // the picked .sln/.slnx (or lone .csproj) — asset projects get added to it
         var catalog = State.Catalog!.Assets.ToDictionary(a => a.Id, StringComparer.Ordinal);
         // Run the blocking git/IO work off the render thread so the "Installing…" state shows.
         _result = await Task.Run(() => nuget
             ? Installer.InstallNuget(asset, targets)
-            : Installer.Install(asset, reference, targets, catalog, cloneDir, globalCache, solution));
+            : Installer.Install(asset, reference, targets, catalog, solution));
         _busy = false;
     }
 
