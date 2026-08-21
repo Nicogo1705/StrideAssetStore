@@ -141,7 +141,7 @@ else
             <div class="validation @(isError ? "error" : "warning")">
                 <div class="validation-head">
                     <span class="vbig">@(isError ? "⛔" : "⚠️")</span>
-                    <span>@(isError ? "This asset failed validation and may be broken" : "This asset has warnings")</span>
+                    <span>@(isError ? "Validation failed — this asset may not build" : "This asset has warnings")</span>
                 </div>
                 @if (ParsedMessages().Count > 0)
                 {
@@ -356,7 +356,7 @@ else
             <section>
                 <h2>Badge for your README</h2>
                 <p class="install-hint">
-                    Asset author? Add this to your README — every reader becomes a potential store visitor:
+                    Asset author? Add this badge to your README:
                     <img src="@BadgeImageUrl" alt="Available on the Community Stride Asset Store" style="vertical-align:middle" />
                 </p>
                 <div style="display:flex; gap:.5rem; align-items:center">
@@ -373,8 +373,12 @@ else
 
         @if (_lightbox is { } li && li >= 0 && li < MediaUrls.Count)
         {
-            <div class="lightbox" @onclick="CloseLightbox">
-                <button class="lb-nav prev" @onclick:stopPropagation="true" @onclick="PrevShot" title="Previous">‹</button>
+            @* Focusable and keyboard-driven: it is a dialog, and it used to be a div you could only
+               leave with the mouse. @ref + focus on open so Escape and the arrows reach it. *@
+            <div class="lightbox" role="dialog" aria-modal="true" aria-label="@MediaName(li)"
+                 tabindex="-1" @ref="_lightboxElement" @onkeydown="OnLightboxKey" @onclick="CloseLightbox">
+                <button class="lb-nav prev" @onclick:stopPropagation="true" @onclick="PrevShot"
+                        title="Previous" aria-label="Previous image">‹</button>
                 @if (IsVideo(MediaUrls[li]))
                 {
                     <video class="lb-img" src="@MediaUrls[li]" controls autoplay @onclick:stopPropagation="true"></video>
@@ -383,8 +387,9 @@ else
                 {
                     <img class="lb-img" src="@MediaUrls[li]" alt="" @onclick:stopPropagation="true" />
                 }
-                <button class="lb-nav next" @onclick:stopPropagation="true" @onclick="NextShot" title="Next">›</button>
-                <button class="lb-close" @onclick="CloseLightbox" title="Close">✕</button>
+                <button class="lb-nav next" @onclick:stopPropagation="true" @onclick="NextShot"
+                        title="Next" aria-label="Next image">›</button>
+                <button class="lb-close" @onclick="CloseLightbox" title="Close" aria-label="Close">✕</button>
                 <div class="lb-caption" @onclick:stopPropagation="true">
                     <span class="lb-name">@MediaName(li)</span>
                     <span class="lb-count">@(li + 1) / @MediaUrls.Count</span>
@@ -409,6 +414,8 @@ else
     private string? _versionRef;
     private string _view = "install";
     private int? _lightbox;
+    private ElementReference _lightboxElement;
+    private bool _focusLightbox;
 
     private IndexedAsset? Asset => string.IsNullOrEmpty(AssetId) ? null : State.Find(AssetId);
 
@@ -457,7 +464,30 @@ else
         return VideoExtensions.Any(ext => path.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
     }
 
-    private void OpenLightbox(int index) => _lightbox = index;
+    private void OpenLightbox(int index)
+    {
+        _lightbox = index;
+        _focusLightbox = true; // focus after render, or the key handler never sees anything
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusLightbox)
+        {
+            _focusLightbox = false;
+            await _lightboxElement.FocusAsync();
+        }
+    }
+
+    private void OnLightboxKey(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "Escape": CloseLightbox(); break;
+            case "ArrowRight": NextShot(); break;
+            case "ArrowLeft": PrevShot(); break;
+        }
+    }
 
     private void CloseLightbox() => _lightbox = null;
 

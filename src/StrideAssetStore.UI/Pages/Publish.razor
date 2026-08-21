@@ -26,9 +26,9 @@
 </p>
 
 <div class="modes" role="tablist">
-    <button class="mode @(_tab == Tab.Publish ? "active" : "")" role="tab" @onclick="() => SelectTab(Tab.Publish)">📦 Publish</button>
-    <button class="mode @(_tab == Tab.Certify ? "active" : "")" role="tab" @onclick="() => SelectTab(Tab.Certify)">✓ Certify a version</button>
-    <button class="mode @(_tab == Tab.Remove ? "active" : "")" role="tab" @onclick="() => SelectTab(Tab.Remove)">🗑 Remove</button>
+    <button class="mode @(_tab == Tab.Publish ? "active" : "")" role="tab" aria-selected="@(_tab == Tab.Publish ? "true" : "false")" @onclick="() => SelectTab(Tab.Publish)">📦 Publish</button>
+    <button class="mode @(_tab == Tab.Certify ? "active" : "")" role="tab" aria-selected="@(_tab == Tab.Certify ? "true" : "false")" @onclick="() => SelectTab(Tab.Certify)">✓ Certify a version</button>
+    <button class="mode @(_tab == Tab.Remove ? "active" : "")" role="tab" aria-selected="@(_tab == Tab.Remove ? "true" : "false")" @onclick="() => SelectTab(Tab.Remove)">🗑 Remove</button>
     @if (Env.InstallAvailable)
     {
         <a class="mode" style="margin-left:auto;text-decoration:none" href="manage/new-asset"
@@ -235,6 +235,7 @@
 
             <div class="manual-actions">
                 <a class="btn primary @(_entryFieldsReady ? "" : "disabled")"
+                   aria-disabled="@(_entryFieldsReady ? "false" : "true")"
                    href="@(_entryFieldsReady ? NewFileUrl : null)"
                    target="_blank" rel="noopener"
                    @onclick:preventDefault="@(!_entryFieldsReady)">📝 Create the file on GitHub →</a>
@@ -302,6 +303,7 @@ else if (_tab == Tab.Certify)
             </ol>
             <div class="manual-actions">
                 <a class="btn primary @(AssetId.IsValid(_certifyId) ? "" : "disabled")"
+                   aria-disabled="@(AssetId.IsValid(_certifyId) ? "false" : "true")"
                    href="@(AssetId.IsValid(_certifyId) ? GitLinks.EditRegistryFile(Registry.Owner, Registry.Repo, Registry.BaseBranch, _certifyId) : null)"
                    target="_blank" rel="noopener" @onclick:preventDefault="@(!AssetId.IsValid(_certifyId))">✏ Edit the file on GitHub →</a>
                 <a class="btn" href="@GitLinks.PullRequests(Registry.Owner, Registry.Repo)" target="_blank" rel="noopener">Browse open pull requests</a>
@@ -351,6 +353,7 @@ else
             </ol>
             <div class="manual-actions">
                 <a class="btn primary @(AssetId.IsValid(_removeId) ? "" : "disabled")"
+                   aria-disabled="@(AssetId.IsValid(_removeId) ? "false" : "true")"
                    href="@(AssetId.IsValid(_removeId) ? GitLinks.RegistryFileBlob(Registry.Owner, Registry.Repo, Registry.BaseBranch, _removeId) : null)"
                    target="_blank" rel="noopener" @onclick:preventDefault="@(!AssetId.IsValid(_removeId))">🗑 Open the file on GitHub →</a>
                 <a class="btn" href="@GitLinks.PullRequests(Registry.Owner, Registry.Repo)" target="_blank" rel="noopener">Browse open pull requests</a>

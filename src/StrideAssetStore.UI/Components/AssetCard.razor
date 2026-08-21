@@ -1,7 +1,11 @@
 @* Copyright (c) <YEAR> <COPYRIGHT HOLDER> - MIT license *@
 
-<a class="card @(Asset.Certified.Count > 0 ? "cert" : "uncert")" href="@($"a/{Uri.EscapeDataString(Asset.Id)}")"
-   @onpointerenter="() => _hover = true" @onpointerleave="() => _hover = false">
+@* The card is a div with a stretched link over it, not an <a> wrapping everything: the tag chips
+   are real buttons, and a button inside a link is invalid HTML with unpredictable keyboard
+   behaviour. The chips sit above the overlay (z-index), so they get their own clicks. *@
+<div class="card @(Asset.Certified.Count > 0 ? "cert" : "uncert")"
+     @onpointerenter="() => _hover = true" @onpointerleave="() => _hover = false">
+    <a class="card-link" href="@($"a/{Uri.EscapeDataString(Asset.Id)}")" aria-label="@Asset.Manifest.Name"></a>
     <div class="card-thumb">
         @Initial
         @if (ThumbUrl is not null)
@@ -58,11 +62,11 @@
             }
             @if (Asset.Latest.SizeBytes > 0)
             {
-                <span class="badge" title="Install size (AssetData folder, @Asset.Latest.Files.Count file(s))">📦 @FormatSize(Asset.Latest.SizeBytes)</span>
+                <span class="badge" title="Install size — @Asset.Latest.Files.Count files in AssetData/">📦 @FormatSize(Asset.Latest.SizeBytes)</span>
             }
             @if (Asset.ValidationStatus is "error" or "unavailable")
             {
-                <span class="badge warn">⚠ @Asset.ValidationStatus</span>
+                <span class="badge warn">@(Asset.ValidationStatus == "unavailable" ? "⚠ unavailable" : "⚠ validation failed")</span>
             }
         </div>
         @if (Asset.Manifest.Tags.Count > 0)
@@ -70,10 +74,9 @@
             <div class="card-tags">
                 @foreach (var tag in _tagsExpanded ? Asset.Manifest.Tags : Asset.Manifest.Tags.Take(3))
                 {
-                    @* Inside the card's <a>: preventDefault keeps the click from navigating. *@
                     <button type="button" class="tag-chip" title="@($"Filter by #{tag}")"
                             @onclick="() => OnTagClick.InvokeAsync(tag)"
-                            @onclick:preventDefault @onclick:stopPropagation>#@tag</button>
+                            @onclick:stopPropagation>#@tag</button>
                 }
                 @if (Asset.Manifest.Tags.Count > 3)
                 {
@@ -81,19 +84,19 @@
                     {
                         <button type="button" class="tag-chip tag-more" title="Show fewer tags"
                                 @onclick="() => _tagsExpanded = false"
-                                @onclick:preventDefault @onclick:stopPropagation>−</button>
+                                @onclick:stopPropagation>−</button>
                     }
                     else
                     {
                         <button type="button" class="tag-chip tag-more" title="@($"Show all {Asset.Manifest.Tags.Count} tags")"
                                 @onclick="() => _tagsExpanded = true"
-                                @onclick:preventDefault @onclick:stopPropagation>+@(Asset.Manifest.Tags.Count - 3)</button>
+                                @onclick:stopPropagation>+@(Asset.Manifest.Tags.Count - 3)</button>
                     }
                 }
             </div>
         }
     </div>
-</a>
+</div>
 
 @code {
     private static readonly string[] VideoExtensions = [".mp4", ".webm"];

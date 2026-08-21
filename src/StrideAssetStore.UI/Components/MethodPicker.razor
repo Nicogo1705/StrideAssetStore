@@ -3,12 +3,15 @@
 
 <div class="modes" role="tablist">
     <button class="mode @(Method == PublishMethod.Assisted ? "active" : "")" role="tab"
+            aria-selected="@(Method == PublishMethod.Assisted ? "true" : "false")"
             @onclick="() => SetAsync(PublishMethod.Assisted)">✨ Let the store open the PR</button>
     <button class="mode @(Method == PublishMethod.Manual ? "active" : "")" role="tab"
+            aria-selected="@(Method == PublishMethod.Manual ? "true" : "false")"
             @onclick="() => SetAsync(PublishMethod.Manual)">🙋 Open the PR myself</button>
     @if (ShowCli)
     {
         <button class="mode @(Method == PublishMethod.Cli ? "active" : "")" role="tab"
+            aria-selected="@(Method == PublishMethod.Cli ? "true" : "false")"
                 @onclick="() => SetAsync(PublishMethod.Cli)">🖥 Open the PR using CLI</button>
     }
 </div>

@@ -15,7 +15,7 @@ else
         It is stored <strong>encrypted</strong> in your browser and wiped when you close the tab; it is sent only to <code>api.github.com</code>.
     </p>
     <div class="cmd">
-        <input type="password" placeholder="ghp_…" @bind="_token" style="flex:1" class="ipt" />
+        <input type="password" placeholder="ghp_…" aria-label="GitHub token" @bind="_token" style="flex:1" class="ipt" />
         <button class="btn primary" @onclick="SignIn" disabled="@_busy">Sign in</button>
     </div>
     @if (_error is not null)

@@ -30,7 +30,7 @@ else if (State.Catalog is not null)
     @if (IsDefaultView && catalog.Assets.Count > 0 && _heroDismissed == false)
     {
         <section class="hero">
-            <button type="button" class="banner-close hero-close" title="Hide this intro" @onclick="DismissHeroAsync">✕</button>
+            <button type="button" class="banner-close hero-close" aria-label="Dismiss" title="Hide this intro" @onclick="DismissHeroAsync">✕</button>
             <h2>Community-built assets for Stride</h2>
             <p>
                 Decentralized and git-native — every asset lives in its author's own repository,

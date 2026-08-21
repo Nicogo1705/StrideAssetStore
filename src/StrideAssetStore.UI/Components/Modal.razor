@@ -6,7 +6,7 @@
         <div class="modal-card @(Size == "wide" ? "wide" : "")" @onclick:stopPropagation="true">
             <div class="modal-head">
                 <span class="modal-title">@Title</span>
-                <button class="modal-x" title="Close" @onclick="Close">✕</button>
+                <button class="modal-x" aria-label="Close" title="Close" @onclick="Close">✕</button>
             </div>
             <div class="modal-body">@ChildContent</div>
         </div>
