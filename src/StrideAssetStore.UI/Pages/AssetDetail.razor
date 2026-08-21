@@ -163,7 +163,7 @@ else
             <section>
                 <h2>Files (@_fileCount)</h2>
                 <p class="install-hint">
-                    The asset's <span class="mono">AssetData/</span> on <span class="mono">@Asset.Latest.Ref</span> — this is the folder
+                    The asset's <span class="mono">AssetData/</span> at <span class="mono">@ActiveRef</span> — this is the folder
                     installing brings into your project.
                 </p>
                 <div class="filetree">
@@ -346,7 +346,9 @@ else
                 <div class="grid">
                     @foreach (var similar in SimilarAssets)
                     {
-                        <AssetCard Asset="similar" @key="similar.Id" />
+                        @* Without OnTagClick, the chips' "Filter by #x" title is a lie: stopPropagation
+                           eats the click and the unassigned callback does nothing. *@
+                        <AssetCard Asset="similar" @key="similar.Id" OnTagClick="FilterByTag" />
                     }
                 </div>
             </section>
@@ -476,7 +478,14 @@ else
         if (_focusLightbox)
         {
             _focusLightbox = false;
-            await _lightboxElement.FocusAsync();
+            try
+            {
+                await _lightboxElement.FocusAsync();
+            }
+            catch
+            {
+                // The lightbox closed between the render and this callback — nothing to focus.
+            }
         }
     }
 
@@ -603,6 +612,9 @@ else
     private string BadgeMarkdown =>
         $"[![Available on the Community Stride Asset Store]({BadgeImageUrl})]({Nav.BaseUri}a/{Uri.EscapeDataString(Asset?.Id ?? "")}/)";
 
+    /// <summary>Sends a tag chip on a "Similar assets" card to the catalog, which is where filtering lives.</summary>
+    private void FilterByTag(string tag) => Nav.NavigateTo($"?tag={Uri.EscapeDataString(tag)}");
+
     private async Task CopyBadgeAsync()
     {
         _badgeCopied = await Env.CopyAsync(BadgeMarkdown);
@@ -660,6 +672,15 @@ else
         try
         {
             var markdown = await Http.GetStringAsync(GitLinks.RawRepoFile(asset.Repo, commit, "README.md"));
+
+            // A slower request for a version the user has since moved away from must not overwrite
+            // what is on screen: switching main → v1.0.0 → main could leave the tag's README under
+            // the branch's heading.
+            if (_loadedCommit != commit)
+            {
+                return;
+            }
+
             if (!string.IsNullOrWhiteSpace(markdown))
             {
                 // Raw HTML is stripped and link URL schemes are whitelisted (see MarkdownRenderer).
@@ -674,6 +695,11 @@ else
         // AssetData/ file tree (what actually gets cloned): precomputed in the index for the
         // latest version — no api.github.com call (60 req/h/IP anonymous breaks easily behind a
         // shared NAT). Older/certified versions still fall back to the GitHub API.
+        if (_loadedCommit != commit)
+        {
+            return;
+        }
+
         if (commit == asset.Latest.Commit && asset.Latest.Files.Count > 0)
         {
             var indexed = asset.Latest.Files.Select(f => (f.Path, Size: f.SizeBytes)).ToList();
@@ -690,6 +716,11 @@ else
                 using var request = new HttpRequestMessage(HttpMethod.Get, treeApi);
                 request.Headers.UserAgent.ParseAdd("StrideAssetStore"); // GitHub's API requires a User-Agent
                 using var response = await Http.SendAsync(request);
+                if (_loadedCommit != commit)
+                {
+                    return;
+                }
+
                 if (response.IsSuccessStatusCode)
                 {
                     using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());

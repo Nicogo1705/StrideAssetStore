@@ -323,7 +323,7 @@ app.Lifetime.ApplicationStarted.Register(() =>
             var latest = latestTag.TrimStart('v', 'V');
             if (Version.TryParse(latest, out var l) && Version.TryParse(appVersion, out var current) && l > current)
             {
-                Console.WriteLine($"  ⬆ Update available: v{appVersion} → {latestTag} — {appRepo.TrimEnd('/')}/releases/latest");
+                ConsoleWindow.Log($"  ⬆ Update available: v{appVersion} → {latestTag} — {appRepo.TrimEnd('/')}/releases/latest");
             }
         }
         catch
@@ -648,7 +648,9 @@ static class ConsoleWindow
             // Unreadable state — fall through to the visible default.
         }
 
-        if (wantOpen)
+        // Toggle(), not Open(): a process launched from a terminal or through `dotnet run` already
+        // owns a console, and toggling it there closed the one the banner was about to be printed to.
+        if (wantOpen && !IsOpen)
         {
             Toggle();
         }

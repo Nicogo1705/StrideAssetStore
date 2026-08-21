@@ -129,7 +129,7 @@ else if (State.Catalog is not null)
         @if (_sort == "Shuffle")
         {
             <button type="button" class="tag-chip" style="margin-left:.6rem" title="Draw a new random order"
-                    @onclick="() => _shuffleSeed = Random.Shared.Next()">🎲 Shuffle again</button>
+                    @onclick="State.Reshuffle">🎲 Shuffle again</button>
         }
     </p>
 
@@ -188,8 +188,9 @@ else if (State.Catalog is not null)
 @code {
     private const string DefaultSort = "Showcase";
 
-    // Stable for the lifetime of the app instance, so "Discover" keeps its order while browsing.
-    private int _shuffleSeed = Random.Shared.Next();
+    // From the scoped catalog state, so "Discover" keeps its order while browsing: this component
+    // is destroyed and rebuilt on every navigation.
+    private int _shuffleSeed => State.ShuffleSeed;
 
     private string _text = "";
     private string _category = "";

@@ -519,6 +519,12 @@ else
 
             await RefreshAuthors();
         }
+        catch (Exception ex)
+        {
+            // git/gh live outside this process: a missing executable or a locked repository
+            // would otherwise take the Blazor circuit down and freeze the page.
+            _error = ex.Message;
+        }
         finally
         {
             _busy = false;
@@ -553,6 +559,12 @@ else
             }
 
             await RefreshAuthors();
+        }
+        catch (Exception ex)
+        {
+            // git/gh live outside this process: a missing executable or a locked repository
+            // would otherwise take the Blazor circuit down and freeze the page.
+            _error = ex.Message;
         }
         finally
         {
@@ -595,6 +607,12 @@ else
                 _certCommits[tag] = await Task.Run(() => Authors.TagCommit(repo.Root, tag));
             }
         }
+        catch (Exception ex)
+        {
+            // git/gh live outside this process: a missing executable or a locked repository
+            // would otherwise take the Blazor circuit down and freeze the page.
+            _error = ex.Message;
+        }
         finally
         {
             _busy = false;
@@ -633,6 +651,12 @@ else
                 _error = result.Error;
             }
         }
+        catch (Exception ex)
+        {
+            // git/gh live outside this process: a missing executable or a locked repository
+            // would otherwise take the Blazor circuit down and freeze the page.
+            _error = ex.Message;
+        }
         finally
         {
             _busy = false;
@@ -661,6 +685,12 @@ else
                 _error = result.Error;
             }
         }
+        catch (Exception ex)
+        {
+            // git/gh live outside this process: a missing executable or a locked repository
+            // would otherwise take the Blazor circuit down and freeze the page.
+            _error = ex.Message;
+        }
         finally
         {
             _busy = false;
@@ -687,6 +717,12 @@ else
             {
                 _error = result.Error;
             }
+        }
+        catch (Exception ex)
+        {
+            // git/gh live outside this process: a missing executable or a locked repository
+            // would otherwise take the Blazor circuit down and freeze the page.
+            _error = ex.Message;
         }
         finally
         {

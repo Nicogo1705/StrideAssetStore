@@ -77,6 +77,11 @@
         _forks = await Forks.ListAsync(Repo); // never throws: an unreachable API yields an empty list
         _loading = false;
 
+        // A fork already in use may not be in the list — deleted, private, renamed, or simply past
+        // the first page. Show the free-text box holding it, instead of a list that says "Another
+        // repository…" with no way to see or change what is actually configured.
+        _other = !string.IsNullOrWhiteSpace(Fork) && !_forks.Any(f => f.FullName == Fork);
+
         // Preselect the first, so the choice is never left half-made.
         if (string.IsNullOrWhiteSpace(Fork) && _forks.Count > 0)
         {
