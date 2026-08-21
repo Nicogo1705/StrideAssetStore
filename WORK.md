@@ -7,32 +7,14 @@ résultat CI observé) — pas quand le code est écrit.
 
 ---
 
-## ⚠ Découverte majeure — à traiter en priorité
+## ✅ Résolu — les assets sont de nouveau installables
 
-**Aucun asset du store n'est installable par un tiers.** Les assets déclarent
-`Stride.Engine 4.4.0.2` et `Stride.Core.Assets.CompilerApp 4.4.0.2`, qui **n'existent pas sur
-nuget.org**. Le public n'y trouve que 4.3.0.2507 (stable) et 4.4.0-beta1…5. La 4.4.0.2 vient des
-paquets Stride buildés localement sur la machine de Nicogo.
-
-Vérifié, pas supposé : restauration de `StrideGrassSystem.csproj` avec nuget.org comme seule
-source et un dossier de paquets vierge →
-
-```
-error NU1102: Package Stride.Engine avec la version (>= 4.4.0.2) introuvable
-              Version(s) 61 trouvée(s) dans nuget.org [version la plus proche : 4.4.0-brta4]
-error NU1102: Package Stride.Core.Assets.CompilerApp avec la version (>= 4.4.0.2) introuvable
-```
-
-Conséquence : quelqu'un qui découvre le store, installe un asset et lance `dotnet build` se prend
-un échec de restauration. Ça touche les 8 assets du catalogue.
-
-Pistes (décision de Nicogo) :
-- republier les assets contre une version Stride publique (4.3.0.2507 ou une 4.4.0-beta) ;
-- ou attendre la sortie publique de 4.4 et l'assumer d'ici là dans l'UI ;
-- ou publier un feed NuGet avec les paquets 4.4.0.2.
-
-Mitigation déjà livrée : `strideassetstore add <asset> --stride <version>` retarge l'asset installé
-vers la version Stride du jeu. Vérifié en réel (4.4.0.2 → 4.3.0.2507 dans le csproj cloné).
+Les 8 assets déclaraient Stride 4.4.0.2, publié nulle part : NU1102 pour tout le monde sauf toi.
+Cible retenue, établie par l'expérience : `Stride.Engine 4.4.0-beta5` (dernier build public, garde
+les API 4.4 dont le code se sert) + `Stride.Core.Assets.CompilerApp 4.3.0.2507` (aucune 4.4
+n'existe). Les 8 repos retargés, buildés avec nuget.org seul, tagués v1.1.0, poussés ; registre
+re-certifié en 1.1.0 et index régénéré. Prouvé de bout en bout : `add grass --version 1.1.0` puis
+build avec nuget.org seul → 0 erreur.
 
 ---
 

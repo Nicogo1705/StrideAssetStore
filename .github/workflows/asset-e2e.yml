@@ -30,14 +30,14 @@ on:
         default: "grass"
       stride:
         description: "Stride version the test game uses (must exist on nuget.org)"
-        default: "4.3.0.2507"
+        default: "4.4.0-beta5"
 
 permissions:
   contents: read
 
 env:
   ASSET: ${{ github.event.inputs.asset || 'grass' }}
-  STRIDE: ${{ github.event.inputs.stride || '4.3.0.2507' }}
+  STRIDE: ${{ github.event.inputs.stride || '4.4.0-beta5' }}
   TOOLKIT: 1.0.0-preview.62
 
 jobs:
@@ -84,7 +84,8 @@ jobs:
           <Project Sdk="Microsoft.NET.Sdk">
             <PropertyGroup>
               <OutputType>Exe</OutputType>
-              <TargetFramework>net8.0</TargetFramework>
+              <!-- The store's assets target net10.0; a lower TFM fails to reference them (NU1201). -->
+              <TargetFramework>net10.0</TargetFramework>
               <Nullable>enable</Nullable>
               <StrideVersion>${STRIDE}</StrideVersion>
             </PropertyGroup>

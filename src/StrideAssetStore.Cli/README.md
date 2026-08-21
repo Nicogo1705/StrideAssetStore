@@ -58,16 +58,35 @@ strideassetstore add grass --all-projects
 
 Without either, a solution containing several projects stops and lists them rather than picking one.
 
-### The desktop app
+### Stride versions
 
-The same store with a UI, an install wizard and a publishing flow:
+An asset targets whatever Stride version its author used. When your game is on a different build,
+retarget it as you install:
 
 ```bash
-strideassetstore app install     # download it for this machine
-strideassetstore app status      # installed vs latest
-strideassetstore app start       # run it (serves http://localhost:5111)
-strideassetstore app update      # update it
+strideassetstore add grass --stride 4.4.0-beta5
 ```
+
+Without this, your project restores two Stride versions at once — or fails outright if the author's
+version isn't on your feeds.
+
+### The desktop app
+
+The same store with a UI, an install wizard and a publishing flow. This tool manages its whole
+lifecycle:
+
+```bash
+strideassetstore app install     # download and install it for this machine
+strideassetstore app status      # what's installed, what's running, what's been released
+strideassetstore app start       # run it (serves http://localhost:5111)
+strideassetstore app stop        # quit it
+strideassetstore app update      # update it
+strideassetstore app open        # open the store in a browser
+```
+
+`update` stops a running app before replacing its files — on Windows a running executable is locked,
+and extracting over it would leave a broken install — then starts it again if it was running.
+`start` won't launch a second copy, and waits until the app actually answers before saying so.
 
 ### Scripts and CI
 
