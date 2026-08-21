@@ -829,14 +829,9 @@
 
     private void OpenFolder()
     {
-        try
+        if (_selected is { } selected && !DesktopShell.RevealFile(selected))
         {
-            System.Diagnostics.Process.Start(
-                new System.Diagnostics.ProcessStartInfo("explorer.exe", $"/select,\"{_selected}\"") { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            _error = $"Couldn't open the folder: {ex.Message}";
+            _error = $"Couldn't open the folder. The project is at: {selected}";
         }
     }
 

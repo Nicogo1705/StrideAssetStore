@@ -3,7 +3,7 @@
 
 using System.Runtime.InteropServices;
 
-namespace StrideAssetStore.App.Services;
+namespace StrideAssetStore.Core.Releases;
 
 /// <summary>
 /// The desktop builds published by the release workflow, and how to name their release assets. Asset

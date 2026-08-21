@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Formats.Tar;
 using System.IO.Compression;
 using StrideAssetStore.App.Services;
+using StrideAssetStore.Core.Releases;
 
 namespace StrideAssetStore.Desktop.Services;
 

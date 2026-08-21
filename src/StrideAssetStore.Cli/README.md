@@ -1,0 +1,92 @@
+# StrideAssetStore
+
+Command-line companion to the **[Community Stride Asset Store](https://nicogo1705.github.io/StrideAssetStore/)** —
+an unofficial, decentralized asset index for the [Stride](https://stride3d.net) game engine.
+
+Assets are not hosted anywhere: each one lives in its author's own public Git repository. This tool
+finds them, clones them into your game, keeps them up to date, and takes them back out.
+
+> Unofficial community project. Not affiliated with, endorsed by, or operated by Stride or the
+> .NET Foundation.
+
+## Install
+
+```bash
+dotnet tool install -g StrideAssetStore
+```
+
+`git` must be on your PATH — installing an asset clones its repository.
+
+## Use it
+
+Run these from your game's folder. The nearest `.sln`, `.slnx` or `.csproj` is found by walking up
+from the current directory, so there is usually nothing to configure.
+
+```bash
+strideassetstore search grass              # find something
+strideassetstore add grass                 # install it into this project
+strideassetstore list                      # what this project references, and its status
+strideassetstore update                    # bring every outdated asset up to date
+strideassetstore remove grass              # take it back out
+```
+
+An asset id is long, so any unambiguous fragment works: `add grass` resolves to
+`com.nicogo.grass`. When it is ambiguous the command says so instead of guessing.
+
+### Versions
+
+By default an asset follows the branch its author publishes from. To pin a released version:
+
+```bash
+strideassetstore add grass --version 1.0.0     # a tag the author published
+strideassetstore update grass --version 1.1.0  # move an installed asset onto another version
+strideassetstore add grass --ref my-branch     # or a raw git ref
+```
+
+Each version is cloned into its own folder of a shared per-machine cache, so several versions of
+the same asset coexist and different projects can follow different ones. The reference written into
+your `.csproj` is portable — a teammate who runs `strideassetstore update` gets the same code.
+
+Use `--into <dir>` to clone inside your own repository instead, with a relative reference.
+
+### Solutions with more than one project
+
+```bash
+strideassetstore add grass --project MyGame.Windows
+strideassetstore add grass --all-projects
+```
+
+Without either, a solution containing several projects stops and lists them rather than picking one.
+
+### The desktop app
+
+The same store with a UI, an install wizard and a publishing flow:
+
+```bash
+strideassetstore app install     # download it for this machine
+strideassetstore app status      # installed vs latest
+strideassetstore app start       # run it (serves http://localhost:5111)
+strideassetstore app update      # update it
+```
+
+### Scripts and CI
+
+`--yes` skips confirmations, `--offline` uses the catalog snapshot cached on the machine, and every
+command returns a non-zero exit code on failure. Colours are dropped automatically when output is
+redirected. Set `GITHUB_TOKEN` to lift the anonymous GitHub API rate limit.
+
+## Registry maintenance
+
+The same tool carries the commands behind the registry itself — `validate`, `build-index` and
+`generate-pages`. They need a checkout of the
+[AssetContainer](https://github.com/Nicogo1705/AssetContainer) repository and are documented there.
+
+## Publishing an asset
+
+Publishing is a pull request adding one JSON entry to the registry. The desktop app has a wizard for
+it; the store's [Publish page](https://nicogo1705.github.io/StrideAssetStore/publish) explains the
+manual route.
+
+## License
+
+MIT — [source](https://github.com/Nicogo1705/StrideAssetStore).

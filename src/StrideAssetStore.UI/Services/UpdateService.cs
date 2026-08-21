@@ -4,6 +4,7 @@
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text.Json;
+using StrideAssetStore.Core.Releases;
 
 namespace StrideAssetStore.App.Services;
 

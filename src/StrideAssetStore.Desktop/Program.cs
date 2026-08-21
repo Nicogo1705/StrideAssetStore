@@ -301,28 +301,8 @@ static string SiteUrlFromRepo(string repoUrl)
         : repoUrl;
 }
 
-static void OpenBrowser(string url)
-{
-    try
-    {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            Process.Start("xdg-open", url);
-        }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            Process.Start("open", url);
-        }
-    }
-    catch
-    {
-        // If the browser can't be launched, the user can open the URL manually.
-    }
-}
+// If the browser can't be launched, the user still has the URL printed in the banner.
+static void OpenBrowser(string url) => StrideAssetStore.Core.Local.Shell.DesktopShell.OpenUrl(url);
 
 /// <summary>The page the request came from, when it belongs to this app — null otherwise, so a
 /// foreign Referer can never turn these endpoints into an open redirect.</summary>

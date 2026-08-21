@@ -62,9 +62,9 @@ public sealed record SolutionView(
     IReadOnlyList<StoreSolutionProject> Dangling);
 
 /// <summary>
-/// Server-side install: browse the local filesystem, read a solution's projects, and install an
-/// asset (and its dependencies) by cloning it next to the project and adding a ProjectReference.
-/// Desktop-only (requires local filesystem + git).
+/// Installs and manages store assets on a real machine: browse the filesystem, read a solution's
+/// projects, clone an asset (and its dependencies) and add the reference, then keep it up to date.
+/// Shared by the desktop app and the CLI — needs a filesystem and git, so never the browser.
 /// </summary>
 public sealed class AssetInstaller(GitClient? git = null)
 {
@@ -217,8 +217,11 @@ public sealed class AssetInstaller(GitClient? git = null)
     /// against the index's latest. (Clones from before this layout sit directly under Assets\ and are
     /// still recognized.)
     /// </summary>
-    public static string GlobalCacheRoot =>
-        Path.Combine(AppDataRoot, "StrideAssetStore", "Assets");
+    public static string GlobalCacheRoot => Path.Combine(AppRoot, "Assets");
+
+    /// <summary>Per-machine root for everything the store keeps locally: the asset cache, the
+    /// catalog snapshot the CLI reads when offline, and any installed copy of the desktop app.</summary>
+    public static string AppRoot => Path.Combine(AppDataRoot, "StrideAssetStore");
 
     // Test seam: on Windows GetFolderPath uses the shell API, not the APPDATA variable, so tests
     // can't redirect the cache via the environment. Product code never sets this.

@@ -1,0 +1,129 @@
+// Copyright (c) <YEAR> <COPYRIGHT HOLDER>
+// Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
+
+using System.ComponentModel;
+using Spectre.Console;
+using Spectre.Console.Cli;
+using StrideAssetStore.Cli.Local;
+using StrideAssetStore.Core.Local.Install;
+using StrideAssetStore.Core.Models;
+
+namespace StrideAssetStore.Cli.Commands;
+
+internal sealed class AddSettings : ProjectScopedSettings
+{
+    [CommandArgument(0, "<ASSET>")]
+    [Description("Asset id, or enough of it to be unambiguous.")]
+    public string Asset { get; init; } = "";
+
+    [CommandOption("--version <VERSION>")]
+    [Description("Install a released version (a git tag published by the author) instead of the followed branch.")]
+    public string? Version { get; init; }
+
+    [CommandOption("--ref <REF>")]
+    [Description("Install a raw git ref (branch, tag or commit). Advanced; --version is usually what you want.")]
+    public string? Ref { get; init; }
+
+    [CommandOption("--nuget")]
+    [Description("Add the asset's published NuGet package instead of cloning its source.")]
+    public bool Nuget { get; init; }
+
+    [CommandOption("--source")]
+    [Description("Clone the source even when the asset suggests its NuGet package.")]
+    public bool Source { get; init; }
+
+    [CommandOption("--into <DIR>")]
+    [Description("Clone into this folder instead of the shared per-machine cache. The reference becomes relative to your project.")]
+    public string? Into { get; init; }
+}
+
+/// <summary>
+/// Installs an asset into the project you are standing in — the command-line half of the desktop
+/// app's Install page, down to the same shared cache and the same portable reference.
+/// </summary>
+internal sealed class AddCommand : AsyncCommand<AddSettings>
+{
+    protected override async Task<int> ExecuteAsync(
+        CommandContext context, AddSettings settings, CancellationToken cancellation)
+    {
+        var (index, fromCache) = await CatalogAccess.LoadAsync(settings.IndexUrl, settings.Offline, cancellation);
+        CliOutput.NoteCatalogSource(fromCache, index);
+
+        var asset = CatalogAccess.Resolve(index, settings.Asset);
+        var target = ProjectTarget.Resolve(settings.Target);
+        var installer = new AssetInstaller();
+        var projects = ProjectTarget.SelectProjects(installer, target, settings.Project, settings.AllProjects);
+
+        AnsiConsole.MarkupLineInterpolated($"[grey]Asset:[/] {asset.Manifest.Name} ({asset.Id})");
+        AnsiConsole.MarkupLineInterpolated($"[grey]Into:[/] {string.Join(", ", projects.Select(Path.GetFileName))}");
+
+        var useNuget = settings.Nuget
+            || (!settings.Source && asset.Manifest.Nuget is not null
+                && string.Equals(asset.Manifest.DefaultImport, "nuget", StringComparison.OrdinalIgnoreCase));
+
+        if (useNuget)
+        {
+            if (asset.Manifest.Nuget is null)
+            {
+                AnsiConsole.MarkupLine("[red]This asset is not published on NuGet.[/] Drop --nuget to clone its source.");
+                return 1;
+            }
+
+            return CliOutput.Report(installer.InstallNuget(asset, projects));
+        }
+
+        if (!CliOutput.RequireGit())
+        {
+            return 1;
+        }
+
+        var reference = ResolveRef(asset, settings);
+        AnsiConsole.MarkupLineInterpolated($"[grey]Ref:[/] {reference}");
+
+        var result = installer.Install(
+            asset,
+            reference,
+            projects,
+            CatalogAccess.ById(index),
+            cloneDir: settings.Into ?? "",
+            globalCache: settings.Into is null,
+            solutionPath: ProjectTarget.SolutionOf(target));
+
+        return CliOutput.Report(result);
+    }
+
+    /// <summary>
+    /// Turns the user's intent into a git ref. A version is matched against what the author actually
+    /// published — certified releases first, then plain tags — so a typo fails here rather than
+    /// cloning something that merely happens to exist.
+    /// </summary>
+    private static string ResolveRef(IndexedAsset asset, AddSettings settings)
+    {
+        if (settings.Ref is { } raw)
+        {
+            return raw;
+        }
+
+        if (settings.Version is not { } version)
+        {
+            return asset.Latest.Ref;
+        }
+
+        var certified = asset.Certified.FirstOrDefault(c => c.Version.Equals(version, StringComparison.OrdinalIgnoreCase));
+        if (certified is not null)
+        {
+            return certified.Tag ?? certified.Commit;
+        }
+
+        var tagged = asset.Versions.FirstOrDefault(v => v.Version.Equals(version, StringComparison.OrdinalIgnoreCase));
+        if (tagged is not null)
+        {
+            return tagged.Tag;
+        }
+
+        var known = asset.Certified.Select(c => c.Version).Concat(asset.Versions.Select(v => v.Version)).Distinct().ToList();
+        throw new InvalidOperationException(known.Count > 0
+            ? $"'{asset.Id}' has no version {version}. Published: {string.Join(", ", known)}."
+            : $"'{asset.Id}' has no published version yet — install its followed branch by omitting --version.");
+    }
+}

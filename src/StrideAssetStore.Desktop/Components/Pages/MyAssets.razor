@@ -678,13 +678,9 @@ else
 
     private void OpenPath(string path)
     {
-        try
+        if (!DesktopShell.OpenFolder(path))
         {
-            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            _error = $"Couldn't open the folder: {ex.Message}";
+            _error = $"Couldn't open the folder. It is at: {path}";
         }
     }
 
@@ -736,13 +732,9 @@ else
 
     private void OpenFolder(CachedAsset asset)
     {
-        try
+        if (!DesktopShell.OpenFolder(asset.CloneRoot))
         {
-            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{asset.CloneRoot}\"") { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            _error = $"Couldn't open the folder: {ex.Message}";
+            _error = $"Couldn't open the folder. It is at: {asset.CloneRoot}";
         }
     }
 
