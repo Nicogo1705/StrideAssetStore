@@ -1,4 +1,4 @@
-// Copyright (c) <YEAR> <COPYRIGHT HOLDER> - MIT license
+// Copyright (c) 2026 Nicogo1705 - MIT license
 window.assetStoreEnv = {
     hostname: function () { return location.hostname; },
     // Returns whether the text actually reached the clipboard. navigator.clipboard is absent in an
