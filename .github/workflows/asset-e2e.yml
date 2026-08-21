@@ -91,11 +91,14 @@ jobs:
           GAME="$RUNNER_TEMP/game"
           mkdir -p "$GAME"
 
-          # Stride defaults to Direct3D. On macOS and Linux that ends in a NullReferenceException
-          # deep inside Silk.NET.DXGI before the first frame, so the API has to be stated.
+          # Stride picks its graphics API from StridePlatform (Stride.Graphics.targets): Windows
+          # means Direct3D11, Linux and macOS mean Vulkan. A project that never sets it passes for
+          # Windows everywhere, and the game dies looking for Silk.NET.DXGI on a machine that has
+          # no DXGI. Stride 4.4 has no OpenGL backend, so Vulkan is the option off Windows.
           case "${{ runner.os }}" in
-            Windows) GFX=Direct3D11 ;;
-            *)       GFX=OpenGL ;;
+            Windows) PLATFORM=Windows ;;
+            Linux)   PLATFORM=Linux ;;
+            macOS)   PLATFORM=macOS ;;
           esac
           cat > "$GAME/Game.csproj" <<EOF
           <Project Sdk="Microsoft.NET.Sdk">
@@ -104,7 +107,7 @@ jobs:
               <!-- The store's assets target net10.0; a lower TFM fails to reference them (NU1201). -->
               <TargetFramework>net10.0</TargetFramework>
               <ImplicitUsings>enable</ImplicitUsings>
-              <StrideGraphicsApi>${GFX}</StrideGraphicsApi>
+              <StridePlatform>${PLATFORM}</StridePlatform>
             </PropertyGroup>
             <ItemGroup>
               <PackageReference Include="Stride.Engine" Version="${STRIDE}" />
