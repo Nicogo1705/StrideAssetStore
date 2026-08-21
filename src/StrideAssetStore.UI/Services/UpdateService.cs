@@ -24,6 +24,10 @@ public sealed class UpdateService(GitHubAuth auth, AppInfo app)
     /// would download nothing, so the UI shows "publishing, retry shortly" instead.</summary>
     public bool Publishing { get; private set; }
 
+    /// <summary>True when a newer release exists but ships no archive this machine can use, and it
+    /// is old enough that "still uploading" isn't a credible explanation.</summary>
+    public bool NoBuildForThisPlatform { get; private set; }
+
     public string CurrentVersion { get; } = CurrentAssemblyVersion();
 
     public string? LatestVersion { get; private set; }
@@ -95,8 +99,20 @@ public sealed class UpdateService(GitHubAuth auth, AppInfo app)
 
                     if (!UpdateAvailable)
                     {
-                        Publishing = true;
-                        Checked = false; // let a later check pick the finished release up
+                        // The workflow creates the release first and uploads the archives after, so a
+                        // missing asset minutes later means "wait". Hours later it means something
+                        // else entirely: this release carries nothing for this machine — an
+                        // unsupported platform, or archives renamed since this build was made.
+                        // Saying "still uploading" then is a lie that never resolves.
+                        var publishedAt = doc.RootElement.TryGetProperty("published_at", out var p)
+                            && p.TryGetDateTimeOffset(out var when) ? when : (DateTimeOffset?)null;
+                        var justPublished = publishedAt is null
+                            || DateTimeOffset.UtcNow - publishedAt.Value < TimeSpan.FromHours(2);
+
+                        Publishing = justPublished;
+                        NoBuildForThisPlatform = !justPublished;
+                        DownloadUrl ??= ReleaseUrl;
+                        Checked = !justPublished; // keep re-checking only while it may still arrive
                     }
                 }
                 else

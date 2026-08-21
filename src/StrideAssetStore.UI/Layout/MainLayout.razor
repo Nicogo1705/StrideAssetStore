@@ -84,6 +84,23 @@
         </nav>
     </header>
 
+    @* A newer release exists but carries nothing this machine can run — an unsupported platform,
+       or archive names that changed since this build. Distinct from "still uploading": that one
+       resolves by itself in minutes, this one never does. *@
+    @if (Env.InstallAvailable && Updater.NoBuildForThisPlatform && _dismissedUpdate != Updater.LatestVersion)
+    {
+        <div class="update-banner">
+            <span>📦 <strong>v@(Updater.LatestVersion) is out</strong> — but it ships no build for this machine. Get it from the release page.</span>
+            <span class="update-actions">
+                @if (Updater.ReleaseUrl is not null)
+                {
+                    <a class="btn primary" href="@Updater.ReleaseUrl" target="_blank" rel="noopener">Release page</a>
+                }
+                <button type="button" class="banner-close" title="Hide until the next release" @onclick="DismissUpdateAsync">✕</button>
+            </span>
+        </div>
+    }
+
     @if (Env.InstallAvailable && Updater.Publishing && _dismissedUpdate != Updater.LatestVersion)
     {
         <div class="update-banner">
