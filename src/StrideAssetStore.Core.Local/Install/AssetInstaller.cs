@@ -601,6 +601,46 @@ public sealed class AssetInstaller(GitClient? git = null)
     /// ProjectReference and registers the new asset csproj in the solution. The old clone stays
     /// (other projects may still follow it).
     /// </summary>
+    /// <summary>
+    /// Moves a project between the asset's own repository and a fork of it (either direction), at
+    /// <paramref name="newRef"/>. The new source is installed first: if cloning or editing fails,
+    /// the project is still building against what it had.
+    /// </summary>
+    /// <param name="asset">The catalog entry, used for dependencies and for the official repository.</param>
+    /// <param name="current">The reference being replaced.</param>
+    /// <param name="csprojPath">The project to edit.</param>
+    /// <param name="newRef">Branch, tag or commit to follow in the new source.</param>
+    /// <param name="fork"><c>owner/repo</c> to switch to, or null to go back to the official asset.</param>
+    /// <param name="catalog">The catalog, for resolving dependencies.</param>
+    /// <param name="solutionPath">Solution to register the cloned projects in, when there is one.</param>
+    public InstallResult SwitchSource(
+        IndexedAsset asset, ProjectAsset current, string csprojPath, string newRef, string? fork,
+        IReadOnlyDictionary<string, IndexedAsset> catalog, string? solutionPath)
+    {
+        // Same source and same ref: removing the old reference after adding the identical new one
+        // would leave the project with none.
+        if (string.Equals(current.Fork, fork, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(current.Ref, newRef, StringComparison.Ordinal))
+        {
+            return new InstallResult(true, [$"• {asset.Manifest.Name} already follows {Describe(fork)} at '{newRef}'."]);
+        }
+
+        var messages = new List<string>();
+        var installed = Install(asset, newRef, [csprojPath], catalog, solutionPath, fork);
+        messages.AddRange(installed.Messages);
+        if (!installed.Success)
+        {
+            messages.Add("✗ Left the project on its previous source.");
+            return new InstallResult(false, messages);
+        }
+
+        CsprojEditor.RemoveRawProjectReference(csprojPath, current.RawInclude);
+        messages.Add($"✓ Switched {asset.Manifest.Name} to {Describe(fork)} at '{newRef}'.");
+        return new InstallResult(true, messages);
+    }
+
+    private static string Describe(string? fork) => fork is null ? "the official asset" : $"the fork {fork}";
+
     public InstallResult SwitchRef(
         IndexedAsset asset, ProjectAsset current, string csprojPath, string newRef,
         IReadOnlyDictionary<string, IndexedAsset> catalog, string? solutionPath)

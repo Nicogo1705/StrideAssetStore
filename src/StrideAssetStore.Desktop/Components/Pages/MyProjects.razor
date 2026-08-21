@@ -5,6 +5,7 @@
 @inject AssetInstaller Installer
 @inject ProjectStore Store
 @inject AttentionState Attention
+@inject StrideAssetStore.Core.Local.Git.ForkLister Forks
 
 <PageTitle>My projects — Community Stride Asset Store</PageTitle>
 <a class="back" href="">← Back to catalog</a>
@@ -175,6 +176,13 @@
                                                             <option value="@reference">⑂ @reference@(IsCertifiedRef(catalogEntry, reference) ? " ✓" : "")</option>
                                                         }
                                                     </select>
+                                                    @* Switching between the official asset and a fork is rare and
+                                                       consequential, so it gets a deliberate step rather than a
+                                                       second dropdown in an already dense row. *@
+                                                    <button class="btn" style="padding:.05rem .4rem;font-size:.78rem"
+                                                            title="Switch between the official asset and a fork of it"
+                                                            disabled="@_busy"
+                                                            @onclick="() => OpenSourcePicker(node.CsprojPath, asset, catalogEntry)">⑂ source</button>
                                                 }
                                                 else if (!string.IsNullOrEmpty(asset.Ref))
                                                 {
@@ -318,6 +326,64 @@
 </Modal>
 
 @* ── Stride retarget: pick WHICH side to align (backdrop/✕ = cancel) ── *@
+@* Official asset ⇄ fork. The ref is picked here too: a fork has its own tags, so the ref list
+   from the registry doesn't apply to it. *@
+<Modal Visible="@(_pendingSource is not null)" Title="@($"Source for {_pendingSource?.Asset.Name}")"
+       OnClose="() => _pendingSource = null">
+    @if (_pendingSource is { } picker)
+    {
+        <p class="install-hint" style="margin-top:0">
+            Currently: <strong>@(picker.Asset.Fork is null ? "the official asset" : $"the fork {picker.Asset.Fork}")</strong>
+            at <span class="mono">@(string.IsNullOrEmpty(picker.Asset.Ref) ? "(legacy)" : picker.Asset.Ref)</span>.
+        </p>
+
+        <label class="check">
+            <input type="radio" name="assetsource" checked="@(_sourceFork.Length == 0)" @onchange="() => _sourceFork = string.Empty" />
+            <span>The official asset <span class="install-hint">— certified versions, content hash verified.</span></span>
+        </label>
+        <label class="check">
+            <input type="radio" name="assetsource" checked="@(_sourceFork.Length > 0)"
+                   @onchange="SelectFirstFork" />
+            <span>A fork <span class="install-hint">— someone else's copy, with its own versions and no certification.</span></span>
+        </label>
+
+        @if (_sourceFork.Length > 0)
+        {
+            <div class="cmd" style="margin:.3rem 0 0 1.7rem">
+                @if (_loadingForks)
+                {
+                    <span class="install-hint">Looking for forks…</span>
+                }
+                else if (_forks.Count > 0)
+                {
+                    <select class="ipt" style="flex:1" @bind="_sourceFork">
+                        @foreach (var f in _forks)
+                        {
+                            <option value="@f.FullName">@f.FullName@(f.Stars > 0 ? $" · ★ {f.Stars}" : "")</option>
+                        }
+                    </select>
+                }
+                <input class="ipt" style="flex:1" placeholder="owner/repo" @bind="_sourceFork" />
+            </div>
+            <p class="install-hint" style="margin:.35rem 0 0 1.7rem">
+                ⚠ <strong>Fork — outside the store.</strong> No certification and no hash check: you trust
+                whoever owns that repository. It is cached separately, so the official asset stays untouched.
+            </p>
+        }
+
+        <div class="cmd" style="margin-top:.6rem">
+            <span class="install-hint">Ref</span>
+            <input class="ipt" style="flex:1" placeholder="main, v1.2.0, a branch…" @bind="_sourceRef" />
+        </div>
+
+        <div class="modal-foot">
+            <button class="btn" @onclick="() => _pendingSource = null">Cancel</button>
+            <button class="btn primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_sourceRef))"
+                    @onclick="ApplySourceSwitch">Switch</button>
+        </div>
+    }
+</Modal>
+
 <Modal Visible="@(_pendingRetarget is not null)" Title="Align Stride versions" OnClose="() => _pendingRetarget = null">
     @if (_pendingRetarget is { } pending)
     {
@@ -500,6 +566,68 @@
 
     private static bool IsCertifiedRef(IndexedAsset entry, string reference) =>
         entry.Certified.Any(c => string.Equals(c.Tag, reference, StringComparison.Ordinal));
+
+    private sealed record SourcePicker(string CsprojPath, ProjectAsset Asset, IndexedAsset Entry);
+
+    private SourcePicker? _pendingSource;
+    private string _sourceFork = "";
+    private string _sourceRef = "";
+    private bool _loadingForks;
+    private IReadOnlyList<StrideAssetStore.Core.Local.Git.AssetFork> _forks = [];
+
+    /// <summary>Picking "a fork" preselects the first one found, so the choice isn't left empty.</summary>
+    private void SelectFirstFork() =>
+        _sourceFork = _forks.FirstOrDefault()?.FullName ?? " ";
+
+    /// <summary>Opens the official-vs-fork picker, loading the asset's forks once.</summary>
+    private async Task OpenSourcePicker(string csprojPath, ProjectAsset asset, IndexedAsset entry)
+    {
+        _pendingSource = new SourcePicker(csprojPath, asset, entry);
+        _sourceFork = asset.Fork ?? "";
+        _sourceRef = string.IsNullOrEmpty(asset.Ref) ? entry.Latest.Ref : asset.Ref;
+
+        _loadingForks = true;
+        try
+        {
+            _forks = await Forks.ListAsync(entry.Repo);
+        }
+        finally
+        {
+            _loadingForks = false;
+        }
+    }
+
+    /// <summary>Moves the project between the official asset and a fork, at the chosen ref.</summary>
+    private async Task ApplySourceSwitch()
+    {
+        if (_pendingSource is not { } picker)
+        {
+            return;
+        }
+
+        var fork = string.IsNullOrWhiteSpace(_sourceFork) ? null : _sourceFork.Trim();
+        var newRef = _sourceRef.Trim();
+        _pendingSource = null;
+        _busy = true;
+        _message = null;
+        try
+        {
+            var catalog = Catalog;
+            var solution = _selected;
+            var result = await Task.Run(() => Installer.SwitchSource(
+                picker.Entry, picker.Asset, picker.CsprojPath, newRef, fork, catalog, solution));
+            _message = string.Join(" ", result.Messages);
+            await Analyze();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Switch failed: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
 
     /// <summary>Rewires this project onto another ref of the asset (downloading that ref's clone
     /// into the versioned cache when needed).</summary>
