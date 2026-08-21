@@ -38,9 +38,6 @@ permissions:
 env:
   ASSET: ${{ github.event.inputs.asset || 'grass' }}
   STRIDE: ${{ github.event.inputs.stride || '4.4.0-beta5' }}
-  # Outside the checkout — see the scaffold step for why.
-  GAME: ${{ runner.temp }}/game
-  TOOL: ${{ github.workspace }}/tools/strideassetstore
 
 jobs:
   e2e:
@@ -85,6 +82,7 @@ jobs:
       # nothing about the store. A user's game has its own settings anyway.
       - name: Scaffold a Stride game
         run: |
+          GAME="$RUNNER_TEMP/game"
           mkdir -p "$GAME"
           cat > "$GAME/Game.csproj" <<EOF
           <Project Sdk="Microsoft.NET.Sdk">
@@ -157,11 +155,11 @@ jobs:
       # ── 3. The store's actual job ──
       - name: Install the asset with the CLI
         working-directory: ${{ runner.temp }}/game
-        run: '"$TOOL" add "$ASSET" --into ./Assets --stride "$STRIDE" --yes'
+        run: '"$GITHUB_WORKSPACE/tools/strideassetstore" add "$ASSET" --into ./Assets --stride "$STRIDE" --yes'
 
       - name: The asset is listed as installed
         working-directory: ${{ runner.temp }}/game
-        run: '"$TOOL" list'
+        run: '"$GITHUB_WORKSPACE/tools/strideassetstore" list'
 
       - name: Restore and compile the game WITH the asset
         working-directory: ${{ runner.temp }}/game
