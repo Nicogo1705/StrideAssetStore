@@ -1,0 +1,95 @@
+@* Copyright (c) <YEAR> <COPYRIGHT HOLDER> - MIT license *@
+@inject StrideAssetStore.Core.Local.Git.ForkLister Forks
+
+@* Picks which fork of an asset to use. Lives in one place because the install page and the source
+   picker in My projects both need it, and two copies had already drifted apart in wording. *@
+
+<div style="margin:.3rem 0 0 1.7rem;max-width:34rem">
+    @if (_loading)
+    {
+        <span class="install-hint">Looking for forks…</span>
+    }
+    else if (_forks.Count > 0)
+    {
+        @* One control at a time: a list and a free-text box side by side showed the same value
+           twice, both truncated. *@
+        <select class="ipt" style="width:100%" title="@Fork" value="@Choice" @onchange="OnChoiceChanged">
+            @foreach (var f in _forks)
+            {
+                <option value="@f.FullName">@f.FullName@(f.Stars > 0 ? $" · ★ {f.Stars}" : "")</option>
+            }
+            <option value="@Other">Another repository…</option>
+        </select>
+    }
+    @if (_other || (!_loading && _forks.Count == 0))
+    {
+        <input class="ipt" style="width:100%;margin-top:.3rem" placeholder="owner/repo"
+               value="@Fork" @onchange="OnTypedChanged" />
+    }
+</div>
+
+@* Without this, an asset nobody has forked shows an empty box and no reason why. *@
+@if (!_loading && _forks.Count == 0)
+{
+    <p class="install-hint" style="margin:.2rem 0 0 1.7rem">
+        No fork of this asset on GitHub — type one if you have it elsewhere.
+    </p>
+}
+
+<p class="install-hint" style="margin:.35rem 0 0 1.7rem">
+    ⚠ <strong>Fork — outside the store.</strong> The content hash isn't verified and no certification
+    applies: you are trusting whoever owns that repository. It is cached separately, so the official
+    asset stays untouched.
+</p>
+
+@code {
+    /// <summary>Repository whose forks are offered (the asset's own repo).</summary>
+    [Parameter, EditorRequired] public string Repo { get; set; } = "";
+
+    /// <summary>The chosen fork, as <c>owner/repo</c>. Empty while nothing is picked.</summary>
+    [Parameter] public string Fork { get; set; } = "";
+
+    [Parameter] public EventCallback<string> ForkChanged { get; set; }
+
+    private const string Other = "__other";
+
+    private IReadOnlyList<StrideAssetStore.Core.Local.Git.AssetFork> _forks = [];
+    private bool _loading;
+    private bool _other;
+    private string? _loadedRepo;
+
+    /// <summary>What the list shows: the picked fork, or the escape hatch.</summary>
+    private string Choice => _other || !_forks.Any(f => f.FullName == Fork) ? Other : Fork;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Reload whenever the asset changes: another asset's forks must never stay on screen.
+        if (string.Equals(_loadedRepo, Repo, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _loadedRepo = Repo;
+        _forks = [];
+        _other = false;
+        _loading = true;
+
+        _forks = await Forks.ListAsync(Repo); // never throws: an unreachable API yields an empty list
+        _loading = false;
+
+        // Preselect the first, so the choice is never left half-made.
+        if (string.IsNullOrWhiteSpace(Fork) && _forks.Count > 0)
+        {
+            await ForkChanged.InvokeAsync(_forks[0].FullName);
+        }
+    }
+
+    private async Task OnChoiceChanged(ChangeEventArgs e)
+    {
+        var value = (string?)e.Value ?? "";
+        _other = value == Other;
+        await ForkChanged.InvokeAsync(_other ? "" : value);
+    }
+
+    private Task OnTypedChanged(ChangeEventArgs e) => ForkChanged.InvokeAsync(((string?)e.Value ?? "").Trim());
+}

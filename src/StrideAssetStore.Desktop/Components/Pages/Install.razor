@@ -4,7 +4,6 @@
 @inject CatalogState State
 @inject AssetInstaller Installer
 @inject ProjectStore Store
-@inject StrideAssetStore.Core.Local.Git.ForkLister Forks
 
 @if (Asset is null)
 {
@@ -78,43 +77,13 @@ else
                     <span class="install-hint">— from the registry: certified versions, content hash verified.</span></span>
             </label>
             <label class="check">
-                <input type="radio" name="assetsource" checked="@_useFork" @onchange="SelectForkSource" />
+                <input type="radio" name="assetsource" checked="@_useFork" @onchange="() => _useFork = true" />
                 <span>A fork
                     <span class="install-hint">— someone else's copy, with its own versions.</span></span>
             </label>
             @if (_useFork)
             {
-                <div style="margin:.3rem 0 0 1.7rem;max-width:34rem">
-                    @if (_loadingForks)
-                    {
-                        <span class="install-hint">Looking for forks…</span>
-                    }
-                    else if (_forks.Count > 0)
-                    {
-                        @* One control at a time: the list and a free-text box side by side showed the
-                           same value twice, both truncated. *@
-                        <select class="ipt" style="width:100%" title="@_fork" value="@ForkChoice" @onchange="OnForkChoiceChanged">
-                            @foreach (var f in _forks)
-                            {
-                                <option value="@f.FullName">@f.FullName@(f.Stars > 0 ? $" · ★ {f.Stars}" : "")</option>
-                            }
-                            <option value="@OtherFork">Another repository…</option>
-                        </select>
-                    }
-                    @if (_forkOther || (!_loadingForks && _forks.Count == 0))
-                    {
-                        <input class="ipt" style="width:100%;margin-top:.3rem" placeholder="owner/repo" @bind="_fork" />
-                    }
-                </div>
-                @if (!_loadingForks && _forks.Count == 0)
-                {
-                    <p class="install-hint" style="margin:.2rem 0 0 1.7rem">No fork of this asset on GitHub — type one if you have it elsewhere.</p>
-                }
-                <p class="install-hint" style="margin:.35rem 0 0 1.7rem">
-                    ⚠ <strong>Fork — outside the store.</strong> The content hash isn't verified and no
-                    certification applies: you are trusting whoever owns that repository. It is cached
-                    separately, so the official asset stays untouched.
-                </p>
+                <ForkPicker Repo="@Asset!.Repo" Fork="@_fork" ForkChanged="f => _fork = f" />
             }
         </section>
     }
@@ -278,52 +247,7 @@ else
     // Install from someone's fork rather than the asset's own repository.
     private bool _useFork;
     private string _fork = "";
-    private bool _loadingForks;
-    private bool _forkOther;
 
-    private const string OtherFork = "__other";
-
-    /// <summary>What the list should show: the picked fork, or the escape hatch.</summary>
-    private string ForkChoice => _forkOther || !_forks.Any(f => f.FullName == _fork) ? OtherFork : _fork;
-
-    private void OnForkChoiceChanged(ChangeEventArgs e)
-    {
-        var value = (string?)e.Value ?? "";
-        _forkOther = value == OtherFork;
-        _fork = _forkOther ? "" : value;
-    }
-    private IReadOnlyList<StrideAssetStore.Core.Local.Git.AssetFork> _forks = [];
-
-    /// <summary>
-    /// Loads the asset's forks the first time "a fork" is picked — one API call, and only for
-    /// someone who actually asked. Preselects the first, so the choice is never left half-made.
-    /// </summary>
-    private async Task SelectForkSource()
-    {
-        _useFork = true;
-        if (Asset is null || _loadingForks)
-        {
-            return;
-        }
-
-        if (_forks.Count == 0)
-        {
-            _loadingForks = true;
-            try
-            {
-                _forks = await Forks.ListAsync(Asset.Repo);
-            }
-            finally
-            {
-                _loadingForks = false;
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(_fork))
-        {
-            _fork = _forks.FirstOrDefault()?.FullName ?? "";
-        }
-    }
     private bool _browsing;
     private bool _showPlatform;
 
@@ -397,9 +321,6 @@ else
         // install from the wrong repository entirely.
         _useFork = false;
         _fork = "";
-        _forkOther = false;
-        _forks = [];
-        _loadingForks = false;
         _showPlatform = false;
     }
 

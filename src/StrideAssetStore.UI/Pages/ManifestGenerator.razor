@@ -119,10 +119,12 @@
         ApplyUrlPrefill();
         try
         {
-            using var cats = JsonDocument.Parse(await Http.GetStringAsync("data/categories.json"));
+            // Served from the shared UI library, so the storefront and the desktop app read one
+            // copy of the catalog instead of each keeping their own under wwwroot/data.
+            using var cats = JsonDocument.Parse(await Http.GetStringAsync("_content/StrideAssetStore.UI/data/categories.json"));
             _categories = cats.RootElement.GetProperty("categories").EnumerateArray()
                 .Select(e => e.GetProperty("id").GetString()!).ToList();
-            using var lic = JsonDocument.Parse(await Http.GetStringAsync("data/licenses.json"));
+            using var lic = JsonDocument.Parse(await Http.GetStringAsync("_content/StrideAssetStore.UI/data/licenses.json"));
             _licenses = lic.RootElement.GetProperty("licenses").EnumerateArray()
                 .Select(e => e.GetString()!).ToList();
         }
