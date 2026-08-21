@@ -81,7 +81,11 @@ else
                     }
                     @if (Asset.Stars is { } stars)
                     {
-                        <span class="badge stars">★ @stars</span>
+                        <span class="badge stars" title="GitHub stars">★ @stars</span>
+                    }
+                    @if (Asset.Forks is { } forks)
+                    {
+                        <span class="badge" title="GitHub forks — people who took this asset somewhere of their own">⑂ @forks</span>
                     }
                 </div>
                 <div style="margin-top:.6rem; display:flex; gap:.5rem; flex-wrap:wrap">
