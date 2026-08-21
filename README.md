@@ -63,10 +63,11 @@ your game is on a different build, retarget the asset as you install it:
 strideassetstore add grass --stride 4.4.0-beta5
 ```
 
-The catalogue currently targets **Stride 4.4.0-beta5**, the newest build published on nuget.org,
-with the asset compiler pinned to **4.3.0.2507** — no 4.4 build of
-`Stride.Core.Assets.CompilerApp` exists yet. Every certified asset is verified to restore and
-compile from nuget.org alone.
+The catalogue currently targets **Stride 4.4.0-beta5**, the newest build published on nuget.org.
+Note that 4.4 renamed the asset compiler from `Stride.Core.Assets.CompilerApp` to
+**`Stride.AssetCompiler`**; an asset that keeps the old package next to a 4.4 engine still builds
+on its own, then breaks every game that references it. Every certified asset is verified to restore
+and compile from nuget.org alone, and `asset-e2e` puts one in a real game and runs it.
 
 ---
 

@@ -45,6 +45,28 @@ public sealed class CsprojEditorTests : IDisposable
         Assert.Contains("Include=\"Avalonia\" Version=\"11.3.12\"", text); // untouched
     }
 
+    [Fact]
+    public void Leaves_the_asset_compiler_alone_when_retargeting()
+    {
+        // Stride.Core.Assets.CompilerApp is versioned independently of the engine and has no 4.4
+        // release. Dragging it to the engine's version made the project unrestorable -- which is
+        // precisely what retargeting is supposed to repair.
+        var asset = Write("Asset/Asset.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <ItemGroup>
+                <PackageReference Include="Stride.Engine" Version="4.3.0.2507" />
+                <PackageReference Include="Stride.Core.Assets.CompilerApp" Version="4.3.0.2507" IncludeAssets="build;buildTransitive" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        Assert.True(CsprojEditor.RetargetStridePackages(asset, "4.4.0-beta5"));
+
+        var text = File.ReadAllText(asset);
+        Assert.Contains("Include=\"Stride.Engine\" Version=\"4.4.0-beta5\"", text);
+        Assert.Contains("Include=\"Stride.Core.Assets.CompilerApp\" Version=\"4.3.0.2507\"", text);
+    }
+
     private string Write(string relativePath, string content)
     {
         var path = Path.Combine(_dir, relativePath);

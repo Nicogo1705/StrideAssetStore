@@ -101,8 +101,23 @@ public static class CsprojEditor
     }
 
     /// <summary>
+    /// Stride packages that must be left alone when retargeting. Only the legacy asset compiler is
+    /// listed: Stride 4.4 renamed <c>Stride.Core.Assets.CompilerApp</c> to <c>Stride.AssetCompiler</c>,
+    /// so the old name stops at 4.3.0.2507. A project still referencing it is pre-4.4 by definition,
+    /// and dragging that package to a version it was never published at turns a working project into
+    /// one that cannot restore — the exact failure retargeting exists to fix. The new name tracks the
+    /// engine and is retargeted normally.
+    /// </summary>
+    private static readonly string[] IndependentlyVersionedStridePackages =
+    [
+        "Stride.Core.Assets.CompilerApp",
+    ];
+
+    /// <summary>
     /// Rewrites the <c>Version</c> of every <c>Stride.*</c> <c>&lt;PackageReference&gt;</c> to
-    /// <paramref name="strideVersion"/> (mismatch remediation). Returns true if the file was modified.
+    /// <paramref name="strideVersion"/> (mismatch remediation), except the build-time packages
+    /// listed in <see cref="IndependentlyVersionedStridePackages"/>. Returns true if the file was
+    /// modified.
     /// </summary>
     public static bool RetargetStridePackages(string csprojPath, string strideVersion)
     {
@@ -113,7 +128,8 @@ public static class CsprojEditor
         foreach (var reference in project.Descendants().Where(e => e.Name.LocalName == "PackageReference"))
         {
             var id = ((string?)reference.Attribute("Include"))?.Trim();
-            if (id is null || !id.StartsWith("Stride.", StringComparison.OrdinalIgnoreCase))
+            if (id is null || !id.StartsWith("Stride.", StringComparison.OrdinalIgnoreCase)
+                || IndependentlyVersionedStridePackages.Contains(id, StringComparer.OrdinalIgnoreCase))
             {
                 continue;
             }
