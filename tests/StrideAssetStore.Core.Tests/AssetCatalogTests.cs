@@ -33,6 +33,22 @@ public sealed class AssetCatalogTests
     }
 
     [Fact]
+    public void Published_versions_are_filterable_as_tags()
+    {
+        // The versions are already in the index; the author writes nothing for this to work.
+        var result = _catalog.Query(new CatalogQuery { Tags = ["v1.0.0"] });
+
+        Assert.Single(result);
+        Assert.Equal("com.a.fire", result[0].Id);   // the certified one
+
+        // And they answer the free-text box the same way the tag filter does.
+        Assert.Single(_catalog.Query(new CatalogQuery { Text = "v1.0.0" }));
+
+        // A version nobody published matches nothing, rather than everything.
+        Assert.Empty(_catalog.Query(new CatalogQuery { Tags = ["v9.9.9"] }));
+    }
+
+    [Fact]
     public void Free_text_searches_name_id_and_tags()
     {
         Assert.Single(_catalog.Query(new CatalogQuery { Text = "fire" }));  // name
@@ -90,7 +106,8 @@ public sealed class AssetCatalogTests
     public void Exposes_distinct_categories_and_tags()
     {
         Assert.Equal(["Scripts", "Shaders", "VFX"], _catalog.Categories);
-        Assert.Equal(["fire", "math", "pbr", "water"], _catalog.Tags);
+        // v1.0.0 is a published version surfaced as a tag, so it is offered in the filter box too.
+        Assert.Equal(["fire", "math", "pbr", "v1.0.0", "water"], _catalog.Tags);
     }
 
     [Fact]

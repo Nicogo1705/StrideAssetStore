@@ -106,7 +106,25 @@ public sealed class AssetCatalog(IndexLock index)
 
     /// <summary>Distinct tags present in the catalog, sorted.</summary>
     public IReadOnlyList<string> Tags =>
-        Assets.SelectMany(a => a.Manifest.Tags).Distinct(StringComparer.Ordinal).OrderBy(t => t, StringComparer.Ordinal).ToList();
+        Assets.SelectMany(SearchableTags).Distinct(StringComparer.Ordinal).OrderBy(t => t, StringComparer.Ordinal).ToList();
+
+    /// <summary>
+    /// What an asset can be filtered by in the tag box: the tags its author wrote, plus every
+    /// version it publishes, as <c>v1.1.0</c>. "Which assets have a 1.1.0 release?" is a question
+    /// people actually ask, and the versions are already in the index — the author writes nothing.
+    /// Certified and plain git-tag versions land in the same namespace on purpose: a version is a
+    /// version, and certification has its own filter.
+    /// </summary>
+    public static IEnumerable<string> SearchableTags(IndexedAsset asset) =>
+        asset.Manifest.Tags
+            .Concat(asset.Versions.Select(v => VersionTag(v.Version)))
+            .Concat(asset.Certified.Select(c => VersionTag(c.Version)))
+            .Distinct(StringComparer.Ordinal);
+
+    /// <summary>A published version as a tag. Tolerates authors who tag <c>v1.0.0</c> and authors
+    /// who tag <c>1.0.0</c>, so both end up filterable under the same token.</summary>
+    private static string VersionTag(string version) =>
+        version.StartsWith('v') || version.StartsWith('V') ? $"v{version[1..]}" : $"v{version}";
 
     /// <summary>Applies a query and returns the matching, ordered assets.</summary>
     public IReadOnlyList<IndexedAsset> Query(CatalogQuery query)
@@ -125,7 +143,7 @@ public sealed class AssetCatalog(IndexLock index)
 
         if (query.Tags.Count > 0)
         {
-            result = result.Where(a => query.Tags.All(t => a.Manifest.Tags.Contains(t, StringComparer.Ordinal)));
+            result = result.Where(a => query.Tags.All(t => SearchableTags(a).Contains(t, StringComparer.Ordinal)));
         }
 
         if (!string.IsNullOrWhiteSpace(query.Author))
@@ -215,8 +233,11 @@ public sealed class AssetCatalog(IndexLock index)
 
         if (m.Id.Contains(text, ci)) score += 120;
 
-        if (m.Tags.Any(t => t.Equals(text, ci))) score += 150;
-        else if (m.Tags.Any(t => t.Contains(text, ci))) score += 80;
+        // Version tags are included: typing "v1.2.0" in the search box should find the assets that
+        // publish it, exactly like clicking it in the tag filter would.
+        var tags = SearchableTags(asset).ToList();
+        if (tags.Any(t => t.Equals(text, ci))) score += 150;
+        else if (tags.Any(t => t.Contains(text, ci))) score += 80;
 
         if (searchDescription && m.Description.Contains(text, ci)) score += 30;
 

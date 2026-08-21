@@ -66,6 +66,19 @@ jobs:
         if: runner.os == 'Linux'
         run: echo "DOTNET_NUGET_SIGNATURE_VERIFICATION=false" >> "$GITHUB_ENV"
 
+      # Stride 4.4 renders through Vulkan off Windows, and macOS has no Vulkan of its own: it needs
+      # MoltenVK, the Vulkan-on-Metal layer, which the runner image does not ship. Without it SDL
+      # cannot even create the window ("Failed to load Vulkan Portability library").
+      - name: Vulkan on macOS (MoltenVK)
+        if: runner.os == 'macOS'
+        run: |
+          brew install --quiet molten-vk
+          PREFIX="$(brew --prefix molten-vk)"
+          {
+            echo "DYLD_LIBRARY_PATH=$PREFIX/lib"
+            echo "VK_ICD_FILENAMES=$PREFIX/share/vulkan/icd.d/MoltenVK_icd.json"
+          } >> "$GITHUB_ENV"
+
       - name: Graphics stack for a headless Linux runner
         if: runner.os == 'Linux'
         run: |
