@@ -16,4 +16,43 @@
     <ProjectReference Include="..\AssetStore.Core\AssetStore.Core.csproj" />
   </ItemGroup>
 
+  <!--
+    Ships _framework/blazor.web.js, which the SDK refuses to give a WinExe.
+
+    Microsoft.AspNetCore.App.Internal.Assets.targets gates the target that contributes the Blazor
+    framework scripts on `'$(OutputType)' == 'Exe'`, and this app is a WinExe on purpose (no console
+    window at startup — see ConsoleWindow in Program.cs). The script was therefore never published:
+    the browser got a 404, no circuit ever started, and every build since v1.3.7 only ever showed
+    its prerendered HTML — no working button anywhere in the app.
+
+    Copying the scripts into wwwroot is enough here because the host serves that folder with
+    UseStaticFiles. Failing loudly beats a silent 404: without the package property there is nothing
+    to copy, and the app would be dead again with no visible sign at build time.
+  -->
+  <Target Name="_ResolveBlazorFrameworkScripts">
+    <Error Condition="'$(BlazorFrameworkStaticWebAssetRoot)' == ''"
+           Text="BlazorFrameworkStaticWebAssetRoot is unset: the Blazor framework scripts can't be located, and the app would ship without _framework/blazor.web.js (404 → no interactivity)." />
+    <ItemGroup>
+      <_BlazorFrameworkScript Include="$(BlazorFrameworkStaticWebAssetRoot)\blazor.web.js" />
+    </ItemGroup>
+    <Error Condition="!Exists('%(_BlazorFrameworkScript.Identity)')"
+           Text="Blazor framework script not found: %(_BlazorFrameworkScript.Identity)" />
+  </Target>
+
+  <Target Name="_CopyBlazorFrameworkScriptsToOutput"
+          AfterTargets="Build" DependsOnTargets="_ResolveBlazorFrameworkScripts">
+    <Copy SourceFiles="@(_BlazorFrameworkScript)"
+          DestinationFolder="$(OutDir)wwwroot\_framework" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="_CopyBlazorFrameworkScriptsToPublish"
+          AfterTargets="ComputeFilesToPublish" DependsOnTargets="_ResolveBlazorFrameworkScripts">
+    <ItemGroup>
+      <ResolvedFileToPublish Include="@(_BlazorFrameworkScript)">
+        <RelativePath>wwwroot\_framework\%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
 </Project>

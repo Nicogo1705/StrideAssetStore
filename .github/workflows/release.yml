@@ -69,9 +69,15 @@ jobs:
             if curl -fsS http://localhost:5111/ >/dev/null 2>&1; then OK=1; break; fi
             sleep 2
           done
+          # Serving the page is not enough: the Blazor script is what turns that prerendered
+          # HTML into a working app, and a 404 on it left v1.3.7..v1.5.2 with dead buttons while
+          # this test stayed green. Assert it before shipping the build.
+          BLAZOR=0
+          if [ "$OK" = "1" ] && curl -fsS http://localhost:5111/_framework/blazor.web.js >/dev/null 2>&1; then BLAZOR=1; fi
           kill "$PID" 2>/dev/null || true
           if [ "$OK" != "1" ]; then echo "::error::app did not serve on ${{ matrix.rid }}"; exit 1; fi
-          echo "served OK on ${{ matrix.rid }}"
+          if [ "$BLAZOR" != "1" ]; then echo "::error::_framework/blazor.web.js is missing on ${{ matrix.rid }} — the app would never become interactive"; exit 1; fi
+          echo "served OK on ${{ matrix.rid }} (blazor.web.js present)"
 
       - name: Package (Windows → .zip)
         if: runner.os == 'Windows'
