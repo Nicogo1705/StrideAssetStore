@@ -61,6 +61,25 @@
     </ol>
 </section>
 
+@* Offered here rather than buried elsewhere: someone on this page wants to install assets, and
+   for that the tool is often the shorter path — nothing to unpack, nothing to keep running. *@
+<section class="panel">
+    <h2>Prefer a terminal?</h2>
+    <p>
+        The command-line tool installs and updates assets in your project without the app — same
+        shared cache, same portable project reference.
+    </p>
+    <ul class="steps">
+        <li><code>dotnet tool install -g StrideAssetStore</code></li>
+        <li>then, from your game's folder: <code>strideassetstore search grass</code>, <code>strideassetstore add grass</code>, <code>strideassetstore update</code></li>
+        <li>it can also fetch this app for you: <code>strideassetstore app install</code></li>
+    </ul>
+    <p class="install-hint">
+        Needs the .NET SDK and <code>git</code> on your <code>PATH</code>.
+        <a href="https://www.nuget.org/packages/StrideAssetStore" target="_blank" rel="noopener">Package on NuGet ↗</a>
+    </p>
+</section>
+
 <section class="panel">
     <h2>Verify your download</h2>
     <p>

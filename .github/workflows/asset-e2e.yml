@@ -139,11 +139,25 @@ jobs:
       - name: Run the game
         working-directory: game
         run: |
-          set -o pipefail
-          RUN="dotnet run -c Release --no-build"
-          [ "${{ runner.os }}" = "Linux" ] && RUN="xvfb-run -a --server-args=-screen\ 0\ 1280x720x24 $RUN"
-          # Wall-clock guard: a game that never reaches a frame must fail the job, not hang it.
-          timeout 300 $RUN 2>&1 | tee run.log
+          # No `timeout` here: macOS doesn't ship it, and on Windows the name collides with a
+          # System32 command that does something else entirely. Poll and kill instead, which
+          # behaves the same on all three runners.
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            xvfb-run -a --server-args="-screen 0 1280x720x24" dotnet run -c Release --no-build > run.log 2>&1 &
+          else
+            dotnet run -c Release --no-build > run.log 2>&1 &
+          fi
+          PID=$!
+
+          for _ in $(seq 1 150); do
+            grep -q "E2E-RENDERED" run.log 2>/dev/null && break
+            kill -0 "$PID" 2>/dev/null || break   # it exited on its own, log tells us why
+            sleep 2
+          done
+
+          kill "$PID" 2>/dev/null || true
+          wait "$PID" 2>/dev/null || true
+          cat run.log
 
       - name: The game reached a rendered frame
         working-directory: game
