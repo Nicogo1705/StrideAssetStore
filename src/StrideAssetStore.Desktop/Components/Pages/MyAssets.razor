@@ -205,10 +205,16 @@ else
         </div>
     </div>
 
-    @if (_message is not null)
-    {
-        <p class="install-hint" style="margin-top:.8rem">@_message</p>
-    }
+}
+
+@if (_messages is { Count: > 0 })
+{
+    <ul class="op-log">
+        @foreach (var line in _messages)
+        {
+            <li class="@LogClass(line)">@line</li>
+        }
+    </ul>
 }
 
 @* ── Add a local author repo ── *@
@@ -392,7 +398,19 @@ else
     private IReadOnlyList<CachedAsset> _cache = [];
     private bool _loading = true;
     private bool _busy;
-    private string? _message;
+    private IReadOnlyList<string>? _messages;
+
+    /// <summary>One line per step, so a failure can be found instead of read out of a paragraph.</summary>
+    private void Say(string? text) => _messages = text is null ? null : [text];
+
+    /// <summary>Marker the installer prefixes its messages with: ✓ done, • note, ⚠ warning, ✗ failure.</summary>
+    private static string LogClass(string line) => line.Length == 0 ? "" : line[0] switch
+    {
+        '✓' => "ok",
+        '⚠' => "warn",
+        '✗' => "bad",
+        _ => "",
+    };
     private CachedAsset? _pendingDelete;
     private string? _error;
 
@@ -489,7 +507,7 @@ else
         try
         {
             var result = await Task.Run(() => Authors.CommitAndPush(repo.Root, _commitMessage));
-            _message = string.Join("  ", result.Messages);
+            _messages = result.Messages;
             if (result.Success)
             {
                 _commitRepo = null;
@@ -524,7 +542,7 @@ else
         try
         {
             var result = await Task.Run(() => Authors.PushTag(repo.Root, _tagName));
-            _message = string.Join("  ", result.Messages);
+            _messages = result.Messages;
             if (result.Success)
             {
                 _tagRepo = null;
@@ -712,7 +730,7 @@ else
     private async Task Update(CachedAsset asset)
     {
         _busy = true;
-        _message = null;
+        _messages = null;
         try
         {
             var reference = string.IsNullOrEmpty(asset.Ref)
@@ -725,7 +743,7 @@ else
             }
             else
             {
-                _message = $"Updated {asset.Name} to {(commit.Length >= 7 ? commit[..7] : reference)}.";
+                Say($"Updated {asset.Name} to {(commit.Length >= 7 ? commit[..7] : reference)}.");
             }
 
             await Refresh();
@@ -756,11 +774,11 @@ else
         }
 
         _busy = true;
-        _message = null;
+        _messages = null;
         try
         {
             var deleted = await Task.Run(() => Installer.DeleteClone(asset.CloneRoot));
-            _message = deleted ? $"Deleted {asset.Name}." : "Nothing to delete.";
+            Say(deleted ? $"Deleted {asset.Name}." : "Nothing to delete.");
             _pendingDelete = null;
             await Refresh();
         }

@@ -571,3 +571,18 @@ html, body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibi
 .pick-path { margin: 0 0 0 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }
 .clone-modes { margin: .9rem 0 .2rem; padding: .7rem .85rem; border: 1px solid var(--border); border-radius: 10px; background: rgba(255,255,255,.02); }
 .clone-modes .check { align-items: flex-start; }
+
+/* Operation log: what an install, update or uninstall actually did — one line per step, so a
+   failure stands out instead of being buried in a paragraph of run-on sentences. Cache paths can
+   be long, hence the anywhere-wrap. */
+.op-log {
+    list-style: none; margin: .8rem 0 0; padding: .6rem .8rem;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+    font-size: .82rem; line-height: 1.5; color: var(--muted);
+    display: flex; flex-direction: column; gap: .25rem;
+    max-height: 18rem; overflow-y: auto;
+}
+.op-log li { overflow-wrap: anywhere; }
+.op-log li.ok { color: var(--text); }
+.op-log li.warn { color: var(--warn); }
+.op-log li.bad { color: #f87171; }

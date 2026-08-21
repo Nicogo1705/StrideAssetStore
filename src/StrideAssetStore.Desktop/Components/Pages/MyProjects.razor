@@ -280,9 +280,14 @@
                 }
             }
 
-            @if (_message is not null)
+            @if (_messages is { Count: > 0 })
             {
-                <p class="install-hint" style="margin-top:.8rem">@_message</p>
+                <ul class="op-log">
+                    @foreach (var line in _messages)
+                    {
+                        <li class="@LogClass(line)">@line</li>
+                    }
+                </ul>
             }
         }
     </section>
@@ -408,7 +413,22 @@
     private bool _loading;
     private bool _busy;
     private bool _adding;
-    private string? _message;
+    private IReadOnlyList<string>? _messages;
+
+    /// <summary>One line per step, so a failure can be found instead of read out of a paragraph.</summary>
+    private void Say(string? text) => _messages = text is null ? null : [text];
+
+    /// <summary>A success sentence, or the operation's own messages when it failed.</summary>
+    private void Say(InstallResult result, string success) => _messages = result.Success ? [success] : result.Messages;
+
+    /// <summary>Marker the installer prefixes its messages with: ✓ done, • note, ⚠ warning, ✗ failure.</summary>
+    private static string LogClass(string line) => line.Length == 0 ? "" : line[0] switch
+    {
+        '✓' => "ok",
+        '⚠' => "warn",
+        '✗' => "bad",
+        _ => "",
+    };
     private (string Csproj, ProjectAsset Asset)? _pendingUninstall;
     private string? _error;
 
@@ -431,14 +451,14 @@
     private async Task Select(string path)
     {
         _selected = path;
-        _message = null;
+        _messages = null;
         _pendingUninstall = null;
         await Analyze();
     }
 
     private async Task Reload()
     {
-        _message = null;
+        _messages = null;
         _pendingUninstall = null;
         await Analyze();
     }
@@ -491,13 +511,13 @@
         }
 
         _busy = true;
-        _message = null;
+        _messages = null;
         try
         {
             var catalog = Catalog;
             var solution = _selected;
             var result = await Task.Run(() => Installer.AttachCached(cloneRoot, [csprojPath], catalog, solution));
-            _message = string.Join(" ", result.Messages);
+            _messages = result.Messages;
             _attachPick.Remove(csprojPath);
             await Analyze();
         }
@@ -588,14 +608,14 @@
         var newRef = _sourceRef.Trim();
         _pendingSource = null;
         _busy = true;
-        _message = null;
+        _messages = null;
         try
         {
             var catalog = Catalog;
             var solution = _selected;
             var result = await Task.Run(() => Installer.SwitchSource(
                 picker.Entry, picker.Asset, picker.CsprojPath, newRef, fork, catalog, solution));
-            _message = string.Join(" ", result.Messages);
+            _messages = result.Messages;
             await Analyze();
         }
         catch (Exception ex)
@@ -624,13 +644,13 @@
         }
 
         _busy = true;
-        _message = null;
+        _messages = null;
         try
         {
             var catalog = Catalog;
             var solution = _selected;
             var result = await Task.Run(() => Installer.SwitchRef(entry, asset, csprojPath, newRef, catalog, solution));
-            _message = string.Join(" ", result.Messages);
+            _messages = result.Messages;
             await Analyze();
         }
         catch (Exception ex)
@@ -654,15 +674,15 @@
 
         var (node, asset) = pending;
         _busy = true;
-        _message = null;
+        _messages = null;
         try
         {
             var count = await Task.Run(() => retargetAsset
                 ? Installer.RetargetStride(Installer.CloneCsprojs(asset.CloneRoot), node.StrideVersion!)
                 : Installer.RetargetStride([node.CsprojPath], asset.StrideVersion!));
-            _message = retargetAsset
+            Say(retargetAsset
                 ? $"Retargeted {count} project file(s) of the shared clone to Stride {node.StrideVersion}. Other projects using this clone are affected too — their rows below reflect the new state."
-                : $"Retargeted {node.Name} to Stride {asset.StrideVersion}.";
+                : $"Retargeted {node.Name} to Stride {asset.StrideVersion}.");
             _pendingRetarget = null;
             await Analyze();
         }
@@ -680,7 +700,7 @@
     private async Task UpdateAll()
     {
         _busy = true;
-        _message = null;
+        _messages = null;
         try
         {
             var updated = 0;
@@ -701,8 +721,8 @@
                 }
             }
 
-            _message = $"Updated {updated} asset(s)."
-                + (failed.Count > 0 ? $" Failed: {string.Join(", ", failed)} (offline, or the ref is gone)." : "");
+            Say($"Updated {updated} asset(s)."
+                + (failed.Count > 0 ? $" Failed: {string.Join(", ", failed)} (offline, or the ref is gone)." : ""));
             await Analyze();
         }
         catch (Exception ex)
@@ -718,7 +738,7 @@
     private async Task Update(ProjectAsset asset)
     {
         _busy = true;
-        _message = null;
+        _messages = null;
         try
         {
             // A clone in the versioned cache follows the ref baked into its path; legacy clones follow latest.
@@ -726,9 +746,9 @@
                 ? State.Find(asset.Id)?.Latest.Ref ?? "main"
                 : asset.Ref;
             var commit = await Task.Run(() => Installer.UpdateInstalled(asset.CloneRoot, reference));
-            _message = commit is null
+            Say(commit is null
                 ? null
-                : $"Updated {asset.Name} to {(commit is { Length: >= 7 } ? commit[..7] : reference)}.";
+                : $"Updated {asset.Name} to {(commit is { Length: >= 7 } ? commit[..7] : reference)}.");
             if (commit is null)
             {
                 _error = $"Couldn't update {asset.Name} — the git fetch/reset failed (offline, or the ref is gone).";
@@ -756,15 +776,13 @@
         }
 
         _busy = true;
-        _message = null;
+        _messages = null;
         try
         {
             var catalog = Catalog;
             var solution = _selected; // register the fetched projects in the current solution too
             var result = await Task.Run(() => Installer.DownloadToCache(catalogAsset, catalog, solution));
-            _message = result.Success
-                ? $"Downloaded {asset.Name} into the global cache."
-                : string.Join(" ", result.Messages);
+            Say(result, $"Downloaded {asset.Name} into the global cache.");
             await Analyze();
         }
         catch (Exception ex)
@@ -785,14 +803,14 @@
         }
 
         _busy = true;
-        _message = null;
+        _messages = null;
         try
         {
             var sln = _selected;
             var ok = await Task.Run(() => Installer.RemoveFromSolution(sln, d.CsprojPath));
-            _message = ok
+            Say(ok
                 ? $"Removed {d.Name} from the solution."
-                : $"Couldn't remove {d.Name} from the solution.";
+                : $"Couldn't remove {d.Name} from the solution.");
             await Analyze();
         }
         catch (Exception ex)
@@ -820,15 +838,13 @@
         }
 
         _busy = true;
-        _message = null;
+        _messages = null;
         try
         {
             var catalog = Catalog;
             var solution = _selected;
             var result = await Task.Run(() => Installer.DownloadToCache(catalogAsset, catalog, solution));
-            _message = result.Success
-                ? $"Downloaded {d.Name} into the global cache."
-                : string.Join(" ", result.Messages);
+            Say(result, $"Downloaded {d.Name} into the global cache.");
             await Analyze();
         }
         catch (Exception ex)
@@ -850,7 +866,7 @@
 
         var (csprojPath, asset) = pending;
         _busy = true;
-        _message = null;
+        _messages = null;
         try
         {
             var solution = _selected;
@@ -880,11 +896,11 @@
                 return (removed, sln, wiped);
             });
 
-            _message = !changed
+            Say(!changed
                 ? $"{Path.GetFileName(csprojPath)} did not reference {asset.Name}."
                 : $"Removed {asset.Name} from {Path.GetFileName(csprojPath)}."
                   + (slnCleaned ? " Removed it from the solution." : "")
-                  + (cloneDeleted ? " Deleted the shared asset folder." : deleteClone ? " The shared folder was kept (still used by another project)." : "");
+                  + (cloneDeleted ? " Deleted the shared asset folder." : deleteClone ? " The shared folder was kept (still used by another project)." : ""));
 
             _pendingUninstall = null;
             await Analyze();

@@ -362,9 +362,10 @@ public sealed class AssetInstaller(GitClient? git = null)
                 }
                 else if (elsewhere.Count > 1)
                 {
-                    messages.Add($"✗ {fork} has no AssetData/ layout and {elsewhere.Count} projects — "
-                        + "nothing says which one to reference. The clone is kept at "
-                        + $"{clonedRoot} so you can point at one yourself.");
+                    // One fact per message: the UI prints them as a list, and a single run-on
+                    // sentence carrying a cache path was unreadable.
+                    messages.Add($"✗ {fork} has no AssetData/ folder and {elsewhere.Count} projects — nothing says which one to reference.");
+                    messages.Add($"• The clone is kept so you can point at a project yourself: {clonedRoot}");
                     return new InstallResult(false, messages);
                 }
             }
