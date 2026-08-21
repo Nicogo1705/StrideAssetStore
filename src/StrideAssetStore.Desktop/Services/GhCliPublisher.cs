@@ -41,10 +41,15 @@ public sealed class GhCliPublisher(RegistryOptions registry) : ICliPublisher
             }
         }
 
+        // The store's own CLI: not needed to publish, but this is the page people open when
+        // setting up, and it is how the app is installed and updated.
+        var tool = await RunAsync("strideassetstore", ["--version"], ct);
+
         return new CliStatus(
             git.Ok, FirstLine(git.StdOut),
             gh.Ok, FirstLine(gh.StdOut),
-            authed, account);
+            authed, account,
+            tool.Ok, FirstLine(tool.StdOut));
     }
 
     public Task<PublishResult> PublishAsync(RegistryEntry entry, CancellationToken ct = default) =>

@@ -12,12 +12,19 @@ namespace StrideAssetStore.App.Services;
 /// <param name="GhVersion">The reported gh version line, if any.</param>
 /// <param name="GhAuthenticated">Whether <c>gh auth status</c> reports a signed-in account.</param>
 /// <param name="GhAccount">The signed-in GitHub login, if known.</param>
+/// <param name="ToolInstalled">Whether the store's own CLI (<c>strideassetstore</c>) is on PATH.</param>
+/// <param name="ToolVersion">The version it reports, if any.</param>
 public sealed record CliStatus(
     bool GitInstalled, string? GitVersion,
     bool GhInstalled, string? GhVersion,
-    bool GhAuthenticated, string? GhAccount)
+    bool GhAuthenticated, string? GhAccount,
+    bool ToolInstalled = false, string? ToolVersion = null)
 {
-    /// <summary>Everything needed to open a PR from the machine: git + gh + an authenticated gh.</summary>
+    /// <summary>
+    /// Everything needed to open a PR from the machine: git + gh + an authenticated gh. The store's
+    /// own CLI is deliberately not part of this — it updates the app and installs assets, but no
+    /// pull request needs it.
+    /// </summary>
     public bool ReadyToPublish => GitInstalled && GhInstalled && GhAuthenticated;
 
     public static CliStatus Unavailable { get; } = new(false, null, false, null, false, null);

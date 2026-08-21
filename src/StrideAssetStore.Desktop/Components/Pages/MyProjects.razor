@@ -364,6 +364,13 @@
                 }
                 <input class="ipt" style="flex:1" placeholder="owner/repo" @bind="_sourceFork" />
             </div>
+            @* Without this, an asset nobody has forked shows an empty box and no reason why. *@
+            @if (!_loadingForks && _forks.Count == 0)
+            {
+                <p class="install-hint" style="margin:.2rem 0 0 1.7rem">
+                    No fork of this asset on GitHub — type one if you have it elsewhere.
+                </p>
+            }
             <p class="install-hint" style="margin:.35rem 0 0 1.7rem">
                 ⚠ <strong>Fork — outside the store.</strong> No certification and no hash check: you trust
                 whoever owns that repository. It is cached separately, so the official asset stays untouched.

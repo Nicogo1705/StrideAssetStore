@@ -70,6 +70,20 @@ else
             }
         </div>
 
+        <div class="tool-row">
+            <span class="tool-name"><code>strideassetstore</code></span>
+            @if (_status?.ToolInstalled == true)
+            {
+                <span style="color:var(--ok)">✓ @_status.ToolVersion</span>
+            }
+            else if (_status is not null)
+            {
+                <span class="bad">✗ not found on PATH</span>
+                <code>dotnet tool install -g StrideAssetStore</code>
+            }
+            else { <span class="install-hint">Checking…</span> }
+        </div>
+
         <div style="margin-top:1rem">
             <button class="btn" @onclick="Recheck" disabled="@_checking">@(_checking ? "Checking…" : "Re-check")</button>
         </div>
@@ -82,20 +96,14 @@ else
     </section>
 }
 
-@* Not a prerequisite of this app, but the recommended way to install and update it: the tool
-   doesn't depend on this UI, which is exactly what you need when this UI is the broken part. *@
+@* Detected above like git and gh. This is only the why — updating this app goes through the tool,
+   which is what keeps it working when this UI is the broken part. *@
 <section class="panel">
     <h2>The command-line tool</h2>
     <p class="install-hint" style="margin-top:0">
-        <span class="mono">strideassetstore</span> installs and updates assets, and manages this app itself.
-        It needs the <a href="https://dotnet.microsoft.com/download" target="_blank" rel="noopener">.NET SDK</a>.
-    </p>
-    <ul class="steps">
-        <li><code>dotnet tool install -g StrideAssetStore</code></li>
-        <li><code>strideassetstore app install</code> — installs the desktop app in one fixed place</li>
-        <li><code>strideassetstore app update</code> — updates it, whether or not it is running</li>
-    </ul>
-    <p class="install-hint">
+        <span class="mono">strideassetstore</span> installs assets into a project without this app, and
+        it is how this app is updated: <span class="mono">strideassetstore app update</span>. It needs
+        the <a href="https://dotnet.microsoft.com/download" target="_blank" rel="noopener">.NET SDK</a>.
         <a href="https://www.nuget.org/packages/StrideAssetStore" target="_blank" rel="noopener">Package on NuGet ↗</a>
     </p>
 </section>
