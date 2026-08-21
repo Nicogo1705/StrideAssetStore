@@ -338,16 +338,15 @@
         </p>
 
         <label class="check">
-            <input type="radio" name="assetsource" checked="@(_sourceFork.Length == 0)" @onchange="() => _sourceFork = string.Empty" />
+            <input type="radio" name="assetsource" checked="@(!_useForkSource)" @onchange="() => _useForkSource = false" />
             <span>The official asset <span class="install-hint">— certified versions, content hash verified.</span></span>
         </label>
         <label class="check">
-            <input type="radio" name="assetsource" checked="@(_sourceFork.Length > 0)"
-                   @onchange="SelectFirstFork" />
+            <input type="radio" name="assetsource" checked="@_useForkSource" @onchange="SelectForkSource" />
             <span>A fork <span class="install-hint">— someone else's copy, with its own versions and no certification.</span></span>
         </label>
 
-        @if (_sourceFork.Length > 0)
+        @if (_useForkSource)
         {
             <div class="cmd" style="margin:.3rem 0 0 1.7rem">
                 @if (_loadingForks)
@@ -378,7 +377,9 @@
 
         <div class="modal-foot">
             <button class="btn" @onclick="() => _pendingSource = null">Cancel</button>
-            <button class="btn primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_sourceRef))"
+            @* A fork chosen but not named would silently fall back to the official asset. *@
+            <button class="btn primary"
+                    disabled="@(_busy || string.IsNullOrWhiteSpace(_sourceRef) || (_useForkSource && string.IsNullOrWhiteSpace(_sourceFork)))"
                     @onclick="ApplySourceSwitch">Switch</button>
         </div>
     }
@@ -571,19 +572,28 @@
 
     private SourcePicker? _pendingSource;
     private string _sourceFork = "";
+    private bool _useForkSource;
     private string _sourceRef = "";
     private bool _loadingForks;
     private IReadOnlyList<StrideAssetStore.Core.Local.Git.AssetFork> _forks = [];
 
-    /// <summary>Picking "a fork" preselects the first one found, so the choice isn't left empty.</summary>
-    private void SelectFirstFork() =>
-        _sourceFork = _forks.FirstOrDefault()?.FullName ?? " ";
+    /// <summary>Picking "a fork" preselects the first one found; with none, the field stays empty
+    /// and Switch stays disabled until something is typed.</summary>
+    private void SelectForkSource()
+    {
+        _useForkSource = true;
+        if (string.IsNullOrWhiteSpace(_sourceFork))
+        {
+            _sourceFork = _forks.FirstOrDefault()?.FullName ?? "";
+        }
+    }
 
     /// <summary>Opens the official-vs-fork picker, loading the asset's forks once.</summary>
     private async Task OpenSourcePicker(string csprojPath, ProjectAsset asset, IndexedAsset entry)
     {
         _pendingSource = new SourcePicker(csprojPath, asset, entry);
         _sourceFork = asset.Fork ?? "";
+        _useForkSource = asset.Fork is not null;
         _sourceRef = string.IsNullOrEmpty(asset.Ref) ? entry.Latest.Ref : asset.Ref;
 
         _loadingForks = true;
@@ -605,7 +615,7 @@
             return;
         }
 
-        var fork = string.IsNullOrWhiteSpace(_sourceFork) ? null : _sourceFork.Trim();
+        var fork = _useForkSource && !string.IsNullOrWhiteSpace(_sourceFork) ? _sourceFork.Trim() : null;
         var newRef = _sourceRef.Trim();
         _pendingSource = null;
         _busy = true;

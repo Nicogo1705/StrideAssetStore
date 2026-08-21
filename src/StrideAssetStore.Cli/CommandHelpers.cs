@@ -54,7 +54,7 @@ internal static class CommandHelpers
             _ => throw new ArgumentException($"Unknown source '{settings.Source}'. Use 'local' or 'git'."),
         };
 
-        Func<string, int?>? stars = settings.Stars
+        Func<string, (int? Stars, int? Forks)>? stars = settings.Stars
             ? new GitHubStars(Environment.GetEnvironmentVariable("GITHUB_TOKEN")).Get
             : null;
 

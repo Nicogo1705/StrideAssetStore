@@ -19,7 +19,7 @@ public sealed class IndexBuilder(
     string containerRoot,
     IAssetSource source,
     AssetValidator validator,
-    Func<string, int?>? starsProvider = null,
+    Func<string, (int? Stars, int? Forks)>? starsProvider = null,
     Func<string, IReadOnlyList<(string Tag, string Commit)>>? tagsProvider = null,
     Func<string, string, string?>? headProvider = null)
 {
@@ -135,12 +135,17 @@ public sealed class IndexBuilder(
             report.Warning("commit.unresolved", "Commit could not be resolved (git unavailable); using placeholder.");
         }
 
+        // One lookup, two numbers: they come from the same API response, and calling twice per
+        // asset would double the requests against GitHub's hourly limit for nothing.
+        var popularity = starsProvider?.Invoke(entry.Repo);
+
         return new IndexedAsset
         {
             Id = entry.Id,
             Repo = entry.Repo,
             Manifest = manifest,
-            Stars = starsProvider?.Invoke(entry.Repo),
+            Stars = popularity?.Stars,
+            Forks = popularity?.Forks,
             AddedAt = RegistryEntryAddedAt(entry.Id),
             Versions = BuildVersions(entry.Repo),
             Certified = MapCertified(entry),
@@ -263,10 +268,12 @@ public sealed class IndexBuilder(
             if (prevById.TryGetValue(entry.Id, out var prev) && head is not null && prev.Latest.Commit == head
                 && prev.Latest.Files.Count > 0)
             {
+                var popularity = starsProvider?.Invoke(entry.Repo);
                 reused[entry.Id] = prev with
                 {
                     Repo = entry.Repo,
-                    Stars = starsProvider?.Invoke(entry.Repo) ?? prev.Stars,
+                    Stars = popularity?.Stars ?? prev.Stars,
+                    Forks = popularity?.Forks ?? prev.Forks,
                     AddedAt = prev.AddedAt ?? RegistryEntryAddedAt(entry.Id),
                     Versions = BuildVersions(entry.Repo),
                     // Certifications live in the registry entry, not the repo — they can change
@@ -368,12 +375,14 @@ public sealed class IndexBuilder(
                 report.Warning("commit.unresolved", "Commit could not be resolved (git unavailable); using placeholder.");
             }
 
+            var popularity = starsProvider?.Invoke(entry.Repo);
             result.Add(new IndexedAsset
             {
                 Id = entry.Id,
                 Repo = entry.Repo,
                 Manifest = manifest,
-                Stars = starsProvider?.Invoke(entry.Repo),
+                Stars = popularity?.Stars,
+                Forks = popularity?.Forks,
                 AddedAt = RegistryEntryAddedAt(entry.Id),
                 Versions = BuildVersions(entry.Repo),
                 Certified = MapCertified(entry),

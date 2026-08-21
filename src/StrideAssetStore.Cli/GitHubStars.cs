@@ -5,7 +5,7 @@ using System.Text.Json;
 
 namespace StrideAssetStore.Cli;
 
-/// <summary>Best-effort GitHub stargazer-count lookup for index enrichment.</summary>
+/// <summary>Best-effort GitHub popularity lookup (stars and forks) for index enrichment.</summary>
 public sealed class GitHubStars
 {
     private readonly HttpClient _http = new();
@@ -20,23 +20,26 @@ public sealed class GitHubStars
         }
     }
 
-    /// <summary>Returns the stargazer count for a GitHub repo URL, or null (non-GitHub or failure).</summary>
-    public int? Get(string repoUrl)
+    /// <summary>Stars and forks for a GitHub repo URL, both null when it isn't GitHub or the call
+    /// fails. One request answers both — they live in the same payload.</summary>
+    public (int? Stars, int? Forks) Get(string repoUrl)
     {
         if (!TryParseGitHub(repoUrl, out var owner, out var name))
         {
-            return null;
+            return (null, null);
         }
 
         try
         {
             var json = _http.GetStringAsync($"https://api.github.com/repos/{owner}/{name}").GetAwaiter().GetResult();
             using var doc = JsonDocument.Parse(json);
-            return doc.RootElement.GetProperty("stargazers_count").GetInt32();
+            return (
+                doc.RootElement.TryGetProperty("stargazers_count", out var s) ? s.GetInt32() : null,
+                doc.RootElement.TryGetProperty("forks_count", out var f) ? f.GetInt32() : null);
         }
         catch
         {
-            return null;
+            return (null, null);
         }
     }
 

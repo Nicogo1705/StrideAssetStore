@@ -28,6 +28,10 @@ public sealed record IndexedAsset
     /// <summary>GitHub stargazer count, when known (filled by the bot via the GitHub API).</summary>
     public int? Stars { get; init; }
 
+    /// <summary>GitHub fork count, when known. Comes from the same API call as <see cref="Stars"/>,
+    /// and says something stars don't: how many people took the asset somewhere of their own.</summary>
+    public int? Forks { get; init; }
+
     /// <summary>Rolling daily history of <see cref="Stars"/> (carried over from the previous index,
     /// ~30 days) — enables the "trending" sort (7-day star delta) with zero server.</summary>
     public IReadOnlyList<StarsSnapshot> StarsSnapshots { get; init; } = [];
