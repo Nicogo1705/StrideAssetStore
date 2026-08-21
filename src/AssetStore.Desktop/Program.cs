@@ -61,10 +61,15 @@ var indexUrl = builder.Configuration["Catalog:IndexUrl"]
     ?? "https://raw.githubusercontent.com/Nicogo1705/AssetContainer/main/index.lock.json";
 var appRepo = builder.Configuration["App:Repo"] ?? "https://github.com/Nicogo1705/AssetStore";
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(Url + "/") });
-builder.Services.AddScoped<ICatalogSource>(_ => new HttpCatalogSource(new HttpClient(), new Uri(indexUrl)));
+// Short timeout on purpose: a degraded GitHub can hold the connection open instead of failing
+// fast, and the default 100s would keep the first interactive render pending that whole time —
+// the app would sit on its prerendered HTML, with none of its buttons alive.
+builder.Services.AddScoped<ICatalogSource>(_ => new HttpCatalogSource(
+    new HttpClient { Timeout = TimeSpan.FromSeconds(8) }, new Uri(indexUrl)));
 builder.Services.AddAssetStoreUi(
     builder.Configuration.GetSection("Registry").Get<AssetStore.App.Services.RegistryOptions>(),
-    builder.Configuration.GetSection("App").Get<AssetStore.App.Services.AppInfo>());
+    builder.Configuration.GetSection("App").Get<AssetStore.App.Services.AppInfo>(),
+    knownLocal: true); // this IS the local app — never wait for the browser to say so
 builder.Services.AddScoped<AssetStore.Desktop.Services.DesktopInstaller>();
 builder.Services.AddSingleton<AssetStore.Desktop.Services.ProjectStore>();
 builder.Services.AddSingleton<AssetStore.Desktop.Services.AuthorRepoService>();
@@ -78,6 +83,16 @@ builder.Services.AddScoped<AssetStore.App.Services.ICliPublisher>(sp =>
     sp.GetRequiredService<AssetStore.Desktop.Services.GhCliPublisher>());
 
 var app = builder.Build();
+
+// A page that fails to render (bad server response, unexpected data) must never leave the user
+// with a dead browser tab and no way out: serve the Blazor-free rescue controls instead.
+app.UseExceptionHandler(sub => sub.Run(async ctx =>
+{
+    ctx.Response.StatusCode = StatusCodes.Status500InternalServerError;
+    ctx.Response.ContentType = "text/html; charset=utf-8";
+    await ctx.Response.WriteAsync(RescuePage("This page failed to render — the app itself is still running."));
+}));
+
 app.UseStaticFiles();
 app.UseAntiforgery();
 
@@ -100,7 +115,39 @@ app.MapRazorComponents<AssetStore.Desktop.Components.App>()
     .AddAdditionalAssemblies(typeof(ServiceCollectionExtensions).Assembly); // routable pages live in the RCL
 
 // Local-only window controls for the UI's top-bar buttons (the console is the app's only window).
-app.MapPost("/console/toggle", () => Results.Json(new { visible = ConsoleWindow.Toggle() }));
+// GET is supported on purpose: when the Blazor circuit is dead these must stay reachable from the
+// address bar alone (http://localhost:5111/console/toggle), with no scripting involved.
+// They are also callable from the online storefront (which pings this app and knows it runs):
+// when the desktop UI itself is unusable, that page is the only remaining place to drive it.
+var storefrontOrigin = new Uri(SiteUrlFromRepo(appRepo)).GetLeftPart(UriPartial.Authority);
+
+app.MapMethods("/console/toggle", ["GET", "POST", "OPTIONS"], (HttpContext ctx) =>
+{
+    if (!AllowControlOrigin(ctx, storefrontOrigin))
+    {
+        return Results.StatusCode(StatusCodes.Status403Forbidden);
+    }
+
+    if (HttpMethods.IsOptions(ctx.Request.Method))
+    {
+        return Results.NoContent();
+    }
+
+    var visible = ConsoleWindow.Toggle();
+    if (!HttpMethods.IsGet(ctx.Request.Method))
+    {
+        return Results.Json(new { visible });
+    }
+
+    // Plain-link fallback (no scripting): come back to the page the click came from, so toggling
+    // the console from a broken UI doesn't also throw the user out of it.
+    return SameOriginReferer(ctx) is { } back
+        ? Results.Redirect(back)
+        : Results.Content(RescuePage($"Console window {(visible ? "opened" : "closed")}."), "text/html; charset=utf-8");
+});
+
+// Blazor-free rescue page — the one URL that works no matter what the UI is doing.
+app.MapGet("/app/controls", () => Results.Content(RescuePage(null), "text/html; charset=utf-8"));
 // Nav attention dots: things that deserve the user's eye (outdated assets, broken refs).
 // Computed on demand — the layout asks once per session, in the background.
 app.MapGet("/api/attention", async (
@@ -135,12 +182,22 @@ app.MapPost("/app/self-update", (string tag, AssetStore.Desktop.Services.SelfUpd
     Results.Json(new { started = updater.TryStart(tag) }));
 app.MapGet("/app/self-update/status", (AssetStore.Desktop.Services.SelfUpdater updater) =>
     Results.Json(new { stage = updater.Stage, percent = updater.Percent, error = updater.Error, target = updater.TargetDir }));
-app.MapPost("/app/quit", (IHostApplicationLifetime lifetime) =>
+app.MapMethods("/app/quit", ["GET", "POST", "OPTIONS"], (HttpContext ctx, IHostApplicationLifetime lifetime) =>
 {
-    // Graceful stop: flushes and exits the whole process — the guaranteed kill path
-    // even when the console window is hidden.
-    _ = Task.Run(async () => { await Task.Delay(200); lifetime.StopApplication(); });
-    return Results.Json(new { stopping = true });
+    if (!AllowControlOrigin(ctx, storefrontOrigin))
+    {
+        return Results.StatusCode(StatusCodes.Status403Forbidden);
+    }
+
+    if (HttpMethods.IsOptions(ctx.Request.Method))
+    {
+        return Results.NoContent();
+    }
+
+    RequestQuit(lifetime);
+    return HttpMethods.IsGet(ctx.Request.Method)
+        ? Results.Content(RescuePage("Stopping the app — you can close this tab."), "text/html; charset=utf-8")
+        : Results.Json(new { stopping = true });
 });
 
 // Console window closed by the user (X / Alt+F4) → same clean shutdown as ⏻.
@@ -149,6 +206,12 @@ ConsoleWindow.OnConsoleClosing = () =>
     app.Lifetime.StopApplication();
     app.Lifetime.ApplicationStopped.WaitHandle.WaitOne(TimeSpan.FromSeconds(2));
 };
+
+// System-wide escape hatch: works even when the HTTP server itself is unresponsive, which is
+// the one case the rescue page can't cover.
+AssetStore.Desktop.Services.GlobalHotkeys.Start(
+    toggleConsole: () => ConsoleWindow.Toggle(),
+    quit: () => RequestQuit(app.Lifetime));
 
 app.Lifetime.ApplicationStarted.Register(() =>
 {
@@ -176,6 +239,12 @@ app.Lifetime.ApplicationStarted.Register(() =>
     ConsoleWindow.Log("");
     ConsoleWindow.Log("  Toggle this console with the 🖥 button in the app's top bar; quit with ⏻.");
     ConsoleWindow.Log("  Closing this window (X / Alt+F4) quits the whole app.");
+    ConsoleWindow.Log($"  If the UI ever breaks: {Url}/app/controls  (works without the app's UI)");
+    if (AssetStore.Desktop.Services.GlobalHotkeys.Description is { } hotkeys)
+    {
+        ConsoleWindow.Log($"  Anywhere in Windows: {hotkeys}");
+    }
+
     ConsoleWindow.Log("");
     OpenBrowser(Url + (launchPath ?? ""));
 
@@ -255,6 +324,134 @@ static void OpenBrowser(string url)
     }
 }
 
+/// <summary>The page the request came from, when it belongs to this app — null otherwise, so a
+/// foreign Referer can never turn these endpoints into an open redirect.</summary>
+static string? SameOriginReferer(HttpContext ctx)
+{
+    var referer = ctx.Request.Headers.Referer.ToString();
+    if (!Uri.TryCreate(referer, UriKind.Absolute, out var uri) || !uri.IsLoopback
+        || uri.Port != ctx.Request.Host.Port)
+    {
+        return null;
+    }
+
+    return uri.PathAndQuery;
+}
+
+/// <summary>
+/// Authorizes a cross-origin call to the window controls and stamps the CORS response headers.
+/// Only the app's own pages and the official storefront may drive them — these endpoints close
+/// the app, so a random website must not be able to reach them. Chrome's Private Network Access
+/// preflight (public page → localhost) needs the extra allow header.
+/// </summary>
+static bool AllowControlOrigin(HttpContext ctx, string storefrontOrigin)
+{
+    var origin = ctx.Request.Headers.Origin.ToString();
+    if (string.IsNullOrEmpty(origin))
+    {
+        return true; // address-bar navigation — no CORS involved at all
+    }
+
+    var allowed = string.Equals(origin, storefrontOrigin, StringComparison.OrdinalIgnoreCase)
+        || (Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback);
+    if (!allowed)
+    {
+        return false;
+    }
+
+    ctx.Response.Headers.AccessControlAllowOrigin = origin;
+    ctx.Response.Headers["Access-Control-Allow-Private-Network"] = "true";
+    ctx.Response.Headers.AccessControlAllowMethods = "GET, POST";
+    ctx.Response.Headers.AccessControlAllowHeaders = "Content-Type";
+    ctx.Response.Headers.Vary = "Origin";
+    return true;
+}
+
+/// <summary>
+/// Stops the app for good. The graceful stop is tried first; a hard exit follows if the host is
+/// still up seconds later, because a wedged request or a stuck shutdown would otherwise leave a
+/// windowless process that only the Task Manager can end.
+/// </summary>
+static void RequestQuit(IHostApplicationLifetime lifetime)
+{
+    _ = Task.Run(async () =>
+    {
+        await Task.Delay(200);
+        try
+        {
+            lifetime.StopApplication();
+        }
+        catch
+        {
+            // Already stopping — the backstop below still applies.
+        }
+    });
+
+    new Thread(() =>
+    {
+        Thread.Sleep(6000);
+        try
+        {
+            Environment.Exit(0);
+        }
+        catch
+        {
+            // fall through to the kill
+        }
+
+        Thread.Sleep(2000);
+        Process.GetCurrentProcess().Kill();
+    })
+    { IsBackground = true, Name = "AssetStore quit backstop" }.Start();
+}
+
+/// <summary>
+/// Self-contained HTML for the rescue controls: no Blazor, no SignalR circuit, no scripts needed
+/// for the buttons (plain links). This is what the user gets when the app's UI is unusable.
+/// </summary>
+static string RescuePage(string? notice)
+{
+    var consoleState = ConsoleWindow.IsOpen ? "open" : "closed";
+    var note = notice is null ? "" : $"<p class=\"notice\">{System.Net.WebUtility.HtmlEncode(notice)}</p>";
+    var hotkeys = AssetStore.Desktop.Services.GlobalHotkeys.Description is { } h
+        ? $"<p class=\"hint\">Anywhere in Windows: {System.Net.WebUtility.HtmlEncode(h)}</p>"
+        : "";
+    return $$"""
+        <!DOCTYPE html>
+        <html lang="en"><head><meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Asset Store — app controls</title>
+        <style>
+          body { font-family: system-ui, sans-serif; background: #11141a; color: #e6e9ef;
+                 display: grid; place-items: center; min-height: 100vh; margin: 0; }
+          .card { background: #171b23; border: 1px solid #2a3140; border-radius: 14px;
+                  padding: 1.8rem 2rem; max-width: 34rem; }
+          h1 { font-size: 1.1rem; margin: 0 0 .4rem; }
+          p { color: #98a2b3; font-size: .88rem; line-height: 1.5; }
+          .notice { color: #e6e9ef; }
+          .row { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1.2rem; }
+          a.btn { display: inline-block; padding: .55rem 1rem; border-radius: 9px; text-decoration: none;
+                  border: 1px solid #2a3140; color: #e6e9ef; background: #1e2430; }
+          a.btn:hover { border-color: #4c8dff; }
+          a.btn.danger:hover { border-color: #ff6b6b; }
+          .hint { font-size: .78rem; }
+        </style></head><body>
+        <div class="card">
+          <h1>Community Stride Asset Store — app controls</h1>
+          {{note}}
+          <p>These controls work without the app's interface, so they stay available when a page
+             fails or the connection to it is lost. The console window is currently <strong>{{consoleState}}</strong>.</p>
+          <div class="row">
+            <a class="btn" href="/console/toggle">🖥 Toggle console</a>
+            <a class="btn danger" href="/app/quit">⏻ Quit the app</a>
+            <a class="btn" href="/">↩ Back to the app</a>
+          </div>
+          {{hotkeys}}
+          <p class="hint">Bookmark this page: <code>http://localhost:5111/app/controls</code></p>
+        </div></body></html>
+        """;
+}
+
 /// <summary>
 /// The app's on-demand console window (Windows). The process is a WinExe — no console
 /// exists at startup; the UI's 🖥 button allocates a real one (AllocConsole) and replays
@@ -292,6 +489,9 @@ static class ConsoleWindow
     /// terminates the process after a console close — this hook lets the host stop gracefully
     /// (flush, save) inside the ~5s grace period instead of dying mid-write.</summary>
     public static Action? OnConsoleClosing;
+
+    /// <summary>Whether a console window is currently allocated for this process.</summary>
+    public static bool IsOpen => !OperatingSystem.IsWindows() || GetConsoleWindow() != IntPtr.Zero;
 
     /// <summary>Buffers a banner/status line and echoes it when the console is open.
     /// On non-Windows the process keeps its normal stdout, so lines always print there.</summary>

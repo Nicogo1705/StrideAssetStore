@@ -9,14 +9,21 @@ namespace AssetStore.App.Services;
 /// Detects whether the app runs locally (localhost / desktop) or from an online deployment, which
 /// determines whether real local install is offered versus copy-the-commands guidance.
 /// </summary>
-public sealed class AppEnvironment(IJSRuntime js)
+/// <param name="js">Browser interop, used only when the host doesn't already know the answer.</param>
+/// <param name="knownLocal">
+/// Set by hosts that know their nature without asking the browser (the desktop app). It makes the
+/// environment known from the very first render: the local controls — console toggle, quit — then
+/// exist in the prerendered HTML instead of appearing only once the circuit is up, which is exactly
+/// when they can't be reached.
+/// </param>
+public sealed class AppEnvironment(IJSRuntime js, bool? knownLocal = null)
 {
-    public bool Initialized { get; private set; }
+    public bool Initialized { get; private set; } = knownLocal is not null;
 
     private string Hostname { get; set; } = "";
 
     /// <summary>True when served from localhost or a desktop host (real install can be offered).</summary>
-    public bool IsLocal { get; private set; }
+    public bool IsLocal { get; private set; } = knownLocal ?? false;
 
     /// <summary>Whether the app can perform a real local install (clone + reference). Proto: local only.</summary>
     public bool InstallAvailable => IsLocal;

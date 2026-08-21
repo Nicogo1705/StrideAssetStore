@@ -35,13 +35,16 @@
             {
                 @* Renders server-side in the desktop app, so this is the HOST's OS. Hiding a
                    console window only exists on Windows — elsewhere the terminal is the user's. *@
+                @* Links, not buttons: the handler keeps the page in place while the circuit is
+                   alive, and the href stays as a working fallback when it isn't — a broken page
+                   is precisely when quitting the app matters. *@
                 @if (OperatingSystem.IsWindows())
                 {
-                    <button type="button" class="theme-toggle" title="Hide / show the console window (remembered for the next start)"
-                            @onclick="ToggleConsoleAsync">🖥</button>
+                    <a class="theme-toggle" href="console/toggle" title="Hide / show the console window (remembered for the next start)"
+                       @onclick="ToggleConsoleAsync" @onclick:preventDefault>🖥</a>
                 }
-                <button type="button" class="theme-toggle" title="Quit the desktop app (stops the server process)"
-                        @onclick="QuitAppAsync">⏻</button>
+                <a class="theme-toggle" href="app/quit" title="Quit the desktop app (stops the server process)"
+                   @onclick="QuitAppAsync" @onclick:preventDefault>⏻</a>
             }
             @if (Env.Initialized && !Env.IsLocal)
             {
@@ -59,6 +62,16 @@
                 {
                     <button type="button" class="btn-dl" title="Opens the desktop app if it's installed, otherwise takes you to the download page"
                             @onclick="OpenOrDownloadAsync">⬇ Open / download app</button>
+                }
+
+                @if (_localApp is { Running: true })
+                {
+                    @* The app's own top bar carries these — but a broken local UI is exactly when
+                       you need them, so the storefront drives the running app from here too. *@
+                    <button type="button" class="theme-toggle" title="Hide / show the console window of the app running on this machine"
+                            @onclick="ToggleRemoteConsoleAsync">🖥</button>
+                    <button type="button" class="theme-toggle" title="Quit the app running on this machine"
+                            @onclick="QuitLocalAppAsync">⏻</button>
                 }
             }
             @if (Env.Initialized)
@@ -117,6 +130,16 @@
                     <button type="button" class="banner-close" title="Hide until the next release" @onclick="DismissUpdateAsync">✕</button>
                 </span>
             }
+        </div>
+    }
+
+    @if (_remoteControlNotice is not null)
+    {
+        <div class="update-banner">
+            <span>🖥 @((MarkupString)_remoteControlNotice)</span>
+            <span class="update-actions">
+                <button type="button" class="banner-close" title="Hide" @onclick="() => _remoteControlNotice = null">✕</button>
+            </span>
         </div>
     }
 
@@ -260,6 +283,49 @@
         catch
         {
             // Endpoint only exists in the desktop app; nothing to do if it isn't there.
+        }
+    }
+
+    // Storefront → running desktop app. Older apps (≤ v1.5.1) don't accept these cross-origin,
+    // so a failure is expected there and gets an actionable message rather than silence.
+    private string? _remoteControlNotice;
+
+    private const string RemoteControlFailed =
+        "<strong>Couldn't reach the desktop app</strong> — it's running but doesn't accept remote controls "
+        + "(app older than v1.5.2). Use its own window, or update it.";
+
+    private async Task ToggleRemoteConsoleAsync()
+    {
+        _remoteControlNotice = await AppCommandAsync("console/toggle") ? null : RemoteControlFailed;
+    }
+
+    private async Task QuitLocalAppAsync()
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", "Quit the Community Stride Asset Store app running on this machine?"))
+        {
+            return;
+        }
+
+        if (await AppCommandAsync("app/quit"))
+        {
+            _remoteControlNotice = "<strong>The desktop app is stopping.</strong>";
+            _localApp = new LocalAppStatus(false, null); // header flips back to open/download
+        }
+        else
+        {
+            _remoteControlNotice = RemoteControlFailed;
+        }
+    }
+
+    private async Task<bool> AppCommandAsync(string path)
+    {
+        try
+        {
+            return await JS.InvokeAsync<bool>("assetStoreEnv.appCommand", path);
+        }
+        catch
+        {
+            return false;
         }
     }
 

@@ -25,6 +25,14 @@ window.assetStoreEnv = {
                     .catch(function () { return { running: false, version: null }; });
             });
     },
+    // Drives the running desktop app from the online storefront (console toggle, quit). The app's
+    // own UI is the normal place for these, but it's exactly what can be unusable — this page is
+    // then the only way left. Only this origin is accepted by the app; false = couldn't reach it.
+    appCommand: function (path) {
+        return fetch('http://localhost:5111/' + path, { method: 'POST', cache: 'no-store' })
+            .then(function (r) { return r.ok; })
+            .catch(function () { return false; });
+    },
     // Small persisted UI preferences (dismissed banners…) — same store as the theme.
     getPref: function (key) {
         try { return localStorage.getItem('assetstore.' + key); } catch (e) { return null; }

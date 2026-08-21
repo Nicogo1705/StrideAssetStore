@@ -11,8 +11,14 @@ namespace AssetStore.App;
 /// <summary>Registers the shared Asset Store UI services. Hosts must also register an <see cref="ICatalogSource"/>.</summary>
 public static class ServiceCollectionExtensions
 {
+    /// <param name="services">The host's service collection.</param>
+    /// <param name="registry">Registry (owner/repo) the UI publishes to; defaults apply when null.</param>
+    /// <param name="app">App identity (repository URL…) shown in the UI; defaults apply when null.</param>
+    /// <param name="knownLocal">Hosts that know they are the local desktop app pass true, so the
+    /// environment never has to be discovered through the browser (see <see cref="AppEnvironment"/>).</param>
     public static IServiceCollection AddAssetStoreUi(
-        this IServiceCollection services, RegistryOptions? registry = null, AppInfo? app = null)
+        this IServiceCollection services, RegistryOptions? registry = null, AppInfo? app = null,
+        bool? knownLocal = null)
     {
         services.AddSingleton(registry ?? new RegistryOptions());
         services.AddSingleton(app ?? new AppInfo());
@@ -22,7 +28,7 @@ public static class ServiceCollectionExtensions
             new CatalogLoader(sp.GetRequiredService<ICatalogSource>(), sp.GetRequiredService<ICatalogCache>()));
         services.AddScoped<CatalogState>();
         services.AddScoped<AttentionState>();
-        services.AddScoped<AppEnvironment>();
+        services.AddScoped(sp => new AppEnvironment(sp.GetRequiredService<IJSRuntime>(), knownLocal));
 
         // GitHub publishing (PAT-based; api.github.com is CORS-enabled with a token).
         services.AddScoped(sp =>
