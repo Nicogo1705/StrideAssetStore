@@ -49,6 +49,11 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
     EnvironmentName = Environments.Production, // desktop app: no dev-time static asset patching
+    // The content root defaults to the working directory, which for a desktop app is wherever it was
+    // started from — a shortcut, a terminal in another folder, or (debugging from Visual Studio) the
+    // project directory, which has no wwwroot at all. wwwroot then resolves to nothing, so
+    // _framework/blazor.web.js 404s and no circuit ever starts: the app renders and does nothing.
+    ContentRootPath = AppContext.BaseDirectory,
 });
 builder.WebHost.UseUrls(Url);
 builder.WebHost.UseStaticWebAssets(); // serve _framework + RCL assets in Production/dotnet run

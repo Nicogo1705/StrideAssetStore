@@ -2,11 +2,7 @@
   "profiles": {
     "StrideAssetStore.Desktop": {
       "commandName": "Project",
-      "launchBrowser": true,
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
-      },
-      "applicationUrl": "https://localhost:50597;http://localhost:50598"
+      "launchBrowser": false
     }
   }
 }
