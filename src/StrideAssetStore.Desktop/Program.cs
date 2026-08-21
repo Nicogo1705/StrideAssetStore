@@ -70,7 +70,7 @@ builder.Services.AddStrideAssetStoreUi(
     builder.Configuration.GetSection("Registry").Get<StrideAssetStore.App.Services.RegistryOptions>(),
     builder.Configuration.GetSection("App").Get<StrideAssetStore.App.Services.AppInfo>(),
     knownLocal: true); // this IS the local app — never wait for the browser to say so
-builder.Services.AddScoped<StrideAssetStore.Desktop.Services.DesktopInstaller>();
+builder.Services.AddScoped<StrideAssetStore.Core.Local.Install.AssetInstaller>();
 builder.Services.AddSingleton<StrideAssetStore.Desktop.Services.ProjectStore>();
 builder.Services.AddSingleton<StrideAssetStore.Desktop.Services.AuthorRepoService>();
 builder.Services.AddSingleton<StrideAssetStore.Desktop.Services.SelfUpdater>();
@@ -152,7 +152,7 @@ app.MapGet("/app/controls", () => Results.Content(RescuePage(null), "text/html; 
 // Computed on demand — the layout asks once per session, in the background.
 app.MapGet("/api/attention", async (
     StrideAssetStore.Desktop.Services.ProjectStore store,
-    StrideAssetStore.Desktop.Services.DesktopInstaller installer,
+    StrideAssetStore.Core.Local.Install.AssetInstaller installer,
     ICatalogSource source) =>
 {
     try
@@ -227,8 +227,8 @@ app.Lifetime.ApplicationStarted.Register(() =>
     var dataDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "StrideAssetStore");
     ConsoleWindow.Log($"  App data:       {dataDir}  (tracked projects, settings)");
-    ConsoleWindow.Log($"  Asset cache:    {StrideAssetStore.Desktop.Services.DesktopInstaller.GlobalCacheRoot}  (shared clones, one subfolder per ref)");
-    ConsoleWindow.Log($"  Git:            {(new StrideAssetStore.Core.Git.GitClient().IsAvailable() ? "found on PATH" : "NOT FOUND — installs will fail")}");
+    ConsoleWindow.Log($"  Asset cache:    {StrideAssetStore.Core.Local.Install.AssetInstaller.GlobalCacheRoot}  (shared clones, one subfolder per ref)");
+    ConsoleWindow.Log($"  Git:            {(new StrideAssetStore.Core.Local.Git.GitClient().IsAvailable() ? "found on PATH" : "NOT FOUND — installs will fail")}");
     if (launchPath is not null)
     {
         ConsoleWindow.Log($"  Install link:   opening {launchPath}");

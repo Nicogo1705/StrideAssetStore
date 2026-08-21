@@ -6,7 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Json.Schema;
 
-namespace StrideAssetStore.Core.Validation;
+namespace StrideAssetStore.Core.Local.Validation;
 
 /// <summary>Validates JSON documents against a JSON Schema (draft 2020-12).</summary>
 public sealed class SchemaValidator

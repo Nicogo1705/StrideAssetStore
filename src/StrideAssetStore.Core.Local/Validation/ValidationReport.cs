@@ -1,7 +1,7 @@
 // Copyright (c) <YEAR> <COPYRIGHT HOLDER>
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
-namespace StrideAssetStore.Core.Validation;
+namespace StrideAssetStore.Core.Local.Validation;
 
 /// <summary>Severity of a validation message.</summary>
 public enum ValidationSeverity

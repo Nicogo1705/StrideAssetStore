@@ -172,7 +172,7 @@ public sealed class AssetCatalog(IndexLock index)
                                         .ThenBy(a => a.Manifest.Name, StringComparer.OrdinalIgnoreCase),
             CatalogSort.NewArrivals => result.OrderByDescending(a => a.AddedAt ?? "")
                                              .ThenBy(a => a.Manifest.Name, StringComparer.OrdinalIgnoreCase),
-            CatalogSort.Trending => result.OrderByDescending(Indexing.StarsHistory.SevenDayDelta)
+            CatalogSort.Trending => result.OrderByDescending(StarsHistory.SevenDayDelta)
                                           .ThenByDescending(a => a.Stars ?? -1)
                                           .ThenBy(a => a.Manifest.Name, StringComparer.OrdinalIgnoreCase),
             CatalogSort.Size => result.OrderBy(a => a.Latest.SizeBytes)

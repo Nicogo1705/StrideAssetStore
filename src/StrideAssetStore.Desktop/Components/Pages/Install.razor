@@ -2,7 +2,7 @@
 @page "/projects/install"
 @implements IDisposable
 @inject CatalogState State
-@inject DesktopInstaller Installer
+@inject AssetInstaller Installer
 @inject ProjectStore Store
 
 @if (Asset is null)
@@ -182,7 +182,7 @@ else
                     </label>
                     @if (_cloneMode == CloneMode.Global)
                     {
-                        <p class="mono install-hint" style="margin:.15rem 0 .5rem 1.7rem">@DesktopInstaller.GlobalCacheRoot</p>
+                        <p class="mono install-hint" style="margin:.15rem 0 .5rem 1.7rem">@AssetInstaller.GlobalCacheRoot</p>
                     }
                     <label class="check">
                         <input type="radio" name="clonemode" checked="@(_cloneMode == CloneMode.Custom)"

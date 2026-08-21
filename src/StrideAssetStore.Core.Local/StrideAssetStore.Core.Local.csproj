@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>StrideAssetStore.Core.Local</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The installer's cache-root override is a test hook, not public API. -->
+    <InternalsVisibleTo Include="StrideAssetStore.Core.Local.Tests" />
+    <InternalsVisibleTo Include="StrideAssetStore.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\StrideAssetStore.Core\StrideAssetStore.Core.csproj" />
+  </ItemGroup>
+
+</Project>

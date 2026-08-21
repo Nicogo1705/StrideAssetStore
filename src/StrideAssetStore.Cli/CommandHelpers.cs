@@ -2,9 +2,9 @@
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
 using StrideAssetStore.Cli.Commands;
-using StrideAssetStore.Core.Git;
-using StrideAssetStore.Core.Indexing;
-using StrideAssetStore.Core.Validation;
+using StrideAssetStore.Core.Local.Git;
+using StrideAssetStore.Core.Local.Indexing;
+using StrideAssetStore.Core.Local.Validation;
 
 namespace StrideAssetStore.Cli;
 

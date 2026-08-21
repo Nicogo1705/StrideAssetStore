@@ -14,4 +14,13 @@
     <ProjectReference Include="..\StrideAssetStore.Core\StrideAssetStore.Core.csproj" />
   </ItemGroup>
 
+  <!-- This library is embedded in the WebAssembly storefront, so it must never gain filesystem or
+       git code: that is what Core.Local is for, and it belongs to the CLI and the desktop app
+       alone. A reference could arrive transitively and stay invisible until something throws in a
+       browser, so fail the build instead. -->
+  <Target Name="_ForbidCoreLocalReference" AfterTargets="ResolveReferences">
+    <Error Condition="'%(ReferencePath.Filename)' == 'StrideAssetStore.Core.Local'"
+           Text="$(MSBuildProjectName) must not reference StrideAssetStore.Core.Local: it runs in the browser, where there is no filesystem and no git." />
+  </Target>
+
 </Project>

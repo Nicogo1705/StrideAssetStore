@@ -291,7 +291,7 @@ else if (State.Catalog is not null)
         var seed = (now.Year * 1000 + now.DayOfYear) * 100 + now.Hour;
         return assets
             .Select(a => (Asset: a,
-                Key: Math.Pow(StableUnit(a.Id, seed), 1.0 / (1 + Core.Indexing.StarsHistory.SevenDayDelta(a)))))
+                Key: Math.Pow(StableUnit(a.Id, seed), 1.0 / (1 + Core.Catalog.StarsHistory.SevenDayDelta(a)))))
             .OrderByDescending(x => x.Key)
             .Select(x => x.Asset)
             .ToList();

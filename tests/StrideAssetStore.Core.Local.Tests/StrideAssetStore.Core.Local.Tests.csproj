@@ -3,8 +3,6 @@
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
-    <!-- The tested project is a WinExe web app; tests are a normal library host. -->
-    <OutputType>Library</OutputType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,13 +17,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- InstallerWorkspace redirects the process-wide DesktopInstaller.AppDataOverride static;
+    <!-- InstallerWorkspace redirects the process-wide AssetInstaller.AppDataOverride static;
          collections must not run in parallel or workspaces would clobber each other's cache root. -->
     <None Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\StrideAssetStore.Desktop\StrideAssetStore.Desktop.csproj" />
+    <ProjectReference Include="..\..\src\StrideAssetStore.Core.Local\StrideAssetStore.Core.Local.csproj" />
   </ItemGroup>
 
 </Project>

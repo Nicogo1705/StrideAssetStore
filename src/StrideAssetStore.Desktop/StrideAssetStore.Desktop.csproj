@@ -8,12 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="StrideAssetStore.Desktop.Tests" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\StrideAssetStore.UI\StrideAssetStore.UI.csproj" />
     <ProjectReference Include="..\StrideAssetStore.Core\StrideAssetStore.Core.csproj" />
+    <ProjectReference Include="..\StrideAssetStore.Core.Local\StrideAssetStore.Core.Local.csproj" />
   </ItemGroup>
 
   <!--

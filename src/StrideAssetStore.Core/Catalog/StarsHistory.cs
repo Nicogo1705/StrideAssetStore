@@ -3,7 +3,7 @@
 
 using StrideAssetStore.Core.Models;
 
-namespace StrideAssetStore.Core.Indexing;
+namespace StrideAssetStore.Core.Catalog;
 
 /// <summary>
 /// Maintains each asset's rolling daily stars history across index rebuilds: the history lives in

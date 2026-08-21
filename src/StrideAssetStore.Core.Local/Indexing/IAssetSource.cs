@@ -3,7 +3,7 @@
 
 using StrideAssetStore.Core.Models;
 
-namespace StrideAssetStore.Core.Indexing;
+namespace StrideAssetStore.Core.Local.Indexing;
 
 /// <summary>
 /// Provides access to an asset's working tree (the directory containing <c>AssetData/</c>) for a

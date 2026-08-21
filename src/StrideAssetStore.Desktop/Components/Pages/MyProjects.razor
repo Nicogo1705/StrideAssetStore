@@ -2,7 +2,7 @@
 @page "/projects"
 @implements IDisposable
 @inject CatalogState State
-@inject DesktopInstaller Installer
+@inject AssetInstaller Installer
 @inject ProjectStore Store
 @inject AttentionState Attention
 
@@ -489,7 +489,7 @@
     /// <summary>True when the installed clone lives in the shared per-machine cache (vs a local
     /// clone next to the project). Missing installs count too — their reference points there.</summary>
     private static bool IsGlobalCacheClone(ProjectAsset asset) =>
-        asset.CloneRoot.StartsWith(DesktopInstaller.GlobalCacheRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        asset.CloneRoot.StartsWith(AssetInstaller.GlobalCacheRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
 
     private static IReadOnlyList<string> RefChoices(IndexedAsset entry)
     {

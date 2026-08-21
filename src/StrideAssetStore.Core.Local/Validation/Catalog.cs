@@ -3,7 +3,7 @@
 
 using System.Text.Json;
 
-namespace StrideAssetStore.Core.Validation;
+namespace StrideAssetStore.Core.Local.Validation;
 
 /// <summary>Allowed categories and licenses, loaded from the AssetContainer <c>catalog/</c> folder.</summary>
 public sealed class Catalog

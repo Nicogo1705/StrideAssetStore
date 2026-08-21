@@ -5,7 +5,7 @@ using System.Text.Json;
 using StrideAssetStore.Core.Models;
 using StrideAssetStore.Core.Serialization;
 
-namespace StrideAssetStore.Core.Validation;
+namespace StrideAssetStore.Core.Local.Validation;
 
 /// <summary>Validates registry entries and manifests against schemas and catalog rules.</summary>
 public sealed class AssetValidator

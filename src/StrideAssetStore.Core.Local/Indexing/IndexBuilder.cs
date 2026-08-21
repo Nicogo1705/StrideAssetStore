@@ -2,14 +2,14 @@
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
 using StrideAssetStore.Core.Catalog;
-using StrideAssetStore.Core.Dependencies;
-using StrideAssetStore.Core.Git;
-using StrideAssetStore.Core.Hashing;
+using StrideAssetStore.Core.Local.Dependencies;
+using StrideAssetStore.Core.Local.Git;
+using StrideAssetStore.Core.Local.Hashing;
 using StrideAssetStore.Core.Models;
-using StrideAssetStore.Core.Projects;
-using StrideAssetStore.Core.Validation;
+using StrideAssetStore.Core.Local.Projects;
+using StrideAssetStore.Core.Local.Validation;
 
-namespace StrideAssetStore.Core.Indexing;
+namespace StrideAssetStore.Core.Local.Indexing;
 
 /// <summary>
 /// Crawls the AssetContainer registry, validates and enriches every entry, and produces the

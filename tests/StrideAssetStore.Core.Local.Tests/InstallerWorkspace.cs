@@ -3,14 +3,14 @@
 
 using System.Diagnostics;
 using StrideAssetStore.Core.Models;
-using StrideAssetStore.Desktop.Services;
+using StrideAssetStore.Core.Local.Install;
 
-namespace StrideAssetStore.Desktop.Tests;
+namespace StrideAssetStore.Core.Local.Tests;
 
 /// <summary>
-/// A disposable synthetic machine for <c>DesktopInstaller</c> tests: real (tiny) git repos as
+/// A disposable synthetic machine for <c>AssetInstaller</c> tests: real (tiny) git repos as
 /// asset clones, real .sln/.csproj files, and the per-machine global cache redirected into the
-/// workspace via the PROCESS-WIDE <c>DesktopInstaller.AppDataOverride</c> static (on Windows,
+/// workspace via the PROCESS-WIDE <c>AssetInstaller.AppDataOverride</c> static (on Windows,
 /// <c>GetFolderPath(ApplicationData)</c> uses the shell API and ignores the APPDATA variable, so
 /// an environment redirect wouldn't take). The override drives both <c>GlobalCacheRoot</c> and
 /// the MSBuild marker expansion, so they stay coherent. No network anywhere.
@@ -28,7 +28,7 @@ public sealed class InstallerWorkspace : IDisposable
     {
         AppData = Path.Combine(Root, "appdata");
         Directory.CreateDirectory(AppData);
-        DesktopInstaller.AppDataOverride = AppData;
+        AssetInstaller.AppDataOverride = AppData;
     }
 
     public string CacheRoot => Path.Combine(AppData, "StrideAssetStore", "Assets");
@@ -152,7 +152,7 @@ public sealed class InstallerWorkspace : IDisposable
 
     public void Dispose()
     {
-        DesktopInstaller.AppDataOverride = null;
+        AssetInstaller.AppDataOverride = null;
         try
         {
             // Force-clear read-only .git files before deleting.

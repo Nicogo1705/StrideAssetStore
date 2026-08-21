@@ -3,7 +3,7 @@
 @implements IDisposable
 @using System.Diagnostics
 @inject CatalogState State
-@inject DesktopInstaller Installer
+@inject AssetInstaller Installer
 @inject AttentionState Attention
 @inject AuthorRepoService Authors
 @inject RegistryOptions Registry
@@ -142,7 +142,7 @@
 <h2 style="margin:1.4rem 0 .3rem">Downloaded assets</h2>
 <p class="lead" style="margin-bottom:.8rem">
     The shared cache — one clone per followed ref, reusable across all your projects.
-    <span class="mono install-hint" style="display:block;margin-top:.25rem">@DesktopInstaller.GlobalCacheRoot</span>
+    <span class="mono install-hint" style="display:block;margin-top:.25rem">@AssetInstaller.GlobalCacheRoot</span>
 </p>
 
 @if (_loading)

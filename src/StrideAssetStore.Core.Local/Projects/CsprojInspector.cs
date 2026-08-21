@@ -3,7 +3,7 @@
 
 using System.Xml.Linq;
 
-namespace StrideAssetStore.Core.Projects;
+namespace StrideAssetStore.Core.Local.Projects;
 
 /// <summary>Reads Stride-relevant information out of MSBuild <c>.csproj</c> files.</summary>
 public static class CsprojInspector

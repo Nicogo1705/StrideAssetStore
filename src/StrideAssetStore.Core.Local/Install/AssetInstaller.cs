@@ -2,12 +2,12 @@
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
 using System.Diagnostics;
-using StrideAssetStore.Core.Git;
-using StrideAssetStore.Core.Hashing;
+using StrideAssetStore.Core.Local.Git;
+using StrideAssetStore.Core.Local.Hashing;
 using StrideAssetStore.Core.Models;
-using StrideAssetStore.Core.Projects;
+using StrideAssetStore.Core.Local.Projects;
 
-namespace StrideAssetStore.Desktop.Services;
+namespace StrideAssetStore.Core.Local.Install;
 
 /// <summary>A filesystem entry shown by the project picker.</summary>
 public enum FsKind { Directory, Solution, Project }
@@ -66,7 +66,7 @@ public sealed record SolutionView(
 /// asset (and its dependencies) by cloning it next to the project and adding a ProjectReference.
 /// Desktop-only (requires local filesystem + git).
 /// </summary>
-public sealed class DesktopInstaller(GitClient? git = null)
+public sealed class AssetInstaller(GitClient? git = null)
 {
     private readonly GitClient _git = git ?? new GitClient();
 

@@ -3,7 +3,7 @@
 
 using System.IO;
 using StrideAssetStore.Core.Serialization;
-using StrideAssetStore.Core.Validation;
+using StrideAssetStore.Core.Local.Validation;
 using static StrideAssetStore.Core.Tests.CatalogTestData;
 
 namespace StrideAssetStore.Core.Tests;

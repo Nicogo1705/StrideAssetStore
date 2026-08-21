@@ -4,7 +4,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace StrideAssetStore.Core.Hashing;
+namespace StrideAssetStore.Core.Local.Hashing;
 
 /// <summary>
 /// Computes a deterministic SHA-256 hash of a folder's contents.

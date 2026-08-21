@@ -1,13 +1,13 @@
 // Copyright (c) <YEAR> <COPYRIGHT HOLDER>
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
-using StrideAssetStore.Core.Projects;
-using StrideAssetStore.Desktop.Services;
+using StrideAssetStore.Core.Local.Projects;
+using StrideAssetStore.Core.Local.Install;
 
-namespace StrideAssetStore.Desktop.Tests;
+namespace StrideAssetStore.Core.Local.Tests;
 
 /// <summary>
-/// End-to-end tests of <see cref="DesktopInstaller"/> over a synthetic machine
+/// End-to-end tests of <see cref="AssetInstaller"/> over a synthetic machine
 /// (<see cref="InstallerWorkspace"/>): real git clones, real csproj/sln files, the global cache
 /// redirected into temp — no network. All in ONE class: the cache root comes from process-wide
 /// environment variables, so these tests must not run concurrently with each other (xunit runs
@@ -41,7 +41,7 @@ public sealed class DesktopInstallerTests
                 latestCommit: new string('a', 40), certifiedTag: "v1.0.0", certifiedCommit: pinnedHead),
             InstallerWorkspace.CatalogEntry("com.t.legacy", "LegacyAsset", latestCommit: new string('b', 40)));
 
-        var cached = new DesktopInstaller().ListCachedAssets(catalog);
+        var cached = new AssetInstaller().ListCachedAssets(catalog);
 
         Assert.Equal(4, cached.Count);
         var pinned = Assert.Single(cached, c => c.Id == "com.t.pinned");
@@ -69,7 +69,7 @@ public sealed class DesktopInstallerTests
         var catalog = InstallerWorkspace.Catalog(
             InstallerWorkspace.CatalogEntry("com.t.asset", "TestAsset", latestCommit: head));
 
-        var view = new DesktopInstaller().Analyze(gameCsproj, catalog);
+        var view = new AssetInstaller().Analyze(gameCsproj, catalog);
 
         var node = Assert.Single(view.Projects);
         Assert.Equal("Game", node.Name);
@@ -100,7 +100,7 @@ public sealed class DesktopInstallerTests
         var catalog = InstallerWorkspace.Catalog(
             InstallerWorkspace.CatalogEntry("com.t.asset", "TestAsset", latestCommit: new string('c', 40)));
 
-        var asset = Assert.Single(Assert.Single(new DesktopInstaller().Analyze(gameCsproj, catalog).Projects).Assets);
+        var asset = Assert.Single(Assert.Single(new AssetInstaller().Analyze(gameCsproj, catalog).Projects).Assets);
         Assert.Equal("missing", asset.Status);
         Assert.Equal("com.t.asset", asset.Id); // mapped back to the catalog via the repo folder name
         Assert.Equal("master", asset.Ref);
@@ -115,7 +115,7 @@ public sealed class DesktopInstallerTests
         var sln = ws.CreateSolution("Game.sln",
             gameCsproj, Path.Combine(cloneRoot, "AssetData", "TestAsset", "TestAsset.csproj"));
 
-        var targets = new DesktopInstaller().ReadTargets(sln);
+        var targets = new AssetInstaller().ReadTargets(sln);
 
         Assert.Equal("Game", Assert.Single(targets).Name);
     }
@@ -132,7 +132,7 @@ public sealed class DesktopInstallerTests
         var catalog = InstallerWorkspace.Catalog(
             InstallerWorkspace.CatalogEntry("com.t.asset", "TestAsset", latestCommit: new string('d', 40)));
 
-        var dangling = Assert.Single(new DesktopInstaller().ListDanglingStoreProjects(sln, catalog));
+        var dangling = Assert.Single(new AssetInstaller().ListDanglingStoreProjects(sln, catalog));
         Assert.Equal("com.t.asset", dangling.AssetId);
         Assert.Equal(goneCsproj, dangling.CsprojPath);
     }
@@ -145,7 +145,7 @@ public sealed class DesktopInstallerTests
             Path.Combine("appdata", "StrideAssetStore", "Assets", "master", "TestAsset"), "com.t.asset", "TestAsset");
         var gameCsproj = ws.CreateGameProject(Path.Combine("Game", "Game.csproj"));
         var cloneRoot = Path.Combine(ws.CacheRoot, "master", "TestAsset");
-        var installer = new DesktopInstaller();
+        var installer = new AssetInstaller();
 
         var result = installer.AttachCached(cloneRoot, [gameCsproj], InstallerWorkspace.Catalog());
 
@@ -166,7 +166,7 @@ public sealed class DesktopInstallerTests
         using var ws = new InstallerWorkspace();
         var (cloneRoot, head) = ws.CreateAssetClone(Path.Combine("clones", "TestAsset"), "com.t.asset", "TestAsset");
         var gameCsproj = ws.CreateGameProject(Path.Combine("Game", "Game.csproj"));
-        var installer = new DesktopInstaller();
+        var installer = new AssetInstaller();
         var catalog = InstallerWorkspace.Catalog(
             InstallerWorkspace.CatalogEntry("com.t.asset", "TestAsset", latestCommit: head));
 
@@ -188,7 +188,7 @@ public sealed class DesktopInstallerTests
         var (_, taggedHead) = ws.CreateAssetClone(
             Path.Combine("appdata", "StrideAssetStore", "Assets", "v1.0.0", "TestAsset"), "com.t.asset", "TestAsset");
         var gameCsproj = ws.CreateGameProject(Path.Combine("Game", "Game.csproj"));
-        var installer = new DesktopInstaller();
+        var installer = new AssetInstaller();
         var entry = InstallerWorkspace.CatalogEntry("com.t.asset", "TestAsset",
             latestCommit: masterHead, certifiedTag: "v1.0.0", certifiedCommit: taggedHead);
         var catalog = InstallerWorkspace.Catalog(entry);

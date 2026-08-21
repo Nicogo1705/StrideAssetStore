@@ -12,16 +12,6 @@ public interface ICatalogSource
     Task<IndexLock> LoadAsync(CancellationToken cancellationToken = default);
 }
 
-/// <summary>Reads the index from a local file.</summary>
-public sealed class FileCatalogSource(string path) : ICatalogSource
-{
-    public async Task<IndexLock> LoadAsync(CancellationToken cancellationToken = default)
-    {
-        var json = await File.ReadAllTextAsync(path, cancellationToken);
-        return StrideAssetStoreJson.Deserialize<IndexLock>(json);
-    }
-}
-
 /// <summary>Downloads the index over HTTP (e.g. a raw GitHub URL). Works in Blazor WASM.</summary>
 public sealed class HttpCatalogSource(HttpClient client, Uri url) : ICatalogSource
 {

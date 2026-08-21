@@ -1,10 +1,10 @@
 // Copyright (c) <YEAR> <COPYRIGHT HOLDER>
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
-using StrideAssetStore.Core.Git;
+using StrideAssetStore.Core.Local.Git;
 using StrideAssetStore.Core.Models;
 
-namespace StrideAssetStore.Core.Indexing;
+namespace StrideAssetStore.Core.Local.Indexing;
 
 /// <summary>
 /// Resolves assets from local working copies sitting next to each other in a workspace directory.

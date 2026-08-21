@@ -2,7 +2,8 @@
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
 using System.ComponentModel;
-using StrideAssetStore.Core.Indexing;
+using StrideAssetStore.Core.Catalog;
+using StrideAssetStore.Core.Local.Indexing;
 using StrideAssetStore.Core.Models;
 using StrideAssetStore.Core.Serialization;
 using Spectre.Console;

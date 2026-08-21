@@ -1,7 +1,7 @@
 // Copyright (c) <YEAR> <COPYRIGHT HOLDER>
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
-using StrideAssetStore.Core.Indexing;
+using StrideAssetStore.Core.Catalog;
 using StrideAssetStore.Core.Models;
 using Xunit;
 

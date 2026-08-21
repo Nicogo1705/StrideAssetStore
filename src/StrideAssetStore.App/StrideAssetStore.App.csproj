@@ -17,4 +17,10 @@
     <ProjectReference Include="..\StrideAssetStore.UI\StrideAssetStore.UI.csproj" />
   </ItemGroup>
 
+  <!-- Same guard as the UI library: nothing that needs a real machine may reach the browser. -->
+  <Target Name="_ForbidCoreLocalReference" AfterTargets="ResolveReferences">
+    <Error Condition="'%(ReferencePath.Filename)' == 'StrideAssetStore.Core.Local'"
+           Text="$(MSBuildProjectName) must not reference StrideAssetStore.Core.Local: it runs in the browser, where there is no filesystem and no git." />
+  </Target>
+
 </Project>

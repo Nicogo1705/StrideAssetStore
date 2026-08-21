@@ -1,7 +1,7 @@
 // Copyright (c) <YEAR> <COPYRIGHT HOLDER>
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
-namespace StrideAssetStore.Core.Dependencies;
+namespace StrideAssetStore.Core.Local.Dependencies;
 
 /// <summary>Resolves the transitive dependency closure of store assets (by id).</summary>
 public static class DependencyResolver

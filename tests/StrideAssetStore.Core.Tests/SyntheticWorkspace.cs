@@ -3,7 +3,7 @@
 
 using System.Diagnostics;
 using System.Text.Json;
-using StrideAssetStore.Core.Git;
+using StrideAssetStore.Core.Local.Git;
 
 namespace StrideAssetStore.Core.Tests;
 

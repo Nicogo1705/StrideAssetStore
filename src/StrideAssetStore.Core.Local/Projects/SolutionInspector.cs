@@ -4,7 +4,7 @@
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
-namespace StrideAssetStore.Core.Projects;
+namespace StrideAssetStore.Core.Local.Projects;
 
 /// <summary>A C# project referenced by a solution.</summary>
 /// <param name="Name">Display name.</param>

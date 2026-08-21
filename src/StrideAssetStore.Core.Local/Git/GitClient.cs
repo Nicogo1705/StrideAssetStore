@@ -4,7 +4,7 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 
-namespace StrideAssetStore.Core.Git;
+namespace StrideAssetStore.Core.Local.Git;
 
 /// <summary>Thin wrapper over the installed <c>git</c> executable.</summary>
 /// <remarks>

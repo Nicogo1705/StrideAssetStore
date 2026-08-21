@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\StrideAssetStore.Core\StrideAssetStore.Core.csproj" />
+    <ProjectReference Include="..\..\src\StrideAssetStore.Core.Local\StrideAssetStore.Core.Local.csproj" />
   </ItemGroup>
 
 </Project>

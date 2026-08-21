@@ -2,6 +2,7 @@
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
 using StrideAssetStore.Core.Catalog;
+using StrideAssetStore.Core.Local.Catalog;
 using StrideAssetStore.Core.Models;
 using StrideAssetStore.Core.Serialization;
 using static StrideAssetStore.Core.Tests.CatalogTestData;

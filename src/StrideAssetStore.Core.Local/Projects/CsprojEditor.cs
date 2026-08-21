@@ -3,7 +3,7 @@
 
 using System.Xml.Linq;
 
-namespace StrideAssetStore.Core.Projects;
+namespace StrideAssetStore.Core.Local.Projects;
 
 /// <summary>Edits MSBuild <c>.csproj</c> files (adding project references).</summary>
 public static class CsprojEditor

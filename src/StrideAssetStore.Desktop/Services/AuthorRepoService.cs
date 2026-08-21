@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using System.Text.Json;
+using StrideAssetStore.Core.Local.Install;
 using StrideAssetStore.Core.Models;
 
 namespace StrideAssetStore.Desktop.Services;
