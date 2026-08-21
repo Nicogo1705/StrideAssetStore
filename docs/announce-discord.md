@@ -1,6 +1,6 @@
 # Discord announcement — copy/paste
 
-Post this once **v2.0.0 is tagged and GitHub Pages has redeployed** (the site's base path changed
+Post this once **v1.0.0 is tagged and GitHub Pages has redeployed** (the site's base path changed
 with the repository rename, so an earlier post would link to a broken page).
 
 Check first: <https://nicogo1705.github.io/StrideAssetStore/> loads and lists 8 assets.

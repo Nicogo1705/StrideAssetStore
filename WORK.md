@@ -1,6 +1,6 @@
 # Chantier — état au 2026-08-21
 
-**Tout est vert.** Reste à trancher : le tag `v2.0.0`.
+**Tout est vert.** Reste à trancher : le tag `v1.0.0`.
 
 ## Vérifié de bout en bout
 
@@ -24,7 +24,7 @@
 
 ## Reste à faire
 
-- [ ] Tag **v2.0.0** → publie les builds desktop + le CLI sur nuget.org (Trusted Publishing).
+- [ ] Tag **v1.0.0** → publie les builds desktop + le CLI sur nuget.org (Trusted Publishing).
 - [ ] Poster `docs/announce-discord.md` **après** avoir vérifié que le site charge.
 - [ ] Renommer le dossier local `repos\AssetStore` (je ne peux pas le faire sous mes pieds).
 
