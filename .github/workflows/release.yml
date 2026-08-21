@@ -20,8 +20,9 @@ permissions:
   contents: write
 
 jobs:
-  # Runs here rather than relying on ci.yml: a tag triggers both workflows in parallel, so a red
-  # suite there blocked nothing — and a version pushed to nuget.org cannot be taken back.
+  # Runs here rather than relying on ci.yml, which no longer triggers on tags at all: a workflow
+  # running alongside this one could never gate it, and a version pushed to nuget.org cannot be
+  # taken back.
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 20

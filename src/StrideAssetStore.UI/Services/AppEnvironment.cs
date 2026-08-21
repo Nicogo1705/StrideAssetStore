@@ -16,7 +16,12 @@ namespace StrideAssetStore.App.Services;
 /// exist in the prerendered HTML instead of appearing only once the circuit is up, which is exactly
 /// when they can't be reached.
 /// </param>
-public sealed class AppEnvironment(IJSRuntime js, bool? knownLocal = null)
+/// <param name="toolManaged">
+/// Whether this copy of the desktop app is the one the CLI installed. `strideassetstore app update`
+/// only ever touches that copy, so telling someone running an unpacked archive that the app "will
+/// stop, update and come back" is false: it would install a second copy elsewhere and start that one.
+/// </param>
+public sealed class AppEnvironment(IJSRuntime js, bool? knownLocal = null, bool toolManaged = false)
 {
     public bool Initialized { get; private set; } = knownLocal is not null;
 
@@ -27,6 +32,9 @@ public sealed class AppEnvironment(IJSRuntime js, bool? knownLocal = null)
 
     /// <summary>Whether the app can perform a real local install (clone + reference). Proto: local only.</summary>
     public bool InstallAvailable => IsLocal;
+
+    /// <summary>Whether `strideassetstore app update` would update <em>this</em> copy.</summary>
+    public bool ToolManaged { get; } = toolManaged;
 
     public async Task InitializeAsync()
     {

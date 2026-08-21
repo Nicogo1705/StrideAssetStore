@@ -1,8 +1,8 @@
 name: "Build & test the solution"
 
 # Build the whole solution and run the tests on every push to main and every PR. Release tags are
-# covered by release.yml's own test job, which actually gates the publish — this workflow runs in
-# parallel with it and could not.
+# covered by release.yml's own test job, which gates the publish. This workflow deliberately does not
+# run on tags: it could only ever run alongside the release, never in front of it.
 
 on:
   push:

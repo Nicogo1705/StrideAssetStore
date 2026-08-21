@@ -54,7 +54,10 @@ else
             <p class="install-hint">
                 @if (_ref == Asset.Latest.Ref)
                 {
-                    <text>Rolling <strong>@Asset.Latest.Ref</strong> — newest commit, not certified.</text>
+                    <text>
+                        Rolling <strong>@Asset.Latest.Ref</strong> — whatever its newest commit is, which can
+                        change under you. Pick a tag for a version that cannot.
+                    </text>
                 }
                 else if (IsCertified(Asset.Versions.FirstOrDefault(v => v.Tag == _ref)?.Commit ?? ""))
                 {
@@ -161,8 +164,23 @@ else
                 @if (SelectedIsCertified)
                 {
                     <div class="cache-note" style="color:var(--ok)">
-                        ✓ Certified version — reviewed by the registry maintainers and pinned to an immutable
-                        commit. Its source is still compiled into your project like any dependency.
+                        @if (_ref == Asset.Latest.Ref)
+                        {
+                            @* The branch's head happens to be a reviewed commit today. Calling that "pinned
+                               to an immutable commit" contradicted the line above it on the same screen. *@
+                            <text>
+                                ✓ Reviewed code — this branch currently sits on a commit the registry maintainers
+                                certified. The branch can move; a tag is what stays put.
+                            </text>
+                        }
+                        else
+                        {
+                            <text>
+                                ✓ Certified version — reviewed by the registry maintainers and pinned to an
+                                immutable commit.
+                            </text>
+                        }
+                        Its source is compiled into your project like any dependency.
                     </div>
                 }
                 else

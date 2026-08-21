@@ -121,18 +121,28 @@
         <div class="update-banner">
             @* Updating is a terminal job on purpose: it must keep working when this UI doesn't,
                and it was precisely the in-app path that stayed broken for a month. *@
-            <span>⬆ <strong>Update available</strong> — v@(Updater.LatestVersion) is out (you're on v@(Updater.CurrentVersion))@(Updater.DownloadSize is { } dl ? $" · 📦 {FormatSize(dl)}" : "") — run:</span>
+            <span>
+                ⬆ <strong>Update available</strong> — v@(Updater.LatestVersion) is out (you're on
+                v@(Updater.CurrentVersion))@(Updater.DownloadSize is { } dl ? $" · 📦 {FormatSize(dl)}" : "")@(Env.ToolManaged ? " — run:" : ".")
+            </span>
             <span class="update-actions">
-                <span class="mono">@UpdateCommand</span>
-                @if (Env.IsLocal)
+                @* The command only updates the copy the CLI installed. Offering it for an unpacked
+                   archive would install a second app elsewhere and start that one, leaving this
+                   folder behind — so that case gets the download instead. *@
+                @if (Env.ToolManaged)
                 {
-                    <button type="button" class="btn primary" title="Open a terminal and run it — this app will stop, update and come back"
-                            @onclick="RunUpdateAsync">▶ Run it</button>
+                    <span class="mono">@UpdateCommand</span>
+                    @if (Env.IsLocal)
+                    {
+                        <button type="button" class="btn primary" title="Open a terminal and run it — this app will stop, update and come back"
+                                @onclick="RunUpdateAsync">▶ Run it</button>
+                    }
+
+                    @* Kept next to it on purpose: no terminal opens on some Linux desktops, and a
+                       command you can paste is never the wrong answer. *@
+                    <button type="button" class="btn" title="Copy the command to the clipboard"
+                            @onclick="CopyUpdateCommandAsync">@(_commandCopied ? "✓ Copied" : "Copy")</button>
                 }
-                @* Kept next to it on purpose: no terminal opens on some Linux desktops, and a
-                   command you can paste is never the wrong answer. *@
-                <button type="button" class="btn" title="Copy the command to the clipboard"
-                        @onclick="CopyUpdateCommandAsync">@(_commandCopied ? "✓ Copied" : "Copy")</button>
                 @if (Updater.DownloadUrl is not null)
                 {
                     <a class="btn" href="@Updater.DownloadUrl">⬇ Download update</a>

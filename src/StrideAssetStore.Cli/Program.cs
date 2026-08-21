@@ -83,7 +83,7 @@ app.Configure(config =>
         app.AddCommand<AppStatusCommand>("status").WithDescription("Show what is installed, what is running, and the latest release.");
         app.AddCommand<AppStartCommand>("start").WithDescription("Start the installed desktop app.");
         app.AddCommand<AppStopCommand>("stop").WithDescription("Stop the desktop app running on this machine.");
-        app.AddCommand<AppOpenCommand>("open").WithDescription("Open the online storefront in a browser.");
+        app.AddCommand<AppOpenCommand>("open").WithDescription("Open the store in a browser — the local app if it is running, otherwise the online storefront.");
     });
 
     // ── Registry maintenance (needs a checkout of the AssetContainer repository) ──

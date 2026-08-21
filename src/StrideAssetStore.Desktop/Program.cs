@@ -79,7 +79,12 @@ builder.Services.AddScoped<ICatalogSource>(_ => new HttpCatalogSource(
 builder.Services.AddStrideAssetStoreUi(
     builder.Configuration.GetSection("Registry").Get<StrideAssetStore.App.Services.RegistryOptions>(),
     builder.Configuration.GetSection("App").Get<StrideAssetStore.App.Services.AppInfo>(),
-    knownLocal: true); // this IS the local app — never wait for the browser to say so
+    knownLocal: true, // this IS the local app — never wait for the browser to say so
+    // Whether `strideassetstore app update` would update THIS copy: it only ever touches the folder
+    // the CLI installed into. An unpacked archive running from elsewhere must not be told the app
+    // will "stop, update and come back" — it would install a second copy and start that one instead.
+    toolManaged: AppContext.BaseDirectory.StartsWith(
+        StrideAssetStore.Core.Local.Releases.DesktopAppInstaller.InstallRoot, StringComparison.OrdinalIgnoreCase));
 builder.Services.AddScoped<StrideAssetStore.Core.Local.Install.AssetInstaller>();
 // One instance: it holds an HttpClient and its answers are cached per asset by the page.
 builder.Services.AddSingleton<StrideAssetStore.Core.Local.Git.ForkLister>();

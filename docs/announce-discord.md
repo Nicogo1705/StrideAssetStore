@@ -41,7 +41,7 @@ Or just browse the site.
 after cloning, so a moved tag doesn't slip through
 • **certified** versions are reviewed, immutable commit pins; community assets are listed too and
 clearly marked
-• every certified asset is verified to **restore and compile from nuget.org alone** — the whole
+• every certified asset is checked at certification to **restore and compile from nuget.org alone** — the whole
 catalogue currently targets `Stride.Engine 4.4.0-beta5`
 • `--stride <version>` retargets an asset to whatever build your game is on
 

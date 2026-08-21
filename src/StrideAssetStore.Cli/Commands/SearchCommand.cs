@@ -20,7 +20,7 @@ internal sealed class SearchSettings : CatalogSettings
     public string? Category { get; init; }
 
     [CommandOption("--stride <VERSION>")]
-    [Description("Only assets compatible with this Stride version (e.g. 4.4.0.2).")]
+    [Description("Only assets compatible with this Stride version (e.g. 4.4.0-beta5).")]
     public string? Stride { get; init; }
 
     [CommandOption("--certified")]

@@ -56,18 +56,21 @@ over to the desktop app through the `stride-assetstore://` protocol.
 
 ### Stride versions
 
-Each asset declares the Stride version it was written against, and the store filters on it. When
+Each asset's Stride version is detected from its .csproj, and the store filters on it. When
 your game is on a different build, retarget the asset as you install it:
 
 ```bash
 strideassetstore add grass --stride 4.4.0-beta5
 ```
 
+That rewrites the asset's project files in the shared cache, so it applies to every project
+referencing that clone, not only this one.
+
 The catalogue currently targets **Stride 4.4.0-beta5**, the newest build published on nuget.org.
 Note that 4.4 renamed the asset compiler from `Stride.Core.Assets.CompilerApp` to
 **`Stride.AssetCompiler`**; an asset that keeps the old package next to a 4.4 engine still builds
-on its own, then breaks every game that references it. Every certified asset is verified to restore
-and compile from nuget.org alone, and `asset-e2e` puts one in a real game and runs it.
+on its own, then breaks every game that references it. Every certified asset is checked at certification to
+restore and compile from nuget.org alone, and `asset-e2e` puts one in a real game and runs it.
 
 ---
 
@@ -77,8 +80,8 @@ Publishing is a **pull request adding one JSON file** to the registry. You keep 
 your license and your release cadence; the store only records where it is and which commit it
 trusts. See the registry's
 [contributing guide](https://github.com/Nicogo1705/AssetContainer/blob/main/CONTRIBUTING.md) for the
-full walkthrough, or use the desktop app's wizard, which does the fork, the manifest and the PR for
-you.
+full walkthrough, or use the desktop app's **New asset** wizard, which creates the repository and fills
+the manifest — the **Manage** page then opens the registry pull request.
 
 To contribute to the tools in this repository instead, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -100,8 +103,9 @@ To contribute to the tools in this repository instead, see [CONTRIBUTING.md](CON
 ```
 
 - **Integrity** — the registry pins a resolved git commit plus a deterministic, OS-independent
-  SHA-256 of the asset's `AssetData/` folder. The installer re-verifies that hash after cloning, so
-  a moved tag or a rewritten history is caught rather than installed.
+  SHA-256 of the asset's `AssetData/` folder. The installer re-computes that hash after
+  cloning and warns when it differs, so a moved tag or a rewritten history is visible rather than
+  silent. The hash is recorded for the tracked branch; a certified tag is checked by commit identity.
 - **Certification** — a maintainer-approved, immutable commit pin per version. Community assets are
   listed too, clearly marked as such.
 - **Validation** — registry entry and manifest against JSON Schema (with `format` assertions),

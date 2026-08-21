@@ -81,6 +81,9 @@ The tool checks nuget.org for a newer version at most once a day, in the backgro
 after the command's output. Set `STRIDEASSETSTORE_NO_UPDATE_CHECK=1` (or `NO_COLOR`) to turn that
 off; it is skipped automatically when output is redirected.
 
+Retargeting rewrites the asset's own project files in the shared cache, so it applies to every
+project that references that clone — not just this one.
+
 ### Solutions with more than one project
 
 ```bash

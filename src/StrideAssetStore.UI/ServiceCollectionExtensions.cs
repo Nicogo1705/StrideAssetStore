@@ -16,9 +16,10 @@ public static class ServiceCollectionExtensions
     /// <param name="app">App identity (repository URL…) shown in the UI; defaults apply when null.</param>
     /// <param name="knownLocal">Hosts that know they are the local desktop app pass true, so the
     /// environment never has to be discovered through the browser (see <see cref="AppEnvironment"/>).</param>
+    /// <param name="toolManaged">True when this copy of the app is the one the CLI installed and updates.</param>
     public static IServiceCollection AddStrideAssetStoreUi(
         this IServiceCollection services, RegistryOptions? registry = null, AppInfo? app = null,
-        bool? knownLocal = null)
+        bool? knownLocal = null, bool toolManaged = false)
     {
         services.AddSingleton(registry ?? new RegistryOptions());
         services.AddSingleton(app ?? new AppInfo());
@@ -28,7 +29,7 @@ public static class ServiceCollectionExtensions
             new CatalogLoader(sp.GetRequiredService<ICatalogSource>(), sp.GetRequiredService<ICatalogCache>()));
         services.AddScoped<CatalogState>();
         services.AddScoped<AttentionState>();
-        services.AddScoped(sp => new AppEnvironment(sp.GetRequiredService<IJSRuntime>(), knownLocal));
+        services.AddScoped(sp => new AppEnvironment(sp.GetRequiredService<IJSRuntime>(), knownLocal, toolManaged));
 
         // GitHub publishing (PAT-based; api.github.com is CORS-enabled with a token).
         services.AddScoped(sp =>

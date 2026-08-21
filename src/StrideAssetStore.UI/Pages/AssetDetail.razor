@@ -187,7 +187,7 @@ else
             <p class="install-hint" style="margin-bottom:.7rem">
                 @if (OnLatest)
                 {
-                    <text>Tracking the <strong>@Asset.Latest.Ref</strong> branch — always its newest commit (<span class="mono">@Short(ActiveCommit)</span>). A branch is never certified; pick a tag for a pinned, reviewable version.</text>
+                    <text>Tracking the <strong>@Asset.Latest.Ref</strong> branch — always its newest commit (<span class="mono">@Short(ActiveCommit)</span>). A branch can move at any time; pick a tag for a version that stays put.</text>
                 }
                 else
                 {
@@ -371,7 +371,10 @@ else
 
         <p class="install-hint" style="margin-top:1.4rem">
             Something wrong with this asset?
-            <a href="@GitLinks.ReportAsset(Registry.Owner, Registry.Repo, Asset.Id, Asset.Repo)" target="_blank" rel="noopener">🚩 Report it to the registry</a>.
+            <a href="@GitLinks.NewIssue(Asset.Repo)" target="_blank" rel="noopener">Open an issue with its author</a>
+            — a bug or a wrong description is theirs to fix. For a licensing, security or impersonation
+            problem, use the registry's
+            <a href="@GitLinks.ReportAsset(Registry.Owner, Registry.Repo, Asset.Id, Asset.Repo)" target="_blank" rel="noopener">🚩 takedown form</a>.
         </p>
 
         @if (_lightbox is { } li && li >= 0 && li < MediaUrls.Count)
