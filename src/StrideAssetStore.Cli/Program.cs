@@ -51,8 +51,9 @@ app.Configure(config =>
         app.SetDescription("Install, update and start the desktop app.");
         app.AddCommand<AppInstallCommand>("install").WithDescription("Install the desktop app for this machine.");
         app.AddCommand<AppInstallCommand>("update").WithDescription("Update the installed desktop app.");
-        app.AddCommand<AppStatusCommand>("status").WithDescription("Show the installed and latest versions.");
+        app.AddCommand<AppStatusCommand>("status").WithDescription("Show what is installed, what is running, and the latest release.");
         app.AddCommand<AppStartCommand>("start").WithDescription("Start the installed desktop app.");
+        app.AddCommand<AppStopCommand>("stop").WithDescription("Stop the desktop app running on this machine.");
         app.AddCommand<AppOpenCommand>("open").WithDescription("Open the online storefront in a browser.");
     });
 
