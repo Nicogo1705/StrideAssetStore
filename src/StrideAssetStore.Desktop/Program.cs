@@ -63,8 +63,7 @@ builder.Services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSe
 
 // Live catalog from the public registry (offline cache falls back via CatalogLoader).
 // A self-pointing HttpClient also serves the publish form's bundled catalog metadata.
-var indexUrl = builder.Configuration["Catalog:IndexUrl"]
-    ?? "https://raw.githubusercontent.com/Nicogo1705/AssetContainer/main/index.lock.json";
+var indexUrl = builder.Configuration["Catalog:IndexUrl"] ?? CatalogDefaults.IndexUrl;
 var appRepo = builder.Configuration["App:Repo"] ?? "https://github.com/Nicogo1705/StrideAssetStore";
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(Url + "/") });
 // Short timeout on purpose: a degraded GitHub can hold the connection open instead of failing
@@ -491,8 +490,6 @@ static string RescuePage(string? notice)
         <div class="card">
           <h1>Community Stride Asset Store — app controls</h1>
           {{note}}
-          <p>These controls work without the app's interface, so they stay available when a page
-             fails or the connection to it is lost.</p>
           {{console.Item1}}
           <div class="row">
             {{console.Item2}}

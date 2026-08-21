@@ -11,11 +11,37 @@ namespace StrideAssetStore.Core.Local.Shell;
 /// </summary>
 public static class DesktopShell
 {
-    /// <summary>Opens a folder in the system file manager.</summary>
-    public static bool OpenFolder(string path) => Start(
-        windows: ("explorer.exe", [path]),
-        macos: ("open", [path]),
-        linux: ("xdg-open", [path]));
+    /// <summary>Opens a folder in the system file manager. False when there is nothing to open.</summary>
+    /// <remarks>
+    /// The existence check is the point: explorer.exe always starts and always reports success, so a
+    /// path that has been deleted or renamed produced a button that did nothing and said nothing.
+    /// Windows then goes through ShellExecute on the folder itself rather than explorer.exe with an
+    /// argument — a path ending in a separator gets quoted as <c>"C:\dir\"</c>, where the trailing
+    /// backslash escapes the closing quote and the argument arrives mangled.
+    /// </remarks>
+    public static bool OpenFolder(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+        {
+            return false;
+        }
+
+        var folder = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (OperatingSystem.IsWindows())
+        {
+            try
+            {
+                using var process = Process.Start(new ProcessStartInfo(folder) { UseShellExecute = true });
+                return true; // ShellExecute on a directory hands it to the file manager, which may already be running
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        return Start(default, ("open", [folder]), ("xdg-open", [folder]));
+    }
 
     /// <summary>
     /// Opens the file manager with <paramref name="path"/> selected. Only Windows and macOS can
@@ -23,6 +49,11 @@ public static class DesktopShell
     /// </summary>
     public static bool RevealFile(string path)
     {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            return OpenFolder(Path.GetDirectoryName(Path.GetFullPath(path)) ?? "");
+        }
+
         var parent = Path.GetDirectoryName(Path.GetFullPath(path));
         return Start(
             windows: ("explorer.exe", [$"/select,{path}"]),

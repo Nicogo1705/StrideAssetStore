@@ -15,8 +15,9 @@ var baseAddress = new Uri(builder.HostEnvironment.BaseAddress);
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = baseAddress });
 
 // Where to fetch the aggregated index. appsettings.json points this at the registry's raw URL; the
-// "data/index.lock.json" fallback is only used if that key is missing (no copy is bundled by default).
-var indexUrl = builder.Configuration["Catalog:IndexUrl"] ?? "data/index.lock.json";
+// fallback is the same constant the desktop app and the CLI use — the previous one pointed at a
+// bundled copy that does not exist, so a missing key would have meant a 404 rather than the registry.
+var indexUrl = builder.Configuration["Catalog:IndexUrl"] ?? CatalogDefaults.IndexUrl;
 builder.Services.AddScoped<ICatalogSource>(sp =>
     new HttpCatalogSource(sp.GetRequiredService<HttpClient>(), new Uri(baseAddress, indexUrl)));
 

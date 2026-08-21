@@ -4,8 +4,9 @@ This repository holds the **code**: the storefront, the desktop app and the CLI.
 
 - Publishing an **asset** to the store? That happens in the registry —
   [AssetContainer/CONTRIBUTING.md](https://github.com/Nicogo1705/AssetContainer/blob/main/CONTRIBUTING.md).
-- Reporting a **problem with an asset** (broken, mislabelled, wrong license)? Open an issue on the
-  registry, not on the asset's author.
+- Reporting a **problem with an asset** (broken, mislabelled)? Assets live in their authors'
+  repositories — open the issue there; every asset page links to it. Licensing or takedown
+  questions go to the registry, which has a form for them.
 
 ## Getting set up
 

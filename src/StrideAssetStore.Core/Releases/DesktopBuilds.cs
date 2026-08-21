@@ -38,8 +38,8 @@ public static class DesktopBuilds
         }
 
         var arch = RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "arm64" : "x64";
-        var rid = $"{os}-{arch}";
-        return All.FirstOrDefault(b => b.Rid == rid)
-            ?? All.FirstOrDefault(b => b.Rid.StartsWith(os, StringComparison.Ordinal));
+        // No same-OS fallback: on linux-arm64 it handed back the x64 archive, which cannot run.
+        // Null means "no build for this machine", which the UI already knows how to say.
+        return All.FirstOrDefault(b => b.Rid == $"{os}-{arch}");
     }
 }
