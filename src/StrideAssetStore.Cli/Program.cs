@@ -1,6 +1,7 @@
 // Copyright (c) <YEAR> <COPYRIGHT HOLDER>
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
+using System.Reflection;
 using StrideAssetStore.Cli.Commands;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -20,6 +21,16 @@ var app = new CommandApp();
 app.Configure(config =>
 {
     config.SetApplicationName("strideassetstore");
+
+    // Without this, Spectre answers `--version` with "Unexpected option". Bug reports ask for it,
+    // and so does CI when it checks the tool it just installed. The informational version carries
+    // the build suffix (a local build says 99.0.0.0-local, so it can't be mistaken for a release).
+    config.SetApplicationVersion(
+        typeof(SearchCommand).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion
+            ?? typeof(SearchCommand).Assembly.GetName().Version?.ToString(3)
+            ?? "0.0.0");
 
     // ── Using assets: everything the desktop app's UI does, from a terminal ──
     config.AddCommand<SearchCommand>("search")
