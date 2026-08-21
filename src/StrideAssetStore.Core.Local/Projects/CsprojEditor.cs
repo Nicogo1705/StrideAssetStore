@@ -24,10 +24,18 @@ public static class CsprojEditor
     /// Adds a <c>&lt;ProjectReference&gt;</c> with a verbatim <paramref name="include"/> (idempotent) — e.g. an
     /// MSBuild property-function path into a per-machine global cache, which stays valid on any PC.
     /// </summary>
-    public static bool AddRawProjectReference(string csprojPath, string include) =>
-        AddProjectReferenceInclude(csprojPath, include);
+    /// <param name="csprojPath">The project to edit.</param>
+    /// <param name="include">The verbatim <c>Include</c> to write.</param>
+    /// <param name="fork">
+    /// <c>owner/repo</c> when the reference points at a fork of a store asset. Written as item
+    /// metadata so it travels with the project — a teammate who clones the repository installs from
+    /// the same fork without being told. MSBuild ignores metadata it doesn't know, so the build is
+    /// unaffected.
+    /// </param>
+    public static bool AddRawProjectReference(string csprojPath, string include, string? fork = null) =>
+        AddProjectReferenceInclude(csprojPath, include, fork);
 
-    private static bool AddProjectReferenceInclude(string csprojPath, string include)
+    private static bool AddProjectReferenceInclude(string csprojPath, string include, string? fork = null)
     {
         var doc = XDocument.Load(csprojPath, LoadOptions.PreserveWhitespace);
         var project = doc.Root ?? throw new InvalidOperationException($"'{csprojPath}' has no root element.");
@@ -43,9 +51,15 @@ public static class CsprojEditor
         }
 
         var ns = project.Name.Namespace;
+        var reference = new XElement(ns + "ProjectReference", new XAttribute("Include", include));
+        if (!string.IsNullOrWhiteSpace(fork))
+        {
+            reference.Add(new XAttribute("Fork", fork));
+        }
+
         var itemGroup = new XElement(ns + "ItemGroup",
             new XText("\n    "),
-            new XElement(ns + "ProjectReference", new XAttribute("Include", include)),
+            reference,
             new XText("\n  "));
 
         // Append on its own indented lines so the .csproj stays readable.

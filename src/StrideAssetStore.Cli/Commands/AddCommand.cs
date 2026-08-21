@@ -33,6 +33,10 @@ internal sealed class AddSettings : ProjectScopedSettings
     public bool Source { get; init; }
 
 
+    [CommandOption("--fork <OWNER/REPO>")]
+    [Description("Install from a fork of the asset instead of the author's repository — its own tags, its own history, no certification.")]
+    public string? Fork { get; init; }
+
     [CommandOption("--stride <VERSION>")]
     [Description("Rewrite the installed asset's Stride package references to this version, when it targets another one.")]
     public string? Stride { get; init; }
@@ -81,12 +85,18 @@ internal sealed class AddCommand : AsyncCommand<AddSettings>
         var reference = ResolveRef(asset, settings);
         AnsiConsole.MarkupLineInterpolated($"[grey]Ref:[/] {reference}");
 
+        if (settings.Fork is { } fork)
+        {
+            AnsiConsole.MarkupLineInterpolated($"[yellow]Fork:[/] {fork}");
+        }
+
         var result = installer.Install(
             asset,
             reference,
             projects,
             CatalogAccess.ById(index),
-            solutionPath: ProjectTarget.SolutionOf(target));
+            solutionPath: ProjectTarget.SolutionOf(target),
+            fork: settings.Fork);
 
         var exit = CliOutput.Report(result);
         if (exit == 0 && settings.Stride is { } stride)

@@ -87,6 +87,31 @@ public static class CsprojInspector
             .ToList();
     }
 
+    /// <summary>A <c>ProjectReference</c> and the store metadata written next to it.</summary>
+    /// <param name="Include">The verbatim <c>Include</c> attribute.</param>
+    /// <param name="Fork">
+    /// <c>owner/repo</c> when this reference points at a fork of a store asset rather than the
+    /// asset's own repository, otherwise null. Kept on the reference so it travels with the
+    /// project: a teammate who clones the repo gets the fork without being told about it.
+    /// </param>
+    public sealed record ReferencedProject(string Include, string? Fork);
+
+    /// <summary>Returns every <c>ProjectReference</c> with its store metadata.</summary>
+    public static IReadOnlyList<ReferencedProject> GetProjectReferencesWithMetadata(string csprojPath)
+    {
+        var project = XElement.Load(csprojPath);
+        return project
+            .Descendants().Where(e => e.Name.LocalName == "ProjectReference")
+            .Select(e => new ReferencedProject(
+                (string?)e.Attribute("Include") ?? "",
+                // Metadata may be an attribute or a child element; MSBuild accepts both.
+                ((string?)e.Attribute("Fork")
+                    ?? e.Elements().FirstOrDefault(x => x.Name.LocalName == "Fork")?.Value)
+                    is { Length: > 0 } fork ? fork.Trim() : null))
+            .Where(r => !string.IsNullOrWhiteSpace(r.Include))
+            .ToList();
+    }
+
     /// <summary>Enumerates every <c>.csproj</c> file under a directory.</summary>
     public static IReadOnlyList<string> FindProjects(string directory) =>
         Directory.Exists(directory)

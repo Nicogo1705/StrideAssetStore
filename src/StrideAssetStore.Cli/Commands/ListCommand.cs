@@ -93,13 +93,20 @@ internal sealed class ListCommand : AsyncCommand<ListSettings>
             {
                 table.AddRow(
                     Markup.Escape(asset.Name),
-                    Markup.Escape(asset.Kind),
+                    // A fork is not the store's asset; saying "local" would hide that.
+                    asset.Fork is null ? Markup.Escape(asset.Kind) : "[yellow]fork[/]",
                     Markup.Escape(string.IsNullOrEmpty(asset.Ref) ? "-" : asset.Ref),
                     CliOutput.StatusMarkup(asset.Status),
                     Markup.Escape(asset.StrideVersion ?? "-"));
             }
 
             AnsiConsole.Write(table);
+
+            foreach (var forked in project.Assets.Where(a => a.Fork is not null))
+            {
+                AnsiConsole.MarkupLineInterpolated(
+                    $"[yellow]⚠ {forked.Name} comes from the fork {forked.Fork}[/] — not the store's copy, so no certification and no hash check.");
+            }
         }
 
         if (!any)

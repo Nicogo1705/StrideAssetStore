@@ -178,9 +178,29 @@ else
                     download the asset. To own and modify an asset instead, fork it.
                 </p>
                 <p class="mono install-hint">@AssetInstaller.GlobalCacheRoot</p>
+
+                @* Someone's fork is a different asset with the same name: its own tags, its own
+                   history, and none of the registry's guarantees. Offered plainly, said plainly. *@
+                <label class="check" style="margin-top:.5rem">
+                    <input type="checkbox" checked="@_useFork" @onchange="e => _useFork = (bool)e.Value!" />
+                    <span>Install from a fork
+                        <span class="install-hint">— someone else's copy of this asset, with its own versions.</span></span>
+                </label>
+                @if (_useFork)
+                {
+                    <div class="cmd" style="margin:.15rem 0 0 1.7rem">
+                        <input class="ipt" style="flex:1" placeholder="owner/repo" @bind="_fork" />
+                    </div>
+                    <p class="install-hint" style="margin:.35rem 0 0 1.7rem">
+                        ⚠ <strong>Fork — outside the store.</strong> The content hash isn't verified and no
+                        certification applies: you are trusting whoever owns that repository. It is cached
+                        separately, so the real asset is left untouched. The fork is recorded in your
+                        <span class="mono">.csproj</span>, so teammates get the same one.
+                    </p>
+                }
             }
 
-            <button class="btn primary" style="margin-top:.8rem" @onclick="DoInstall" disabled="@(_busy || _checked.Count == 0)">
+            <button class="btn primary" style="margin-top:.8rem" @onclick="DoInstall" disabled="@(_busy || _checked.Count == 0 || (_useFork && string.IsNullOrWhiteSpace(_fork)))">
                 @(_busy ? "Installing…" : IsNuget ? $"Add package to {_checked.Count} project(s)" : $"Install into {_checked.Count} project(s)")
             </button>
         </section>
@@ -219,6 +239,10 @@ else
     private string _ref = "main";
     private string? _picked;
     private bool _busy;
+
+    // Install from someone's fork rather than the asset's own repository.
+    private bool _useFork;
+    private string _fork = "";
     private bool _browsing;
     private bool _showPlatform;
 
@@ -359,7 +383,8 @@ else
         // Run the blocking git/IO work off the render thread so the "Installing…" state shows.
         _result = await Task.Run(() => nuget
             ? Installer.InstallNuget(asset, targets)
-            : Installer.Install(asset, reference, targets, catalog, solution));
+            : Installer.Install(asset, reference, targets, catalog, solution,
+                _useFork && !string.IsNullOrWhiteSpace(_fork) ? _fork.Trim() : null));
         _busy = false;
     }
 

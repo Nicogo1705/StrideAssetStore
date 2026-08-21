@@ -30,7 +30,8 @@ public sealed record ProjectAsset(
     string? PackageId,       // nuget: the package id
     string RawInclude = "",  // local: the verbatim csproj Include (needed to remove global-cache refs)
     string Ref = "",         // local: the ref the clone follows, read from its cache path ("" = legacy)
-    string? StrideVersion = null); // Stride version the asset targets (from its csproj / the index)
+    string? StrideVersion = null, // Stride version the asset targets (from its csproj / the index)
+    string? Fork = null);    // owner/repo when installed from a fork instead of the asset's own repo
 
 /// <summary>An asset clone sitting in the shared cache (the My assets page).</summary>
 public sealed record CachedAsset(
@@ -259,12 +260,23 @@ public sealed class AssetInstaller(GitClient? git = null)
     /// compiler load it twice and the SDK sweep its build output into the game's own compile items. To own
     /// and modify an asset, fork its repository — that is a different thing, and it is what forking is for.
     /// </remarks>
+    /// <param name="asset">The catalog entry being installed.</param>
+    /// <param name="reference">Git ref to check out (branch, tag or commit).</param>
+    /// <param name="targetCsprojPaths">Projects that should reference the asset.</param>
+    /// <param name="catalog">The catalog, used to resolve the asset's dependencies.</param>
+    /// <param name="solutionPath">Solution to register the cloned projects in, when there is one.</param>
+    /// <param name="fork">
+    /// <c>owner/repo</c> to install from instead of the asset's own repository. A fork has its own
+    /// tags and its own history, so neither the registry's content hash nor its certified commits
+    /// apply — both checks are skipped, and the install says so.
+    /// </param>
     public InstallResult Install(
         IndexedAsset asset,
         string reference,
         IReadOnlyList<string> targetCsprojPaths,
         IReadOnlyDictionary<string, IndexedAsset> catalog,
-        string? solutionPath = null)
+        string? solutionPath = null,
+        string? fork = null)
     {
         var messages = new List<string>();
 
@@ -288,9 +300,23 @@ public sealed class AssetInstaller(GitClient? git = null)
 
             // Clone the asset plus its resolved dependencies (so inter-asset references resolve), verifying
             // each against the content hash the index recorded (integrity for the whole set, not just the root).
-            var assetFolder = Clone(asset.Repo, reference, refRoot, messages);
-            VerifyHash(refRoot, assetFolder, string.Equals(reference, asset.Latest.Ref, StringComparison.Ordinal) ? asset.Latest.ContentHash : null, asset.Manifest.Name, messages);
-            VerifyCertifiedCommit(refRoot, assetFolder, asset, reference, messages);
+            // A fork replaces the root asset's repository; its dependencies still come from the registry.
+            var rootRepo = fork is null ? asset.Repo : ForkRepoUrl(fork);
+            // A fork gets its own folder: same repo name, different owner, and it must never land on
+            // top of the asset it forked — that clone is shared by every project on this machine.
+            var assetFolder = Clone(rootRepo, reference, refRoot, messages,
+                fork is null ? null : GitClient.SafeForkFolderName(fork));
+            if (fork is null)
+            {
+                VerifyHash(refRoot, assetFolder, string.Equals(reference, asset.Latest.Ref, StringComparison.Ordinal) ? asset.Latest.ContentHash : null, asset.Manifest.Name, messages);
+                VerifyCertifiedCommit(refRoot, assetFolder, asset, reference, messages);
+            }
+            else
+            {
+                // Not a warning about the fork being bad — a statement of what stops applying.
+                messages.Add($"⚠ Fork install: {fork} at '{reference}'. Its content is not the registry's, "
+                    + "so the content hash isn't verified and no certification applies. You trust the fork's owner.");
+            }
 
             var missingDeps = false;
             var clonedCsprojs = new List<string>(); // asset + dep .csprojs, to register in the solution
@@ -334,7 +360,7 @@ public sealed class AssetInstaller(GitClient? git = null)
             {
                 try
                 {
-                    var added = CsprojEditor.AddRawProjectReference(target, globalInclude);
+                    var added = CsprojEditor.AddRawProjectReference(target, globalInclude, fork);
                     messages.Add(added
                         ? $"✓ Added reference to {Path.GetFileName(target)}"
                         : $"• {Path.GetFileName(target)} already references the asset");
@@ -350,7 +376,9 @@ public sealed class AssetInstaller(GitClient? git = null)
             // projects — a ProjectReference to a project that isn't in the .sln shows as "project not found".
             AddToSolution(solutionPath, clonedCsprojs, messages);
 
-            messages.Add("✓ Reference is portable — commit your source and teammates just download the asset.");
+            messages.Add(fork is null
+                ? "✓ Reference is portable — commit your source and teammates just download the asset."
+                : $"✓ Reference records the fork — commit it and teammates install from {fork} too.");
 
             return new InstallResult(!missingDeps && !anyTargetError, messages);
         }
@@ -443,7 +471,7 @@ public sealed class AssetInstaller(GitClient? git = null)
         }
 
         // Local installs: ProjectReferences that point into a cloned store asset.
-        foreach (var include in SafeProjectReferences(csprojPath))
+        foreach (var (include, fork) in SafeProjectReferences(csprojPath))
         {
             var referenced = ResolveInclude(csprojPath, include);
             var clone = FindStoreClone(referenced);
@@ -459,7 +487,7 @@ public sealed class AssetInstaller(GitClient? git = null)
                     assets.Add(new ProjectAsset(
                         known?.Id ?? "", known?.Manifest.Name ?? folder, "missing", "", known?.Latest.Commit,
                         "local", Path.Combine(GlobalCacheRoot, refName ?? "", folder), referenced, null, include,
-                        refName ?? ""));
+                        refName ?? "", null, fork));
                 }
 
                 continue; // otherwise an ordinary ProjectReference, not a store asset
@@ -469,7 +497,8 @@ public sealed class AssetInstaller(GitClient? git = null)
             if (!hasManifest)
             {
                 assets.Add(new ProjectAsset(
-                    "", Path.GetFileName(cloneRoot), "broken", "", null, "local", cloneRoot, referenced, null, include));
+                    "", Path.GetFileName(cloneRoot), "broken", "", null, "local", cloneRoot, referenced, null, include,
+                    "", null, fork));
                 continue;
             }
 
@@ -477,7 +506,8 @@ public sealed class AssetInstaller(GitClient? git = null)
             if (manifest is null)
             {
                 assets.Add(new ProjectAsset(
-                    "", Path.GetFileName(cloneRoot), "broken", "", null, "local", cloneRoot, referenced, null, include));
+                    "", Path.GetFileName(cloneRoot), "broken", "", null, "local", cloneRoot, referenced, null, include,
+                    "", null, fork));
                 continue;
             }
 
@@ -486,12 +516,16 @@ public sealed class AssetInstaller(GitClient? git = null)
             // Compare against the ref the clone's path says it follows: a v1.0.0 clone is judged
             // against the v1.0.0 tag commit, not against the moving latest.
             var followedRef = RefOfClone(cloneRoot);
-            var expected = ExpectedCommitFor(entry, followedRef);
+            // A fork has its own history: the registry's commit for this asset says nothing about it,
+            // so ask the fork's remote what its ref points at instead.
+            var expected = fork is null
+                ? ExpectedCommitFor(entry, followedRef)
+                : _git.ResolveRemoteCommit(ForkRepoUrl(fork), followedRef ?? "HEAD");
             assets.Add(new ProjectAsset(
                 manifest.Id, manifest.Name, StatusOf(installed, expected),
                 installed, expected, "local", cloneRoot, referenced, null, include, followedRef ?? "",
                 // What the INSTALLED clone actually targets (its csproj), not the index's opinion.
-                SafeDetectStrideVersion(referenced) ?? entry?.Latest.DetectedStrideVersion));
+                SafeDetectStrideVersion(referenced) ?? entry?.Latest.DetectedStrideVersion, fork));
         }
 
         // NuGet installs: PackageReferences matching a catalog asset's published package.
@@ -535,7 +569,7 @@ public sealed class AssetInstaller(GitClient? git = null)
 
         var assetProjects = assets.Where(a => a.Kind == "local")
             .Select(a => a.ReferencedCsproj).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var include in SafeProjectReferences(csprojPath))
+        foreach (var (include, fork) in SafeProjectReferences(csprojPath))
         {
             var referenced = ResolveInclude(csprojPath, include);
             if (!assetProjects.Contains(referenced))
@@ -983,11 +1017,15 @@ public sealed class AssetInstaller(GitClient? git = null)
         }
     }
 
-    private static IReadOnlyList<string> SafeProjectReferences(string csprojPath)
+    /// <summary>A fork given as <c>owner/repo</c> (or already a URL) as a clonable https URL.</summary>
+    public static string ForkRepoUrl(string fork) =>
+        fork.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? fork : $"https://github.com/{fork.Trim('/')}";
+
+    private static IReadOnlyList<CsprojInspector.ReferencedProject> SafeProjectReferences(string csprojPath)
     {
         try
         {
-            return CsprojInspector.GetProjectReferences(csprojPath);
+            return CsprojInspector.GetProjectReferencesWithMetadata(csprojPath);
         }
         catch
         {
@@ -1007,9 +1045,9 @@ public sealed class AssetInstaller(GitClient? git = null)
         }
     }
 
-    private string Clone(string repo, string reference, string storeRoot, List<string> messages)
+    private string Clone(string repo, string reference, string storeRoot, List<string> messages, string? folderName = null)
     {
-        var folder = GitClient.SafeRepoFolderName(repo);
+        var folder = folderName ?? GitClient.SafeRepoFolderName(repo);
         var dest = Path.Combine(storeRoot, folder);
         if (Directory.Exists(Path.Combine(dest, ".git")))
         {

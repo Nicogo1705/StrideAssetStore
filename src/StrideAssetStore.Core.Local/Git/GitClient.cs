@@ -91,6 +91,36 @@ public sealed class GitClient(string gitExecutable = "git")
         return name;
     }
 
+    /// <summary>
+    /// Cache folder for a FORK, as <c>&lt;repo&gt;__&lt;owner&gt;</c>. Forking keeps the repository's name, so
+    /// deriving the folder from the name alone would make a fork land on top of the asset it forked and
+    /// silently replace it for every project on the machine. The owner is what makes it a different thing.
+    /// </summary>
+    public static string SafeForkFolderName(string forkOwnerRepo)
+    {
+        var spec = forkOwnerRepo.TrimEnd('/');
+        var isUrl = spec.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || spec.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+
+        var parts = spec.Split('/');
+
+        // A bare spec is exactly owner/repo. Accepting anything longer would quietly keep only the
+        // last two segments, turning "../evil/Repo" into a clone URL nobody wrote.
+        if (parts.Length < 2 || (!isUrl && parts.Length != 2))
+        {
+            throw new InvalidOperationException($"A fork must be owner/repo (or a full URL), got '{forkOwnerRepo}'.");
+        }
+
+        var repo = SafeRepoFolderName(parts[^1]);
+        var owner = parts[^2];
+        if (!FolderNamePattern.IsMatch(owner))
+        {
+            throw new InvalidOperationException($"Unsafe fork owner '{owner}'.");
+        }
+
+        return $"{repo}__{owner}";
+    }
+
     /// <summary>Resolves the commit a branch/tag points to on the remote, without cloning. For an annotated
     /// tag the peeled commit (<c>^{}</c> line) is preferred over the tag-object SHA, so it matches a checkout.</summary>
     public string? ResolveRemoteCommit(string repoUrlOrPath, string refName)
