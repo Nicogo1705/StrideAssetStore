@@ -825,7 +825,7 @@ public sealed class AssetInstaller(GitClient? git = null)
     /// Clones an asset (and its resolved deps) into the global cache — used to fetch a "missing" reference.
     /// When <paramref name="solutionPath"/> is given, the fetched projects are also registered in that solution.
     /// </summary>
-    public InstallResult DownloadToCache(IndexedAsset asset, IReadOnlyDictionary<string, IndexedAsset> catalog, string? solutionPath = null, string? refFolder = null)
+    public InstallResult DownloadToCache(IndexedAsset asset, IReadOnlyDictionary<string, IndexedAsset> catalog, string? solutionPath = null, string? refFolder = null, string? fork = null)
     {
         var messages = new List<string>();
         if (!_git.IsAvailable())
@@ -842,11 +842,23 @@ public sealed class AssetInstaller(GitClient? git = null)
                 ? GlobalCacheRoot
                 : Path.Combine(GlobalCacheRoot, SafeRefFolderName(refFolder));
             Directory.CreateDirectory(targetRoot);
-            var folder = Clone(asset.Repo, checkoutRef, targetRoot, messages);
-            VerifyHash(targetRoot, folder,
-                string.Equals(checkoutRef, asset.Latest.Ref, StringComparison.Ordinal) ? asset.Latest.ContentHash : null,
-                asset.Manifest.Name, messages);
-            VerifyCertifiedCommit(targetRoot, folder, asset, checkoutRef, messages);
+            // Same rule as an install: a fork replaces the root repository and gets its own cache
+            // folder, and neither the content hash nor the certified commits describe it.
+            var folder = Clone(fork is null ? asset.Repo : ForkRepoUrl(fork), checkoutRef, targetRoot, messages,
+                fork is null ? null : GitClient.SafeForkFolderName(fork));
+
+            if (fork is null)
+            {
+                VerifyHash(targetRoot, folder,
+                    string.Equals(checkoutRef, asset.Latest.Ref, StringComparison.Ordinal) ? asset.Latest.ContentHash : null,
+                    asset.Manifest.Name, messages);
+                VerifyCertifiedCommit(targetRoot, folder, asset, checkoutRef, messages);
+            }
+            else
+            {
+                messages.Add($"⚠ Fork: {fork} at '{checkoutRef}'. Not the registry's content, so the hash "
+                    + "isn't verified and no certification applies.");
+            }
             var clonedCsprojs = CsprojInspector.FindProjects(Path.Combine(targetRoot, folder, "AssetData")).Take(1).ToList();
 
             var missing = false;

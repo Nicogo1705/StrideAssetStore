@@ -67,6 +67,50 @@ else
                 }
             </p>
         </section>
+
+        @* Which code, not which project: this belongs next to the version, and applies to the
+           shared download as much as to a project install. *@
+        <section class="panel">
+            <h2>Source</h2>
+            <label class="check">
+                <input type="radio" name="assetsource" checked="@(!_useFork)" @onchange="() => _useFork = false" />
+                <span>The official asset
+                    <span class="install-hint">— from the registry: certified versions, content hash verified.</span></span>
+            </label>
+            <label class="check">
+                <input type="radio" name="assetsource" checked="@_useFork" @onchange="SelectForkSource" />
+                <span>A fork
+                    <span class="install-hint">— someone else's copy, with its own versions.</span></span>
+            </label>
+            @if (_useFork)
+            {
+                <div class="cmd" style="margin:.3rem 0 0 1.7rem">
+                    @if (_loadingForks)
+                    {
+                        <span class="install-hint">Looking for forks…</span>
+                    }
+                    else if (_forks.Count > 0)
+                    {
+                        <select class="ipt" style="flex:1" @bind="_fork">
+                            @foreach (var f in _forks)
+                            {
+                                <option value="@f.FullName">@f.FullName@(f.Stars > 0 ? $" · ★ {f.Stars}" : "")</option>
+                            }
+                        </select>
+                    }
+                    <input class="ipt" style="flex:1" placeholder="owner/repo" @bind="_fork" />
+                </div>
+                @if (!_loadingForks && _forks.Count == 0)
+                {
+                    <p class="install-hint" style="margin:.2rem 0 0 1.7rem">No fork found on GitHub — type one if you have it.</p>
+                }
+                <p class="install-hint" style="margin:.35rem 0 0 1.7rem">
+                    ⚠ <strong>Fork — outside the store.</strong> The content hash isn't verified and no
+                    certification applies: you are trusting whoever owns that repository. It is cached
+                    separately, so the official asset stays untouched.
+                </p>
+            }
+        </section>
     }
 
     @if (!IsNuget)
@@ -78,7 +122,10 @@ else
                 cache only. Attach it to a project later from <a href="projects">My projects</a>
                 (＋ Add a downloaded asset), or manage it in <a href="assets">My assets</a>.
             </p>
-            <button class="btn" @onclick="DoDownloadOnly" disabled="@_busy">
+            @* Same trap as the install button: "a fork" with nothing typed would quietly download the
+               official asset instead. *@
+            <button class="btn" @onclick="DoDownloadOnly"
+                    disabled="@(_busy || (_useFork && string.IsNullOrWhiteSpace(_fork)))">
                 @(_busy ? "Downloading…" : "⇩ Download to shared cache")
             </button>
         </section>
@@ -180,46 +227,6 @@ else
                 </p>
                 <p class="mono install-hint">@AssetInstaller.GlobalCacheRoot</p>
 
-                @* Someone's fork is a different asset with the same name: its own tags, its own
-                   history, and none of the registry's guarantees. Offered plainly, said plainly. *@
-                <label class="check" style="margin-top:.5rem">
-                    <input type="checkbox" checked="@_useFork" @onchange="OnUseForkChanged" />
-                    <span>Install from a fork
-                        <span class="install-hint">— someone else's copy of this asset, with its own versions.</span></span>
-                </label>
-                @if (_useFork)
-                {
-                    <div class="cmd" style="margin:.15rem 0 0 1.7rem">
-                        @if (_loadingForks)
-                        {
-                            <span class="install-hint">Looking for forks…</span>
-                        }
-                        else if (_forks.Count > 0)
-                        {
-                            <select class="ipt" style="flex:1" @bind="_fork">
-                                <option value="">— pick a fork —</option>
-                                @foreach (var f in _forks)
-                                {
-                                    <option value="@f.FullName">
-                                        @f.FullName@(f.Stars > 0 ? $" · ★ {f.Stars}" : "")@(f.PushedAt is { } d ? $" · pushed {d:yyyy-MM-dd}" : "")
-                                    </option>
-                                }
-                            </select>
-                        }
-                        @* Always available: a fork can live outside GitHub, or be too new to be listed. *@
-                        <input class="ipt" style="flex:1" placeholder="owner/repo" @bind="_fork" />
-                    </div>
-                    @if (!_loadingForks && _forks.Count == 0)
-                    {
-                        <p class="install-hint" style="margin:.2rem 0 0 1.7rem">No fork found on GitHub — type one if you have it.</p>
-                    }
-                    <p class="install-hint" style="margin:.35rem 0 0 1.7rem">
-                        ⚠ <strong>Fork — outside the store.</strong> The content hash isn't verified and no
-                        certification applies: you are trusting whoever owns that repository. It is cached
-                        separately, so the real asset is left untouched. The fork is recorded in your
-                        <span class="mono">.csproj</span>, so teammates get the same one.
-                    </p>
-                }
             }
 
             <button class="btn primary" style="margin-top:.8rem" @onclick="DoInstall" disabled="@(_busy || _checked.Count == 0 || (_useFork && string.IsNullOrWhiteSpace(_fork)))">
@@ -268,23 +275,34 @@ else
     private bool _loadingForks;
     private IReadOnlyList<StrideAssetStore.Core.Local.Git.AssetFork> _forks = [];
 
-    /// <summary>Loads the fork list the first time the option is opened — one API call, not one per render.</summary>
-    private async Task OnUseForkChanged(ChangeEventArgs e)
+    /// <summary>
+    /// Loads the asset's forks the first time "a fork" is picked — one API call, and only for
+    /// someone who actually asked. Preselects the first, so the choice is never left half-made.
+    /// </summary>
+    private async Task SelectForkSource()
     {
-        _useFork = (bool)e.Value!;
-        if (!_useFork || _forks.Count > 0 || _loadingForks || Asset is null)
+        _useFork = true;
+        if (Asset is null || _loadingForks)
         {
             return;
         }
 
-        _loadingForks = true;
-        try
+        if (_forks.Count == 0)
         {
-            _forks = await Forks.ListAsync(Asset.Repo);
+            _loadingForks = true;
+            try
+            {
+                _forks = await Forks.ListAsync(Asset.Repo);
+            }
+            finally
+            {
+                _loadingForks = false;
+            }
         }
-        finally
+
+        if (string.IsNullOrWhiteSpace(_fork))
         {
-            _loadingForks = false;
+            _fork = _forks.FirstOrDefault()?.FullName ?? "";
         }
     }
     private bool _browsing;
@@ -407,7 +425,8 @@ else
         var asset = Asset!;
         var reference = _ref;
         var catalog = State.Catalog!.Assets.ToDictionary(a => a.Id, StringComparer.Ordinal);
-        var result = await Task.Run(() => Installer.DownloadToCache(asset, catalog, solutionPath: null, refFolder: reference));
+        var fork = _useFork && !string.IsNullOrWhiteSpace(_fork) ? _fork.Trim() : null;
+        var result = await Task.Run(() => Installer.DownloadToCache(asset, catalog, solutionPath: null, refFolder: reference, fork: fork));
         _result = result.Success
             ? result with { Messages = [.. result.Messages, "Shared asset ready — attach it to a project from My projects whenever you like."] }
             : result;

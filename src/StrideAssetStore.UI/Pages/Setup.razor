@@ -82,6 +82,24 @@ else
     </section>
 }
 
+@* Not a prerequisite of this app, but the recommended way to install and update it: the tool
+   doesn't depend on this UI, which is exactly what you need when this UI is the broken part. *@
+<section class="panel">
+    <h2>The command-line tool</h2>
+    <p class="install-hint" style="margin-top:0">
+        <span class="mono">strideassetstore</span> installs and updates assets, and manages this app itself.
+        It needs the <a href="https://dotnet.microsoft.com/download" target="_blank" rel="noopener">.NET SDK</a>.
+    </p>
+    <ul class="steps">
+        <li><code>dotnet tool install -g StrideAssetStore</code></li>
+        <li><code>strideassetstore app install</code> — installs the desktop app in one fixed place</li>
+        <li><code>strideassetstore app update</code> — updates it, whether or not it is running</li>
+    </ul>
+    <p class="install-hint">
+        <a href="https://www.nuget.org/packages/StrideAssetStore" target="_blank" rel="noopener">Package on NuGet ↗</a>
+    </p>
+</section>
+
 <style>
     .tool-row { display:flex; align-items:center; gap:.75rem; padding:.55rem 0; border-bottom:1px solid var(--line, #233040); flex-wrap:wrap; }
     .tool-row:last-of-type { border-bottom:0; }
