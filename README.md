@@ -22,11 +22,41 @@ public Git repo; this just indexes and installs them.
 | `src/StrideAssetStore.App` | **Blazor WebAssembly** storefront for GitHub Pages: browse / search / filter / sort (state in the URL), asset detail, and the **publish** wizard (fork + PR via a GitHub token). No local access → no install; its Install button hands over to the desktop app via `stride-assetstore://`. |
 | `src/StrideAssetStore.Desktop` | **Blazor Server** local app (Windows / Linux / macOS) that opens the browser and has full filesystem + git access: **install** an asset — as source (clone + `<ProjectReference>`, with dependencies) or as a **NuGet package** (`<PackageReference>`) when the asset ships one — into a project, or as a **shared asset** (download only, attach later). Source installs land in a **versioned shared cache** (`…\StrideAssetStore\Assets\<ref>\<name>`), so several versions coexist and up-to-date is checked against the ref each clone follows. **My projects** manages tracked solutions (update / attach a downloaded asset / uninstall with `.sln` cleanup); **My assets** browses the cache itself. Registers the `stride-assetstore://` protocol on Windows so the web storefront can open it. |
 | `tests/StrideAssetStore.Core.Tests` | xUnit tests (incl. end-to-end index builds against synthetic git workspaces). |
+| `tests/StrideAssetStore.Core.Local.Tests` | Installer tests against a synthetic machine: real (tiny) git repos, real `.sln`/`.csproj`, the shared cache redirected into the workspace. No network. |
 
 `StrideAssetStore.App` = the online storefront; `StrideAssetStore.Desktop` = the local power tool. Both share
 `StrideAssetStore.UI`.
 
-## CLI usage
+## Install and use assets from the command line
+
+The CLI does everything the desktop app's UI does — same shared cache, same portable `.csproj`
+reference — without downloading an app or opening a browser.
+
+```bash
+dotnet tool install -g StrideAssetStore
+```
+
+Then, from your game's folder (the nearest `.sln`/`.slnx`/`.csproj` is found by walking up):
+
+```bash
+strideassetstore search grass                  # find an asset
+strideassetstore add grass                     # install it here
+strideassetstore add grass --version 1.0.0     # pin a published version
+strideassetstore list                          # what's installed, and its status
+strideassetstore update                        # bring outdated assets up to date
+strideassetstore remove grass                  # take it back out
+
+strideassetstore app install                   # get the desktop app itself
+strideassetstore app start
+```
+
+`--yes` for scripts, `--offline` to work from the cached catalog, `--stride <version>` to retarget
+an asset that was authored against another Stride version. See
+[the tool's README](src/StrideAssetStore.Cli/README.md) for the full surface.
+
+## Registry maintenance (CLI)
+
+These need a checkout of the `AssetContainer` repository.
 
 ```bash
 # Validate every registry entry + manifest (schemas, catalog, Stride version, dependencies)
@@ -63,6 +93,14 @@ dotnet run --project src/StrideAssetStore.Desktop
   Defaults to `Nicogo1705/AssetContainer/main`; change it (config only, no code) to point at another
   org — e.g. a Stride community org, should the project ever be adopted.
 - **Catalog index** (`Catalog:IndexUrl`): where the WASM app fetches `index.lock.json`.
+
+## The Core / Core.Local split
+
+`Core` is what a browser can run: models, serialization, catalog loading and search. `Core.Local`
+is everything that needs a real machine — git, hashing, project files, indexing, validation, the
+installer. The storefront deployed to GitHub Pages has no business managing repositories, so it
+cannot: `StrideAssetStore.UI` and `StrideAssetStore.App` **fail their build** if `Core.Local`
+appears anywhere in their resolved references, transitively or not.
 
 ## What the core does
 

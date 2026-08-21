@@ -99,6 +99,49 @@ jobs:
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --generate-notes || true
           gh release upload "$TAG" StrideAssetStore-${{ matrix.rid }}.* --clobber
 
+  # The CLI ships to nuget.org as `StrideAssetStore`, so `dotnet tool install -g StrideAssetStore`
+  # tracks the same version as the desktop builds. Authentication is NuGet Trusted Publishing
+  # (OIDC): no API key is stored anywhere, the token is minted for this workflow on this repo.
+  # It needs `id-token: write`, and nuget.org's policy pins this file name — renaming this
+  # workflow breaks publishing until the policy is updated.
+  publish-cli:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Resolve version from tag
+        id: ver
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Pack
+        run: |
+          dotnet pack src/StrideAssetStore.Cli/StrideAssetStore.Cli.csproj \
+            -c Release -p:Version=${{ steps.ver.outputs.version }} -o nupkg
+
+      - uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        id: nuget-login
+        with:
+          user: Nicogo
+
+      - name: Push
+        run: |
+          # --skip-duplicate: re-running a release must not fail on a version already pushed.
+          dotnet nuget push nupkg/*.nupkg \
+            --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
   # Builds are unsigned, so publish checksums users can verify against (also linked
   # from the storefront's Download page). Runs once, after every matrix leg uploaded.
   checksums:

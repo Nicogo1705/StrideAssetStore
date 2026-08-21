@@ -35,6 +35,10 @@ internal sealed class AddSettings : ProjectScopedSettings
     [CommandOption("--into <DIR>")]
     [Description("Clone into this folder instead of the shared per-machine cache. The reference becomes relative to your project.")]
     public string? Into { get; init; }
+
+    [CommandOption("--stride <VERSION>")]
+    [Description("Rewrite the installed asset's Stride package references to this version, when it targets another one.")]
+    public string? Stride { get; init; }
 }
 
 /// <summary>
@@ -89,7 +93,37 @@ internal sealed class AddCommand : AsyncCommand<AddSettings>
             globalCache: settings.Into is null,
             solutionPath: ProjectTarget.SolutionOf(target));
 
-        return CliOutput.Report(result);
+        var exit = CliOutput.Report(result);
+        if (exit == 0 && settings.Stride is { } stride)
+        {
+            exit = Retarget(installer, target, CatalogAccess.ById(index), asset.Id, stride);
+        }
+
+        return exit;
+    }
+
+    /// <summary>
+    /// Points the freshly installed asset at the Stride version this game uses. An asset targets
+    /// whatever its author had; without this the project restores two Stride versions at once, or
+    /// fails outright when the author's is not on your feeds.
+    /// </summary>
+    private static int Retarget(
+        AssetInstaller installer, string target,
+        IReadOnlyDictionary<string, IndexedAsset> catalog, string assetId, string strideVersion)
+    {
+        var installed = installer.Analyze(target, catalog).Projects
+            .SelectMany(p => p.Assets)
+            .FirstOrDefault(a => a.Id.Equals(assetId, StringComparison.OrdinalIgnoreCase));
+
+        if (installed is null || string.IsNullOrEmpty(installed.CloneRoot))
+        {
+            AnsiConsole.MarkupLine("[yellow]⚠ Installed, but its clone couldn't be located to retarget Stride.[/]");
+            return 1;
+        }
+
+        var changed = installer.RetargetStride(installer.CloneCsprojs(installed.CloneRoot), strideVersion);
+        AnsiConsole.MarkupLineInterpolated($"[green]✓ Retargeted {changed} project(s) to Stride {strideVersion}.[/]");
+        return 0;
     }
 
     /// <summary>

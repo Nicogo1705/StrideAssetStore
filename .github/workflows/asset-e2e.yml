@@ -1,0 +1,163 @@
+name: Asset end-to-end (install, build, run a game)
+
+# Proves the promise the store makes, on every OS it claims to support: install the CLI, use it to
+# add a published asset to a real Stride game, compile it, and run the game until it renders.
+#
+# Every step is named so a failure says WHICH promise broke — packaging, install, restore, compile
+# or run — instead of "the workflow is red". That distinction is the whole point: the store can
+# look perfectly healthy while its assets are impossible for a stranger to restore.
+#
+# Known limits, deliberately not hidden:
+#  - GitHub runners have no GPU. Linux renders through Mesa's software rasteriser under Xvfb.
+#  - Stride publishes no macOS-specific community-toolkit package, so that leg is expected to be
+#    the flakiest. It runs anyway rather than being quietly dropped.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/StrideAssetStore.Cli/**"
+      - "src/StrideAssetStore.Core.Local/**"
+      - "src/StrideAssetStore.Core/**"
+      - ".github/workflows/asset-e2e.yml"
+  schedule:
+    # Weekly: the asset repositories move on their own, so this catches breakage nobody pushed here.
+    - cron: "30 7 * * 1"
+  workflow_dispatch:
+    inputs:
+      asset:
+        description: "Asset to install (id or unambiguous fragment)"
+        default: "grass"
+      stride:
+        description: "Stride version the test game uses (must exist on nuget.org)"
+        default: "4.3.0.2507"
+
+permissions:
+  contents: read
+
+env:
+  ASSET: ${{ github.event.inputs.asset || 'grass' }}
+  STRIDE: ${{ github.event.inputs.stride || '4.3.0.2507' }}
+  TOOLKIT: 1.0.0-preview.62
+
+jobs:
+  e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, toolkit_package: Stride.CommunityToolkit.Windows }
+          - { os: ubuntu-latest, toolkit_package: Stride.CommunityToolkit.Linux }
+          - { os: macos-latest, toolkit_package: Stride.CommunityToolkit }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Graphics stack for a headless Linux runner
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          # llvmpipe/lavapipe render on the CPU; SDL2 is how Stride opens its window.
+          sudo apt-get install -y --no-install-recommends \
+            xvfb mesa-utils libgl1 libglx-mesa0 libvulkan1 mesa-vulkan-drivers libsdl2-2.0-0 libopenal1
+
+      # ── 1. The tool has to package and install like a user's would ──
+      - name: Pack and install the CLI as a global tool
+        run: |
+          dotnet pack src/StrideAssetStore.Cli/StrideAssetStore.Cli.csproj -c Release -p:Version=0.0.1-ci -o nupkg
+          dotnet tool install StrideAssetStore --version 0.0.1-ci --add-source nupkg --tool-path tools
+          tools/strideassetstore --version
+
+      # ── 2. A code-only Stride game: no Game Studio, no .sdpkg, just a project ──
+      - name: Scaffold a Stride game
+        run: |
+          mkdir -p game
+          cat > game/Game.csproj <<EOF
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net8.0</TargetFramework>
+              <Nullable>enable</Nullable>
+              <StrideVersion>${STRIDE}</StrideVersion>
+            </PropertyGroup>
+            <ItemGroup>
+              <PackageReference Include="${{ matrix.toolkit_package }}" Version="${TOOLKIT}" />
+            </ItemGroup>
+          </Project>
+          EOF
+          # Prints a sentinel once rendering actually happened, then quits: a timeout alone can't
+          # tell "rendered fine" from "hung before the first frame".
+          cat > game/Program.cs <<'EOF'
+          using Stride.CommunityToolkit.Engine;
+          using Stride.Engine;
+          using Stride.Games;
+
+          var frames = 0;
+          using var game = new Game();
+          game.Run(start: scene =>
+          {
+              Console.WriteLine("E2E-STARTED");
+              game.SetupBase3DScene();
+          },
+          update: (scene, time) =>
+          {
+              if (++frames == 30)
+              {
+                  Console.WriteLine("E2E-RENDERED");
+                  game.Exit();
+              }
+          });
+          Console.WriteLine("E2E-EXITED");
+          EOF
+
+      - name: Baseline — the empty game restores and builds
+        working-directory: game
+        run: dotnet build -c Release
+
+      # ── 3. The store's actual job ──
+      - name: Install the asset with the CLI
+        working-directory: game
+        run: ../tools/strideassetstore add "$ASSET" --into ./Assets --stride "$STRIDE" --yes
+
+      - name: The asset is listed as installed
+        working-directory: game
+        run: ../tools/strideassetstore list
+
+      - name: Restore and compile the game WITH the asset
+        working-directory: game
+        run: dotnet build -c Release
+
+      # ── 4. It has to actually run ──
+      - name: Run the game
+        working-directory: game
+        run: |
+          set -o pipefail
+          RUN="dotnet run -c Release --no-build"
+          [ "${{ runner.os }}" = "Linux" ] && RUN="xvfb-run -a --server-args=-screen\ 0\ 1280x720x24 $RUN"
+          # Wall-clock guard: a game that never reaches a frame must fail the job, not hang it.
+          timeout 300 $RUN 2>&1 | tee run.log
+
+      - name: The game reached a rendered frame
+        working-directory: game
+        run: |
+          grep -q "E2E-RENDERED" run.log \
+            || { echo "::error::the game never rendered a frame on ${{ matrix.os }}"; exit 1; }
+          echo "rendered OK on ${{ matrix.os }}"
+
+      - name: Keep the log when something broke
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e2e-${{ matrix.os }}
+          path: |
+            game/run.log
+            game/Assets/**/*.csproj
+          if-no-files-found: ignore
