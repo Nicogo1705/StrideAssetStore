@@ -106,13 +106,53 @@ else
         <a href="https://dotnet.microsoft.com/download" target="_blank" rel="noopener">.NET SDK</a>.
         <a href="https://www.nuget.org/packages/StrideAssetStore" target="_blank" rel="noopener">Package on NuGet ↗</a>
     </p>
+
+    <h3 style="margin:1rem 0 .3rem;font-size:.95rem">What it can do</h3>
+    <p class="install-hint" style="margin:0 0 .5rem">Run these from your solution folder.</p>
+    <dl class="cmd-list">
+        <dt><span class="mono">search grass</span></dt>
+        <dd>Find assets in the catalog.</dd>
+
+        <dt><span class="mono">add grass</span></dt>
+        <dd>Install an asset into this project. <span class="mono">--version 1.1.0</span> pins a version,
+            <span class="mono">--fork owner/repo</span> takes someone's copy instead of the official one.</dd>
+
+        <dt><span class="mono">forks grass</span></dt>
+        <dd>List an asset's forks — the names <span class="mono">add --fork</span> accepts.</dd>
+
+        <dt><span class="mono">list</span></dt>
+        <dd>What this project references. <span class="mono">--cached</span> shows everything downloaded on
+            this machine instead.</dd>
+
+        <dt><span class="mono">update</span></dt>
+        <dd>Update every installed asset. <span class="mono">update grass --version 1.1.0</span> moves one
+            onto a chosen version.</dd>
+
+        <dt><span class="mono">remove grass</span></dt>
+        <dd>Drop the reference. <span class="mono">--delete-clone</span> also deletes the downloaded copy.</dd>
+
+        <dt><span class="mono">app install</span> · <span class="mono">update</span> · <span class="mono">status</span> · <span class="mono">start</span> · <span class="mono">stop</span></dt>
+        <dd>Manage this desktop app itself — <span class="mono">app update</span> is how it is updated.</dd>
+    </dl>
+    <p class="install-hint" style="margin:.6rem 0 0">
+        A solution with several projects needs <span class="mono">--project &lt;name&gt;</span> or
+        <span class="mono">--all-projects</span>; without one, the command stops and lists them.
+        <span class="mono">--help</span> works on every command.
+    </p>
 </section>
 
 <style>
-    .tool-row { display:flex; align-items:center; gap:.75rem; padding:.55rem 0; border-bottom:1px solid var(--line, #233040); flex-wrap:wrap; }
+    .tool-row { display:flex; align-items:center; gap:.75rem; padding:.55rem 0; border-bottom:1px solid var(--border); flex-wrap:wrap; }
     .tool-row:last-of-type { border-bottom:0; }
     .tool-name { min-width:11rem; font-weight:600; }
-    .bad { color:#f2a65a; }
+    .bad { color: var(--warn); }
+    .cmd-list { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: .3rem .9rem; align-items: baseline; }
+    .cmd-list dt { white-space: nowrap; }
+    .cmd-list dd { margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.45; }
+    @@media (max-width: 640px) {
+        .cmd-list { grid-template-columns: 1fr; gap: .1rem; }
+        .cmd-list dd { margin-bottom: .45rem; }
+    }
 </style>
 
 @code {
