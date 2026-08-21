@@ -32,8 +32,14 @@ if (!protocolLaunch && StrideAssetStore.Desktop.Services.ProtocolLauncher.IsAlre
 // Register the protocol for the current user (Windows, HKCU, best-effort) — but never from
 // a dev (0.0.0.0) or locally-built Release (99.0.0.0): they would hijack the website's
 // "Open app" button away from the real install.
+//
+// Matched exactly, not by major: this used to reject anything with major 0, which silently
+// disqualified the v0.9.0 release itself — the app never registered the scheme, and the site's
+// "Open app" button fell through to the download page for everyone.
 var entryVersion = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version;
-var isLocalBuild = entryVersion is null || entryVersion.Major is 0 or 99;
+var isLocalBuild = entryVersion is null
+    || entryVersion is { Major: 0, Minor: 0, Build: 0 }
+    || entryVersion.Major == 99;
 if (!isLocalBuild)
 {
     StrideAssetStore.Desktop.Services.ProtocolLauncher.TryRegisterWindowsScheme();

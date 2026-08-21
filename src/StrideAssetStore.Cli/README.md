@@ -48,6 +48,30 @@ the same asset coexist and different projects can follow different ones. The ref
 your `.csproj` is portable — a teammate who runs `strideassetstore update` gets the same code.
 
 
+### Forks
+
+To use someone's fork of an asset — or your own — instead of the author's repository:
+
+```bash
+strideassetstore add grass --fork someone/StrideGrassSystem
+strideassetstore add grass --fork you/StrideGrassSystem --ref my-branch
+```
+
+The desktop app lists an asset's forks for you; from here you name the one you want.
+
+A fork keeps its own tags and its own history, so **nothing the registry says about the asset
+applies to it**: the content hash isn't verified and no certification carries over. It is cached
+under its own folder, so the official asset on your machine is untouched.
+
+The fork is recorded on the project reference itself:
+
+```xml
+<ProjectReference Include="…\StrideGrassSystem__you\…" Fork="you/StrideGrassSystem" />
+```
+
+so it travels with your project — a teammate who clones the repository and runs `update` follows
+the same fork, without being told. `list` shows those assets as `fork` rather than `local`.
+
 ### Solutions with more than one project
 
 ```bash

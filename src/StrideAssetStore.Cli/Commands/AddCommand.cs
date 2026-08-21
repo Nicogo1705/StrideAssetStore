@@ -66,6 +66,15 @@ internal sealed class AddCommand : AsyncCommand<AddSettings>
             || (!settings.Source && asset.Manifest.Nuget is not null
                 && string.Equals(asset.Manifest.DefaultImport, "nuget", StringComparison.OrdinalIgnoreCase));
 
+        // A fork is source code, and a NuGet package is whatever its author published — asking for
+        // both would have quietly installed the official package and ignored the fork entirely.
+        if (useNuget && settings.Fork is not null)
+        {
+            AnsiConsole.MarkupLine(
+                "[red]A fork can't be installed as a NuGet package.[/] Add --source to clone it, or drop --fork.");
+            return 1;
+        }
+
         if (useNuget)
         {
             if (asset.Manifest.Nuget is null)

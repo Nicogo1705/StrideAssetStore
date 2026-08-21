@@ -482,8 +482,13 @@ public sealed class AssetInstaller(GitClient? git = null)
                 if (referenced.StartsWith(GlobalCacheRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                 {
                     var (refName, folder) = GlobalCachePartsOf(referenced);
+
+                    // A fork's folder is <repo>__<owner>, which matches no catalog repository — so
+                    // match on the fork's own repository name instead. Without this, a teammate who
+                    // clones the project sees a nameless "missing" row and no clue what to fetch.
+                    var lookup = fork is null ? folder : GitClient.SafeRepoFolderName(ForkRepoUrl(fork));
                     var known = catalog.Values.FirstOrDefault(a =>
-                        string.Equals(GitClient.SafeRepoFolderName(a.Repo), folder, StringComparison.OrdinalIgnoreCase));
+                        string.Equals(GitClient.SafeRepoFolderName(a.Repo), lookup, StringComparison.OrdinalIgnoreCase));
                     assets.Add(new ProjectAsset(
                         known?.Id ?? "", known?.Manifest.Name ?? folder, "missing", "", known?.Latest.Commit,
                         "local", Path.Combine(GlobalCacheRoot, refName ?? "", folder), referenced, null, include,
@@ -641,47 +646,15 @@ public sealed class AssetInstaller(GitClient? git = null)
 
     private static string Describe(string? fork) => fork is null ? "the official asset" : $"the fork {fork}";
 
+    /// <summary>
+    /// Moves a project onto another ref of the SAME source it already follows. A project installed
+    /// from a fork stays on that fork: re-resolving against the registry's repository here would
+    /// have quietly walked the user back to the official asset while they asked for a version.
+    /// </summary>
     public InstallResult SwitchRef(
         IndexedAsset asset, ProjectAsset current, string csprojPath, string newRef,
-        IReadOnlyDictionary<string, IndexedAsset> catalog, string? solutionPath)
-    {
-        var messages = new List<string>();
-        try
-        {
-            // DownloadToCache clones under SafeRepoFolderName(repo) — the current clone's folder
-            // name can differ for local-mode installs, so derive the target from the repo URL.
-            var folder = GitClient.SafeRepoFolderName(asset.Repo);
-            var targetRoot = Path.Combine(GlobalCacheRoot, SafeRefFolderName(newRef), folder);
-            if (!File.Exists(Path.Combine(targetRoot, "AssetData", "manifest.json")))
-            {
-                var downloaded = DownloadToCache(asset, catalog, solutionPath, refFolder: newRef);
-                messages.AddRange(downloaded.Messages);
-                if (!downloaded.Success && !File.Exists(Path.Combine(targetRoot, "AssetData", "manifest.json")))
-                {
-                    return new InstallResult(false, messages);
-                }
-            }
-
-            // Only drop the old reference once the target clone is proven attachable — removing
-            // first would leave the project referencing the asset at NO ref when attach fails.
-            if (CsprojInspector.FindProjects(Path.Combine(targetRoot, "AssetData")).FirstOrDefault() is null)
-            {
-                messages.Add($"✗ No .csproj found in {targetRoot} — the reference was left unchanged.");
-                return new InstallResult(false, messages);
-            }
-
-            CsprojEditor.RemoveRawProjectReference(csprojPath, current.RawInclude);
-            var attached = AttachCached(targetRoot, [csprojPath], catalog, solutionPath);
-            messages.AddRange(attached.Messages);
-            messages.Add($"Switched {asset.Manifest.Name} to '{newRef}'.");
-            return new InstallResult(attached.Success, messages);
-        }
-        catch (Exception ex)
-        {
-            messages.Add($"✗ {ex.Message}");
-            return new InstallResult(false, messages);
-        }
-    }
+        IReadOnlyDictionary<string, IndexedAsset> catalog, string? solutionPath) =>
+        SwitchSource(asset, current, csprojPath, newRef, current.Fork, catalog, solutionPath);
 
     /// <summary>Every csproj under a clone's AssetData — the surface a shared retarget touches.</summary>
     public IReadOnlyList<string> CloneCsprojs(string cloneRoot) =>
