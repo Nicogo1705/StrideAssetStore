@@ -42,8 +42,13 @@ public sealed class InstallerWorkspace : IDisposable
     /// Tag to create, as a real cache clone of a tag has one: the installer refuses to report success
     /// for a clone that isn't actually on the ref it was asked for, and that is how it checks.
     /// </param>
+    /// <param name="origin">
+    /// Remote to record. A cache clone always has one, and it is how the installer tells an official
+    /// asset from a fork — the folder name is a lossy rendering of it.
+    /// </param>
     public (string CloneRoot, string Head) CreateAssetClone(
-        string relativePath, string id, string name, string strideVersion = "4.4.0.2", string? tag = null)
+        string relativePath, string id, string name, string strideVersion = "4.4.0.2", string? tag = null,
+        string? origin = null)
     {
         var cloneRoot = Path.Combine(Root, relativePath);
         var lib = Path.Combine(cloneRoot, "AssetData", name);
@@ -74,6 +79,11 @@ public sealed class InstallerWorkspace : IDisposable
         if (tag is not null)
         {
             Git(cloneRoot, "tag", tag);
+        }
+
+        if (origin is not null)
+        {
+            Git(cloneRoot, "remote", "add", "origin", origin);
         }
 
         return (cloneRoot, Git(cloneRoot, "rev-parse", "HEAD").Trim());

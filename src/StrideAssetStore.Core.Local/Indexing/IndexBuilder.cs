@@ -272,6 +272,9 @@ public sealed class IndexBuilder(
                 reused[entry.Id] = prev with
                 {
                     Repo = entry.Repo,
+                    // The registry's ref, not the one indexed last time: a branch rename that keeps
+                    // the same commit would otherwise keep publishing a branch nobody can clone.
+                    Latest = prev.Latest with { Ref = entry.Latest.Ref },
                     Stars = popularity?.Stars ?? prev.Stars,
                     Forks = popularity?.Forks ?? prev.Forks,
                     AddedAt = prev.AddedAt ?? RegistryEntryAddedAt(entry.Id),
@@ -279,7 +282,7 @@ public sealed class IndexBuilder(
                     // Certifications live in the registry entry, not the repo — they can change
                     // without the tracked ref moving, so refresh them even on reuse.
                     Certified = MapCertified(entry),
-            Deprecated = entry.Deprecated,
+                    Deprecated = entry.Deprecated,
                     LastValidatedAt = generatedAt,
                 };
             }

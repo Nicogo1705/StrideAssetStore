@@ -70,6 +70,11 @@ public sealed class SchemaValidator
             return node;
         }
 
+        // The report accumulates across every document of a run, so "did this one produce an error"
+        // has to be measured, not read off a global flag — otherwise an invalid document with no
+        // granular details produced no message at all once anything earlier had failed.
+        var errorsBefore = report.ErrorCount;
+
         foreach (var detail in results.Details ?? [])
         {
             if (detail is { IsValid: false, Errors: { Count: > 0 } errors })
@@ -84,7 +89,7 @@ public sealed class SchemaValidator
         }
 
         // Fallback in case the evaluator reported invalid without granular details.
-        if (!report.HasErrors)
+        if (report.ErrorCount == errorsBefore)
         {
             report.Error($"{codePrefix}.schema", $"{_name} failed schema validation.");
         }

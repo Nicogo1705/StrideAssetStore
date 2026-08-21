@@ -31,7 +31,10 @@ public sealed class AssetValidator
     public RegistryEntry? ValidateRegistryFile(string path, ValidationReport report)
     {
         var json = File.ReadAllText(path);
-        if (_registrySchema.Validate(json, report, "registry") is null || report.HasErrors)
+        // Not report.HasErrors: the report accumulates across every asset of the run, so an earlier
+        // failure elsewhere would reject this file without anything being wrong with it.
+        var before = report.ErrorCount;
+        if (_registrySchema.Validate(json, report, "registry") is null || report.ErrorCount != before)
         {
             return null;
         }
@@ -68,7 +71,8 @@ public sealed class AssetValidator
         }
 
         var json = File.ReadAllText(manifestPath);
-        if (_manifestSchema.Validate(json, report, "manifest") is null || report.HasErrors)
+        var before = report.ErrorCount;
+        if (_manifestSchema.Validate(json, report, "manifest") is null || report.ErrorCount != before)
         {
             return null;
         }

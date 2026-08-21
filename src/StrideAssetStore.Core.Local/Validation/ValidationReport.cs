@@ -29,6 +29,13 @@ public sealed class ValidationReport
 
     public bool HasErrors => _messages.Any(m => m.Severity == ValidationSeverity.Error);
 
+    /// <summary>
+    /// How many errors have been recorded so far. A caller that wants to know whether *its own* step
+    /// failed compares this before and after: <see cref="HasErrors"/> answers for the whole run, and
+    /// one bad asset would otherwise condemn every asset validated after it.
+    /// </summary>
+    public int ErrorCount => _messages.Count(m => m.Severity == ValidationSeverity.Error);
+
     public bool HasWarnings => _messages.Any(m => m.Severity == ValidationSeverity.Warning);
 
     public void Add(ValidationSeverity severity, string code, string text) =>

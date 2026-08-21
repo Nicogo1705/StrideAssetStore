@@ -2,6 +2,7 @@
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
 using StrideAssetStore.Core.Local.Git;
+using StrideAssetStore.Core.Local.Install;
 using StrideAssetStore.Core.Models;
 
 namespace StrideAssetStore.Core.Local.Indexing;
@@ -30,7 +31,7 @@ public sealed class GitAssetSource(string cacheDirectory, GitClient? git = null)
         {
             if (!_git.UpdateToRef(root, entry.Latest.Ref))
             {
-                Directory.Delete(root, recursive: true);
+                AssetInstaller.ForceDeleteDirectory(root);
                 _git.ShallowClone(entry.Repo, entry.Latest.Ref, root);
             }
         }
@@ -38,7 +39,7 @@ public sealed class GitAssetSource(string cacheDirectory, GitClient? git = null)
         {
             if (Directory.Exists(root))
             {
-                Directory.Delete(root, recursive: true);
+                AssetInstaller.ForceDeleteDirectory(root);
             }
 
             _git.ShallowClone(entry.Repo, entry.Latest.Ref, root);

@@ -180,6 +180,25 @@ public sealed class DesktopInstallerTests
     }
 
     [Fact]
+    public void AttachCached_does_not_invent_a_fork_for_a_repository_whose_name_contains_underscores()
+    {
+        using var ws = new InstallerWorkspace();
+        // Reading the fork off the folder name turned "my__lib" into a fork of "lib/my" — a
+        // repository that doesn't exist, which every later update then tried to fetch from.
+        var (cloneRoot, head) = ws.CreateAssetClone(
+            Path.Combine("appdata", "StrideAssetStore", "Assets", "master", "my__lib"),
+            "com.t.asset", "my__lib", origin: "https://github.com/test/my__lib");
+        var gameCsproj = ws.CreateGameProject(Path.Combine("Game", "Game.csproj"));
+        var installer = new AssetInstaller();
+        var catalog = InstallerWorkspace.Catalog(
+            InstallerWorkspace.CatalogEntry("com.t.asset", "my__lib", latestCommit: head));
+
+        Assert.True(installer.AttachCached(cloneRoot, [gameCsproj], catalog).Success);
+
+        Assert.DoesNotContain("Fork=", File.ReadAllText(gameCsproj));
+    }
+
+    [Fact]
     public void DeleteClone_refuses_a_folder_outside_the_shared_cache()
     {
         using var ws = new InstallerWorkspace();
@@ -200,10 +219,11 @@ public sealed class DesktopInstallerTests
     public void AttachCached_records_the_fork_a_cached_clone_came_from()
     {
         using var ws = new InstallerWorkspace();
-        // The folder shape SafeForkFolderName writes: <repo>__<owner>.
+        // A clone of someone's fork: the folder shape SafeForkFolderName writes, and — what the
+        // installer actually reads — an origin that isn't the repository the registry lists.
         var (cloneRoot, head) = ws.CreateAssetClone(
             Path.Combine("appdata", "StrideAssetStore", "Assets", "main", "TestAsset__someone"),
-            "com.t.asset", "TestAsset");
+            "com.t.asset", "TestAsset", origin: "https://github.com/someone/TestAsset");
         var gameCsproj = ws.CreateGameProject(Path.Combine("Game", "Game.csproj"));
         var installer = new AssetInstaller();
         var catalog = InstallerWorkspace.Catalog(

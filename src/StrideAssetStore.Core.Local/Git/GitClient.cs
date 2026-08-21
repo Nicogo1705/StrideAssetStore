@@ -163,6 +163,35 @@ public sealed class GitClient(string gitExecutable = "git")
         return first;
     }
 
+    /// <summary>The URL a clone was made from, or null. The only reliable answer to "where does this
+    /// folder come from" — a folder name is a sanitized, lossy rendering of it.</summary>
+    public string? GetRemoteUrl(string repositoryPath, string remote = "origin")
+    {
+        RejectOptionLike(remote);
+        var (exitCode, output, _) = Run(repositoryPath, "remote", "get-url", remote);
+        return exitCode == 0 && output.Trim() is { Length: > 0 } url ? url : null;
+    }
+
+    /// <summary>Whether two repository URLs name the same repository (scheme, case and .git suffix aside).</summary>
+    public static bool SameRepository(string? a, string? b)
+    {
+        static string Normalize(string url)
+        {
+            var value = url.Trim().TrimEnd('/');
+            if (value.EndsWith(".git", StringComparison.OrdinalIgnoreCase))
+            {
+                value = value[..^4];
+            }
+
+            // Compare owner/repo: the same repository is reachable over https, ssh and with or
+            // without a credential in the URL.
+            var parts = value.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length >= 2 ? $"{parts[^2]}/{parts[^1]}".ToLowerInvariant() : value.ToLowerInvariant();
+        }
+
+        return a is not null && b is not null && Normalize(a) == Normalize(b);
+    }
+
     /// <summary>ISO-8601 committer date of a commit in a local checkout, or null.</summary>
     public string? GetCommitDate(string repositoryPath, string commit = "HEAD")
     {

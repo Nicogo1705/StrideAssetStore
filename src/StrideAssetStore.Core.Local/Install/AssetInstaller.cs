@@ -518,7 +518,7 @@ public sealed class AssetInstaller(GitClient? git = null)
                     // A fork's folder is <repo>__<owner>, which matches no catalog repository — so
                     // match on the fork's own repository name instead. Without this, a teammate who
                     // clones the project sees a nameless "missing" row and no clue what to fetch.
-                    var lookup = fork is null ? folder : GitClient.SafeRepoFolderName(ForkRepoUrl(fork));
+                    var lookup = fork is null ? folder : SafeForkFolder(fork, folder);
                     var known = catalog.Values.FirstOrDefault(a =>
                         string.Equals(GitClient.SafeRepoFolderName(a.Repo), lookup, StringComparison.OrdinalIgnoreCase));
                     assets.Add(new ProjectAsset(
@@ -781,7 +781,7 @@ public sealed class AssetInstaller(GitClient? git = null)
     /// <c>.git</c> (pack/object files) read-only, which makes a plain <see cref="Directory.Delete(string, bool)"/>
     /// throw <see cref="UnauthorizedAccessException"/> on Windows.
     /// </summary>
-    private static void ForceDeleteDirectory(string path)
+    internal static void ForceDeleteDirectory(string path)
     {
         foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
         {
@@ -1040,7 +1040,7 @@ public sealed class AssetInstaller(GitClient? git = null)
         // A cached fork lives in a "<repo>__<owner>" folder. Attaching it without recording the fork
         // would leave a reference the registry claims to own: `update` would then resolve it against
         // the official repository and quietly walk the project back off the fork.
-        var fork = ForkFromCloneFolder(cloneRoot);
+        var fork = ForkOfClone(cloneRoot, catalog);
 
         var clonedCsprojs = new List<string> { assetCsproj };
         var manifest = TryReadManifest(Path.Combine(cloneRoot, "AssetData", "manifest.json"));
@@ -1093,16 +1093,42 @@ public sealed class AssetInstaller(GitClient? git = null)
     }
 
     /// <summary>
-    /// The <c>owner/repo</c> a cached clone came from when its folder is a fork folder
-    /// (<c>&lt;repo&gt;__&lt;owner&gt;</c>, written by <see cref="GitClient.SafeForkFolderName"/>), else null.
+    /// The <c>owner/repo</c> a cached clone came from when it is a fork — i.e. when git's origin
+    /// isn't the repository the registry lists for this asset. Null for the official asset, and null
+    /// when we can't tell.
     /// </summary>
-    private static string? ForkFromCloneFolder(string cloneRoot)
+    /// <remarks>
+    /// Reading this from the folder name was not invertible: repository names may contain "__", so
+    /// an asset published from <c>my__lib</c> was recorded as a fork of <c>lib/my</c> — a repository
+    /// that doesn't exist, which every later update then tried to fetch from.
+    /// </remarks>
+    private string? ForkOfClone(string cloneRoot, IReadOnlyDictionary<string, IndexedAsset> catalog)
     {
-        var folder = Path.GetFileName(cloneRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        var separator = folder.LastIndexOf("__", StringComparison.Ordinal);
-        return separator > 0 && separator + 2 < folder.Length
-            ? $"{folder[(separator + 2)..]}/{folder[..separator]}"
-            : null;
+        var origin = _git.GetRemoteUrl(cloneRoot);
+        if (origin is null)
+        {
+            return null;
+        }
+
+        var manifest = TryReadManifest(Path.Combine(cloneRoot, "AssetData", "manifest.json"));
+        if (manifest is null || !catalog.TryGetValue(manifest.Id, out var entry))
+        {
+            return null; // not an asset we know: nothing to compare origin against
+        }
+
+        if (GitClient.SameRepository(origin, entry.Repo))
+        {
+            return null; // the registry's own repository
+        }
+
+        var parts = origin.TrimEnd('/').Split('/');
+        if (parts.Length < 2)
+        {
+            return null;
+        }
+
+        var repo = parts[^1].EndsWith(".git", StringComparison.OrdinalIgnoreCase) ? parts[^1][..^4] : parts[^1];
+        return $"{parts[^2]}/{repo}";
     }
 
     // Walks up from a referenced .csproj to the store clone root: the first ancestor with an AssetData/
@@ -1175,6 +1201,17 @@ public sealed class AssetInstaller(GitClient? git = null)
         var dest = Path.Combine(storeRoot, folder);
         if (Directory.Exists(Path.Combine(dest, ".git")))
         {
+            // SafeRepoFolderName keeps only the last URL segment, so a/Utils and b/Utils want the
+            // same folder. Reusing it would fetch from whichever got there first and hand the
+            // project someone else's code — the content hash only warns.
+            var origin = _git.GetRemoteUrl(dest);
+            if (origin is not null && !GitClient.SameRepository(origin, repo))
+            {
+                throw new InvalidOperationException(
+                    $"The cache folder '{folder}' already holds a clone of {origin}, not {repo}. "
+                    + "Two assets whose repositories share a name can't share it — remove that folder to install this one.");
+            }
+
             // Warn when updating an existing clone actually changes the checked-out commit: in the shared
             // global cache that same folder is referenced by every project, so its version changes for all.
             var before = _git.ResolveCommit(dest, "HEAD");
@@ -1215,6 +1252,24 @@ public sealed class AssetInstaller(GitClient? git = null)
         }
 
         return folder;
+    }
+
+    /// <summary>
+    /// Cache folder for a fork read from a project file, falling back to <paramref name="fallback"/>
+    /// when it isn't a usable owner/repo. The value is hand-editable and travels in other people's
+    /// repositories, and the validating helpers throw — which used to take the analysis of every
+    /// project in the solution down with it.
+    /// </summary>
+    private static string SafeForkFolder(string fork, string fallback)
+    {
+        try
+        {
+            return GitClient.SafeRepoFolderName(ForkRepoUrl(fork));
+        }
+        catch (InvalidOperationException)
+        {
+            return fallback;
+        }
     }
 
     private static string Short(string? commit) =>
