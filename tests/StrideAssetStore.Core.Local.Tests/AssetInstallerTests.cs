@@ -186,7 +186,8 @@ public sealed class DesktopInstallerTests
         var (masterRoot, masterHead) = ws.CreateAssetClone(
             Path.Combine("appdata", "StrideAssetStore", "Assets", "master", "TestAsset"), "com.t.asset", "TestAsset");
         var (_, taggedHead) = ws.CreateAssetClone(
-            Path.Combine("appdata", "StrideAssetStore", "Assets", "v1.0.0", "TestAsset"), "com.t.asset", "TestAsset");
+            Path.Combine("appdata", "StrideAssetStore", "Assets", "v1.0.0", "TestAsset"), "com.t.asset", "TestAsset",
+            tag: "v1.0.0");
         var gameCsproj = ws.CreateGameProject(Path.Combine("Game", "Game.csproj"));
         var installer = new AssetInstaller();
         var entry = InstallerWorkspace.CatalogEntry("com.t.asset", "TestAsset",

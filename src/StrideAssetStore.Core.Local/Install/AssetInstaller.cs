@@ -670,12 +670,47 @@ public sealed class AssetInstaller(GitClient? git = null)
             return new InstallResult(false, messages);
         }
 
-        CsprojEditor.RemoveRawProjectReference(csprojPath, current.RawInclude);
+        // Only drop the old reference when the install actually wrote a different one. Two refs can
+        // land in the same cache folder — SafeRefFolderName turns every non-alphanumeric character
+        // into '-', so "feature/x" and "feature-x" collapse — and removing it then would leave the
+        // project with no reference at all, reported as a successful switch.
+        var newCloneFolder = fork is null
+            ? GitClient.SafeRepoFolderName(asset.Repo)
+            : GitClient.SafeForkFolderName(fork);
+        if (ReferenceStillPointsElsewhere(csprojPath, current.RawInclude, newRef, newCloneFolder))
+        {
+            CsprojEditor.RemoveRawProjectReference(csprojPath, current.RawInclude);
+        }
+
         messages.Add($"✓ Switched {asset.Manifest.Name} to {Describe(fork)} at '{newRef}'.");
         return new InstallResult(true, messages);
     }
 
     private static string Describe(string? fork) => fork is null ? "the official asset" : $"the fork {fork}";
+
+    /// <summary>
+    /// Whether the reference a project held before a switch points somewhere other than the clone the
+    /// switch just installed — that is, whether removing it is safe.
+    /// </summary>
+    private static bool ReferenceStillPointsElsewhere(string csprojPath, string rawInclude, string newRef, string newCloneFolder)
+    {
+        try
+        {
+            var expanded = rawInclude.Replace(GlobalCacheInclude, GlobalCacheRoot, StringComparison.Ordinal);
+            var oldFull = Path.GetFullPath(Path.IsPathRooted(expanded)
+                ? expanded
+                : Path.Combine(Path.GetDirectoryName(csprojPath) ?? ".", expanded));
+
+            var newClone = Path.GetFullPath(Path.Combine(GlobalCacheRoot, SafeRefFolderName(newRef), newCloneFolder));
+
+            return !oldFull.StartsWith(newClone + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            // An include we can't resolve is not one we should delete on a guess.
+            return false;
+        }
+    }
 
     /// <summary>
     /// Moves a project onto another ref of the SAME source it already follows. A project installed
@@ -1111,7 +1146,22 @@ public sealed class AssetInstaller(GitClient? git = null)
             // Warn when updating an existing clone actually changes the checked-out commit: in the shared
             // global cache that same folder is referenced by every project, so its version changes for all.
             var before = _git.ResolveCommit(dest, "HEAD");
-            _git.UpdateToRef(dest, reference);
+            if (!_git.UpdateToRef(dest, reference))
+            {
+                // A failed fetch is only fatal when the checkout isn't already on the ref that was
+                // asked for. Offline, an existing clone of a tag is exactly what should still work;
+                // what must not happen is reporting "Updated" for an install left on another version.
+                if (_git.ResolveCommit(dest, reference) is not { } local || local != before)
+                {
+                    throw new InvalidOperationException(
+                        $"Couldn't update the cached '{folder}' to {reference}. It is still at {Short(before)} "
+                        + "— check your network, or that the version still exists in the repository.");
+                }
+
+                messages.Add($"• {folder} was already at {reference} ({Short(before)}); couldn't reach the remote to confirm.");
+                return folder;
+            }
+
             var after = _git.ResolveCommit(dest, "HEAD");
             // The store root is the cache root itself for legacy clones, a subfolder otherwise.
             var rootFull = Path.GetFullPath(storeRoot);

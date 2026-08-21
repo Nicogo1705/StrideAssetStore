@@ -38,8 +38,12 @@ public sealed class InstallerWorkspace : IDisposable
     /// csproj) at <paramref name="relativePath"/> under <see cref="Root"/>, and returns its
     /// absolute path plus HEAD commit.
     /// </summary>
+    /// <param name="tag">
+    /// Tag to create, as a real cache clone of a tag has one: the installer refuses to report success
+    /// for a clone that isn't actually on the ref it was asked for, and that is how it checks.
+    /// </param>
     public (string CloneRoot, string Head) CreateAssetClone(
-        string relativePath, string id, string name, string strideVersion = "4.4.0.2")
+        string relativePath, string id, string name, string strideVersion = "4.4.0.2", string? tag = null)
     {
         var cloneRoot = Path.Combine(Root, relativePath);
         var lib = Path.Combine(cloneRoot, "AssetData", name);
@@ -67,6 +71,11 @@ public sealed class InstallerWorkspace : IDisposable
         Git(cloneRoot, "init", "-q");
         Git(cloneRoot, "-c", "user.email=t@t", "-c", "user.name=t", "add", "-A");
         Git(cloneRoot, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "init");
+        if (tag is not null)
+        {
+            Git(cloneRoot, "tag", tag);
+        }
+
         return (cloneRoot, Git(cloneRoot, "rev-parse", "HEAD").Trim());
     }
 
