@@ -13,6 +13,7 @@ on:
       - "src/StrideAssetStore.Core/**"
       - "src/StrideAssetStore.Cli/**" # generate-pages runs in this workflow
       - "Directory.Build.props"
+      - "Directory.Build.targets" # decides how Version is stamped
       - ".github/workflows/deploy-pages.yml"
   schedule:
     # Daily, after AssetContainer's 06:00 index refresh: regenerates the per-asset
@@ -72,7 +73,11 @@ jobs:
       # failure. Stamped with the release version, and verified like the base href.
       - name: Version the static assets
         run: |
-          V="${{ steps.ver.outputs.version || '1.0.0' }}"
+          # The commit, not the release tag: this workflow runs on a push to main, so when a release
+          # is cut by pushing commits and then the tag, the tag doesn't exist yet and the assets got
+          # stamped with the PREVIOUS version — leaving returning visitors on the old interop.js,
+          # which is the failure this stamping exists to prevent. Observed on the v0.9.9 deploy.
+          V="${GITHUB_SHA::8}"
           for f in "app.css" "js/interop.js"; do
             sed -i "s|_content/StrideAssetStore.UI/$f\"|_content/StrideAssetStore.UI/$f?v=$V\"|g" publish/wwwroot/index.html
             grep -q "_content/StrideAssetStore.UI/$f?v=$V\"" publish/wwwroot/index.html || {
