@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>strideassetstore</AssemblyName>
+    <RootNamespace>StrideAssetStore.Cli</RootNamespace>
+    <!-- Global tool: dotnet tool install -g StrideAssetStore, then `strideassetstore <command>`. -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>strideassetstore</ToolCommandName>
+    <PackageId>StrideAssetStore</PackageId>
+    <Description>Command-line companion to the Community Stride Asset Store: search, install and update Stride assets in a project, and the maintainer tooling behind the registry (validate, build-index, generate-pages).</Description>
+    <Authors>Nicogo1705</Authors>
+    <PackageTags>stride;stride3d;gamedev;assets;cli</PackageTags>
+    <PackageProjectUrl>https://github.com/Nicogo1705/StrideAssetStore</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Nicogo1705/StrideAssetStore</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Spectre.Console.Cli" Version="0.55.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\StrideAssetStore.Core\StrideAssetStore.Core.csproj" />
+  </ItemGroup>
+
+</Project>

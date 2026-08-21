@@ -8,10 +8,10 @@ on:
   push:
     branches: [main]
     paths:
-      - "src/AssetStore.App/**"
-      - "src/AssetStore.UI/**"
-      - "src/AssetStore.Core/**"
-      - "src/AssetStore.Cli/**" # generate-pages runs in this workflow
+      - "src/StrideAssetStore.App/**"
+      - "src/StrideAssetStore.UI/**"
+      - "src/StrideAssetStore.Core/**"
+      - "src/StrideAssetStore.Cli/**" # generate-pages runs in this workflow
       - "Directory.Build.props"
       - ".github/workflows/deploy-pages.yml"
   schedule:
@@ -51,15 +51,15 @@ jobs:
           echo "Site version: ${TAG#v}"
 
       - name: Publish
-        run: dotnet publish src/AssetStore.App/AssetStore.App.csproj -c Release -o publish -p:Version=${{ steps.ver.outputs.version || '1.0.0' }}
+        run: dotnet publish src/StrideAssetStore.App/StrideAssetStore.App.csproj -c Release -o publish -p:Version=${{ steps.ver.outputs.version || '1.0.0' }}
 
       - name: Rewrite base href for project pages
-        run: sed -i 's|<base href="/" />|<base href="/AssetStore/" />|' publish/wwwroot/index.html
+        run: sed -i 's|<base href="/" />|<base href="/StrideAssetStore/" />|' publish/wwwroot/index.html
 
       - name: Generate per-asset OG pages + sitemap
         run: |
           curl -fsSL "https://raw.githubusercontent.com/Nicogo1705/AssetContainer/main/index.lock.json" -o index.lock.json
-          dotnet run --project src/AssetStore.Cli/AssetStore.Cli.csproj -c Release -- \
+          dotnet run --project src/StrideAssetStore.Cli/StrideAssetStore.Cli.csproj -c Release -- \
             generate-pages --index index.lock.json --out publish/wwwroot \
             --app-index publish/wwwroot/index.html \
             --site "https://${{ github.repository_owner }}.github.io/${GITHUB_REPOSITORY#*/}"

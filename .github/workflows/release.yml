@@ -5,7 +5,7 @@ name: Release desktop app
 #
 # Each build runs on its NATIVE runner (windows/ubuntu/macos), so a green run also proves the app
 # compiles, publishes and actually serves on that OS. The download page and the in-app update check
-# link to `releases/latest/download/AssetStore-<rid>.<ext>`, so the asset names below must stay stable.
+# link to `releases/latest/download/StrideAssetStore-<rid>.<ext>`, so the asset names below must stay stable.
 
 on:
   push:
@@ -49,7 +49,7 @@ jobs:
       - name: Publish (self-contained)
         shell: bash
         run: |
-          dotnet publish src/AssetStore.Desktop/AssetStore.Desktop.csproj \
+          dotnet publish src/StrideAssetStore.Desktop/StrideAssetStore.Desktop.csproj \
             -c Release -r ${{ matrix.rid }} --self-contained true \
             -p:Version=${{ steps.ver.outputs.version }} \
             -o "publish/${{ matrix.rid }}"
@@ -59,8 +59,8 @@ jobs:
         shell: bash
         run: |
           DIR="publish/${{ matrix.rid }}"
-          BIN="$DIR/AssetStore.Desktop"
-          [ "${{ runner.os }}" = "Windows" ] && BIN="$DIR/AssetStore.Desktop.exe"
+          BIN="$DIR/StrideAssetStore.Desktop"
+          [ "${{ runner.os }}" = "Windows" ] && BIN="$DIR/StrideAssetStore.Desktop.exe"
           chmod +x "$BIN" 2>/dev/null || true
           "$BIN" &
           PID=$!
@@ -82,12 +82,12 @@ jobs:
       - name: Package (Windows → .zip)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: Compress-Archive -Path "publish/${{ matrix.rid }}/*" -DestinationPath "AssetStore-${{ matrix.rid }}.zip"
+        run: Compress-Archive -Path "publish/${{ matrix.rid }}/*" -DestinationPath "StrideAssetStore-${{ matrix.rid }}.zip"
 
       - name: Package (Unix → .tar.gz)
         if: runner.os != 'Windows'
         shell: bash
-        run: tar -czf "AssetStore-${{ matrix.rid }}.tar.gz" -C "publish/${{ matrix.rid }}" .
+        run: tar -czf "StrideAssetStore-${{ matrix.rid }}.tar.gz" -C "publish/${{ matrix.rid }}" .
 
       - name: Upload to the release
         env:
@@ -97,7 +97,7 @@ jobs:
           TAG="${{ steps.ver.outputs.tag }}"
           # Create the release if it doesn't exist yet (tolerate the matrix race).
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --generate-notes || true
-          gh release upload "$TAG" AssetStore-${{ matrix.rid }}.* --clobber
+          gh release upload "$TAG" StrideAssetStore-${{ matrix.rid }}.* --clobber
 
   # Builds are unsigned, so publish checksums users can verify against (also linked
   # from the storefront's Download page). Runs once, after every matrix leg uploaded.
@@ -111,7 +111,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          gh release download "$TAG" --repo "${{ github.repository }}" --pattern "AssetStore-*"
-          sha256sum AssetStore-* > SHA256SUMS
+          gh release download "$TAG" --repo "${{ github.repository }}" --pattern "StrideAssetStore-*"
+          sha256sum StrideAssetStore-* > SHA256SUMS
           cat SHA256SUMS
           gh release upload "$TAG" SHA256SUMS --clobber --repo "${{ github.repository }}"

@@ -1,0 +1,487 @@
+@* Copyright (c) <YEAR> <COPYRIGHT HOLDER> - MIT license *@
+@inherits LayoutComponentBase
+@inject AppEnvironment Env
+@inject UpdateService Updater
+@inject AppInfo AppFacts
+@inject RegistryOptions Registry
+@inject ICliPublisher Cli
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject AttentionState Attention
+@using StrideAssetStore.App.Services
+
+<div class="app-shell">
+    <header class="app-header">
+        <a class="brand" href="">
+            <span class="brand-mark">◆</span>
+            <span class="brand-text">Community Stride <strong>Asset Store</strong></span>
+        </a>
+        <span class="brand-tag">unofficial</span>
+        <a class="brand-link" href="https://stride3d.net" target="_blank" rel="noopener">Stride website ↗</a>
+        <nav class="app-nav">
+            @if (Env.InstallAvailable)
+            {
+                <a href="setup" style="margin-right:1rem">Prerequisites@(_cliStatus is { ReadyToPublish: false } ? _dot("git or the GitHub CLI needs attention") : null)</a>
+                <a href="projects" style="margin-right:1rem">My projects@(Attention.Current?.Projects > 0 ? _dot($"{Attention.Current.Projects} asset reference(s) outdated, broken or missing") : null)</a>
+                <a href="assets" style="margin-right:1rem">My assets@(Attention.Current?.Assets > 0 ? _dot($"{Attention.Current.Assets} cached asset(s) outdated or broken") : null)</a>
+            }
+            <a href="manage" style="margin-right:1rem">Manage store assets</a>
+            <a href="about" style="margin-right:1rem">About</a>
+            <button type="button" class="theme-toggle" title="Toggle light/dark theme" @onclick="ToggleTheme">
+                @(_theme == "light" ? "🌙" : "☀️")
+            </button>
+            @if (Env.IsLocal)
+            {
+                @* Renders server-side in the desktop app, so this is the HOST's OS. Hiding a
+                   console window only exists on Windows — elsewhere the terminal is the user's. *@
+                @* Links, not buttons: the handler keeps the page in place while the circuit is
+                   alive, and the href stays as a working fallback when it isn't — a broken page
+                   is precisely when quitting the app matters. *@
+                @if (OperatingSystem.IsWindows())
+                {
+                    <a class="theme-toggle" href="console/toggle" title="Hide / show the console window (remembered for the next start)"
+                       @onclick="ToggleConsoleAsync" @onclick:preventDefault>🖥</a>
+                }
+                <a class="theme-toggle" href="app/quit" title="Quit the desktop app (stops the server process)"
+                   @onclick="QuitAppAsync" @onclick:preventDefault>⏻</a>
+            }
+            @if (Env.Initialized && !Env.IsLocal)
+            {
+                @* One button: open the app when it's running and current, otherwise the download page
+                   (protocol launch with a download fallback when we don't know it's running). *@
+                @if (_localApp is { Running: true } && !_localAppOutdated)
+                {
+                    <a class="btn-dl" href="http://localhost:5111" target="_blank" rel="noopener">▶ Open app</a>
+                }
+                else if (_localApp is { Running: true })
+                {
+                    <a class="btn-dl" href="download" title="Your desktop app is behind the latest release — download the update">⬆ Update app</a>
+                }
+                else
+                {
+                    <button type="button" class="btn-dl" title="Opens the desktop app if it's installed, otherwise takes you to the download page"
+                            @onclick="OpenOrDownloadAsync">⬇ Open / download app</button>
+                }
+
+                @if (_localApp is { Running: true })
+                {
+                    @* The app's own top bar carries these — but a broken local UI is exactly when
+                       you need them, so the storefront drives the running app from here too. *@
+                    <button type="button" class="theme-toggle" title="Hide / show the console window of the app running on this machine"
+                            @onclick="ToggleRemoteConsoleAsync">🖥</button>
+                    <button type="button" class="theme-toggle" title="Quit the app running on this machine"
+                            @onclick="QuitLocalAppAsync">⏻</button>
+                }
+            }
+            @if (Env.Initialized)
+            {
+                <span class="env @(Env.IsLocal ? "local" : "online")"
+                      title="@(Env.IsLocal ? "Running the local desktop app — install available" : "Hosted on GitHub Pages — get the desktop app for one-click install")">
+                    ● @(Env.IsLocal ? "Desktop app" : "GitHub Pages hosted")
+                </span>
+            }
+        </nav>
+    </header>
+
+    @if (Env.InstallAvailable && Updater.Publishing && _dismissedUpdate != Updater.LatestVersion)
+    {
+        <div class="update-banner">
+            <span>⏳ <strong>v@(Updater.LatestVersion) is being published</strong> — the release workflow is still uploading the builds. Try again in a few minutes.</span>
+            <span class="update-actions">
+                @if (Updater.ReleaseUrl is not null)
+                {
+                    <a class="btn" href="@Updater.ReleaseUrl" target="_blank" rel="noopener">Release page</a>
+                }
+                <button type="button" class="banner-close" title="Hide until the next release" @onclick="DismissUpdateAsync">✕</button>
+            </span>
+        </div>
+    }
+
+    @if (Env.InstallAvailable && Updater.UpdateAvailable && _dismissedUpdate != Updater.LatestVersion)
+    {
+        <div class="update-banner">
+            @if (_updating)
+            {
+                <span>⬆ <strong>Updating…</strong> @_updateStage</span>
+                <span class="update-actions" style="flex:1 1 12rem;max-width:20rem">
+                    <span style="display:block;width:100%;height:9px;border-radius:5px;background:var(--border);overflow:hidden">
+                        <span style="display:block;height:100%;background:var(--accent);transition:width .3s;width:@((int)_updatePercent)%"></span>
+                    </span>
+                </span>
+            }
+            else
+            {
+                <span>⬆ <strong>Update available</strong> — v@(Updater.LatestVersion) is out (you're on v@(Updater.CurrentVersion))@(Updater.DownloadSize is { } dl ? $" · 📦 {FormatSize(dl)}" : "").</span>
+                <span class="update-actions">
+                    @if (Env.IsLocal)
+                    {
+                        <button type="button" class="btn primary" title="Downloads the new build next to this one, starts it and closes this instance"
+                                @onclick="SelfUpdateAsync">⚡ Update &amp; restart</button>
+                    }
+                    @if (Updater.DownloadUrl is not null)
+                    {
+                        <a class="btn @(Env.IsLocal ? "" : "primary")" href="@Updater.DownloadUrl">⬇ Download update</a>
+                    }
+                    @if (Updater.ReleaseUrl is not null)
+                    {
+                        <a class="btn" href="@Updater.ReleaseUrl" target="_blank" rel="noopener">Release notes</a>
+                    }
+                    <button type="button" class="banner-close" title="Hide until the next release" @onclick="DismissUpdateAsync">✕</button>
+                </span>
+            }
+        </div>
+    }
+
+    @if (_remoteControlNotice is not null)
+    {
+        <div class="update-banner">
+            <span>🖥 @((MarkupString)_remoteControlNotice)</span>
+            <span class="update-actions">
+                <button type="button" class="banner-close" title="Hide" @onclick="() => _remoteControlNotice = null">✕</button>
+            </span>
+        </div>
+    }
+
+    @if (Env.InstallAvailable && _cliStatus is not null && !_cliStatus.ReadyToPublish)
+    {
+        <div class="update-banner">
+            <span>🛠 <strong>Command-line tools</strong> — @(!_cliStatus.GitInstalled ? "git is missing" : !_cliStatus.GhInstalled ? "the GitHub CLI (gh) is missing" : "gh isn't signed in") for installing and publishing.</span>
+            <span class="update-actions"><a class="btn primary" href="setup">Set them up</a></span>
+        </div>
+    }
+
+    <main class="app-main">
+        @Body
+    </main>
+
+    <footer class="app-footer">
+        <a href="@GitLinks.ReleasesLatest(AppFacts.Repo)" target="_blank" rel="noopener" class="ver-link">v@(Updater.CurrentVersion)</a>
+        @* build/version, shown everywhere for clarity *@
+        · Decentralized · git-native · MIT
+        · <a href="@AppFacts.Repo" target="_blank" rel="noopener" title="App and storefront source">app ↗</a>
+        · <a href="@($"https://github.com/{Registry.Owner}/{Registry.Repo}")" target="_blank" rel="noopener" title="Asset registry (index, certification, PRs)">registry ↗</a>
+    </footer>
+</div>
+
+@code {
+    private static RenderFragment _dot(string title) => @<span class="nav-dot" title="@title">●</span>;
+
+    private bool _updating;
+    private string _updateStage = "starting…";
+    private double _updatePercent;
+    private System.Threading.Timer? _updatePoll;
+
+    /// <summary>Runs the in-place self-update: the desktop server downloads/extracts the new
+    /// build next to itself, then restarts. We poll its progress for the banner's bar; the
+    /// connection dying at the end IS the restart.</summary>
+    private async Task SelfUpdateAsync()
+    {
+        if (Updater.LatestVersion is not { } latest)
+        {
+            return;
+        }
+
+        _updating = true;
+        _updateStage = "starting…";
+        _updatePercent = 0;
+        try
+        {
+            await Http.PostAsync($"app/self-update?tag=v{latest}", null);
+        }
+        catch
+        {
+            _updateStage = "failed to start the update";
+            return;
+        }
+
+        _updatePoll = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                var status = await Http.GetFromJsonAsync<SelfUpdateStatus>("app/self-update/status");
+                if (status is null)
+                {
+                    return;
+                }
+
+                _updatePercent = status.Percent;
+                _updateStage = status.Stage switch
+                {
+                    "downloading" => $"downloading… {(int)status.Percent}%",
+                    "extracting" => "extracting…",
+                    "restarting" => "restarting — a fresh tab will open in a few seconds",
+                    "error" => $"failed: {status.Error}",
+                    _ => status.Stage,
+                };
+                if (status.Stage == "error")
+                {
+                    _updating = false;
+                    _updatePoll?.Dispose();
+                }
+                if (status.Stage == "restarting")
+                {
+                    await CloseTabSoonAsync();
+                }
+                await InvokeAsync(StateHasChanged);
+            }
+            catch
+            {
+                // The server going away is the restart happening.
+                _updateStage = "restarting — a fresh tab will open in a few seconds";
+                _updatePercent = 100;
+                try { await InvokeAsync(StateHasChanged); } catch { }
+                await CloseTabSoonAsync();
+                _updatePoll?.Dispose();
+            }
+        }, null, 300, 400);
+    }
+
+    private sealed record SelfUpdateStatus(string Stage, double Percent, string? Error, string? Target);
+
+    private bool _tabCloseRequested;
+
+    /// <summary>Closes this tab shortly (the restarted app opens its own fresh tab). Browsers
+    /// only honor window.close() for tabs without navigation history — when refused, an
+    /// end-of-life message replaces the page instead of a dead spinner.</summary>
+    private async Task CloseTabSoonAsync()
+    {
+        if (_tabCloseRequested)
+        {
+            return;
+        }
+        _tabCloseRequested = true;
+        try
+        {
+            await JS.InvokeVoidAsync("eval",
+                "setTimeout(() => { window.close(); setTimeout(() => {" +
+                " document.body.innerHTML = '<div style=\"font-family:system-ui;display:grid;place-items:center;height:100vh;color:#889\">" +
+                "Update in progress — a fresh tab opens in a few seconds, you can close this one.</div>'; }, 400); }, 1200);");
+        }
+        catch
+        {
+            // Circuit already gone — the browser shows its own disconnect state.
+        }
+    }
+
+    private void OnAttentionChanged() => InvokeAsync(StateHasChanged);
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        >= 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024 * 1024):F1} GB",
+        >= 1024 * 1024 => $"{bytes / (1024.0 * 1024):F1} MB",
+        >= 1024 => $"{bytes / 1024.0:F0} KB",
+        _ => $"{bytes} B",
+    };
+
+    private async Task ToggleConsoleAsync()
+    {
+        try
+        {
+            await Http.PostAsync("console/toggle", null);
+        }
+        catch
+        {
+            // Endpoint only exists in the desktop app; nothing to do if it isn't there.
+        }
+    }
+
+    // Storefront → running desktop app. Older apps (≤ v1.5.1) don't accept these cross-origin,
+    // so a failure is expected there and gets an actionable message rather than silence.
+    private string? _remoteControlNotice;
+
+    private const string RemoteControlFailed =
+        "<strong>Couldn't reach the desktop app</strong> — it's running but doesn't accept remote controls "
+        + "(app older than v1.5.2). Use its own window, or update it.";
+
+    private async Task ToggleRemoteConsoleAsync()
+    {
+        _remoteControlNotice = await AppCommandAsync("console/toggle") ? null : RemoteControlFailed;
+    }
+
+    private async Task QuitLocalAppAsync()
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", "Quit the Community Stride Asset Store app running on this machine?"))
+        {
+            return;
+        }
+
+        if (await AppCommandAsync("app/quit"))
+        {
+            _remoteControlNotice = "<strong>The desktop app is stopping.</strong>";
+            _localApp = new LocalAppStatus(false, null); // header flips back to open/download
+        }
+        else
+        {
+            _remoteControlNotice = RemoteControlFailed;
+        }
+    }
+
+    private async Task<bool> AppCommandAsync(string path)
+    {
+        try
+        {
+            return await JS.InvokeAsync<bool>("assetStoreEnv.appCommand", path);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task QuitAppAsync()
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", "Quit the Community Stride Asset Store app?"))
+        {
+            return;
+        }
+
+        try
+        {
+            await Http.PostAsync("app/quit", null);
+        }
+        catch
+        {
+            // The server may already be gone — which is the goal.
+        }
+
+        // Close the tab too. Browsers only honor window.close() for tabs without navigation
+        // history (which is the normal case: the app opened this tab itself) — when they
+        // refuse, leave a clear end-of-life message instead of a dead spinner.
+        try
+        {
+            await JS.InvokeVoidAsync("eval",
+                "setTimeout(() => { window.close(); setTimeout(() => {" +
+                " document.body.innerHTML = '<div style=\"font-family:system-ui;display:grid;place-items:center;height:100vh;color:#889\">" +
+                "App stopped — you can close this tab.</div>'; }, 400); }, 250);");
+        }
+        catch
+        {
+            // Circuit already torn down — the browser shows its own disconnect state.
+        }
+    }
+
+    private CliStatus? _cliStatus;
+    private string _theme = "dark";
+
+    // Local desktop-app presence, detected from the online site via a localhost ping.
+    private sealed record LocalAppStatus(bool Running, string? Version);
+    private LocalAppStatus? _localApp;
+    private bool _localAppOutdated;
+
+    // The version the user dismissed the update banner for — it reappears for the NEXT release.
+    private string? _dismissedUpdate;
+
+    private async Task ToggleTheme()
+    {
+        _theme = _theme == "light" ? "dark" : "light";
+        await JS.InvokeVoidAsync("assetStoreEnv.setTheme", _theme);
+    }
+
+    private async Task DismissUpdateAsync()
+    {
+        _dismissedUpdate = Updater.LatestVersion;
+        await JS.InvokeVoidAsync("assetStoreEnv.setPref", "dismissed.update", _dismissedUpdate);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                _theme = await JS.InvokeAsync<string>("assetStoreEnv.getTheme");
+                _dismissedUpdate = await JS.InvokeAsync<string?>("assetStoreEnv.getPref", "dismissed.update");
+            }
+            catch
+            {
+                // cosmetic — keep the defaults if interop isn't available
+            }
+
+            await Env.InitializeAsync();
+            StateHasChanged();
+
+            // Only the local/desktop build can install updates in place or use the CLI; check there.
+            if (Env.InstallAvailable)
+            {
+                await Updater.CheckAsync();
+                StartPublishingRecheck();
+                if (Cli.Supported)
+                {
+                    _cliStatus = await Cli.CheckAsync();
+                    if (Env.IsLocal)
+                    {
+                        Attention.Changed += OnAttentionChanged;
+                        _ = Attention.RefreshAsync();
+                    }
+                }
+
+                StateHasChanged();
+            }
+            else if (!Env.IsLocal)
+            {
+                // Online: swap "Download app" for "Open/Start app" when the desktop app is around.
+                await DetectLocalAppAsync();
+                StateHasChanged();
+            }
+        }
+    }
+
+    private System.Threading.Timer? _publishingPoll;
+
+    /// <summary>
+    /// While a new release is still uploading its zips ("publishing"), re-run the update check
+    /// every minute so the banner flips to the real update offer by itself — without this the
+    /// once-per-session check never re-fires and the "try again in a few minutes" is a dead end.
+    /// </summary>
+    private void StartPublishingRecheck()
+    {
+        if (!Updater.Publishing || _publishingPoll is not null)
+        {
+            return;
+        }
+
+        _publishingPoll = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                await Updater.CheckAsync();
+                if (!Updater.Publishing)
+                {
+                    _publishingPoll?.Dispose();
+                    _publishingPoll = null;
+                }
+
+                await InvokeAsync(StateHasChanged);
+            }
+            catch
+            {
+                // Best-effort; the next tick retries.
+            }
+        }, null, 60_000, 60_000);
+    }
+
+    private async Task DetectLocalAppAsync()
+    {
+        try
+        {
+            _localApp = await JS.InvokeAsync<LocalAppStatus>("assetStoreEnv.detectApp");
+            if (_localApp.Running)
+            {
+                await Updater.CheckAsync();
+                // No readable version (pre-1.4 app without /api/ping) counts as outdated.
+                _localAppOutdated = !Version.TryParse(_localApp.Version, out var running)
+                    || (Version.TryParse(Updater.LatestVersion, out var latest) && running < latest);
+            }
+        }
+        catch
+        {
+            // Detection is cosmetic — keep the open/download button on any failure.
+        }
+    }
+
+    /// <summary>Tries the stride-assetstore:// protocol (starts the installed app); if nothing
+    /// handles it within the grace period, the JS helper navigates to the download page.</summary>
+    private async Task OpenOrDownloadAsync() =>
+        await JS.InvokeVoidAsync("assetStoreEnv.tryProtocol", "stride-assetstore://open", $"{Nav.BaseUri}download");
+}

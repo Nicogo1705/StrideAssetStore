@@ -1,0 +1,197 @@
+// Copyright (c) <YEAR> <COPYRIGHT HOLDER>
+// Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
+
+using System.Xml.Linq;
+
+namespace StrideAssetStore.Core.Projects;
+
+/// <summary>Edits MSBuild <c>.csproj</c> files (adding project references).</summary>
+public static class CsprojEditor
+{
+    /// <summary>
+    /// Adds a <c>&lt;ProjectReference&gt;</c> from <paramref name="csprojPath"/> to
+    /// <paramref name="referencedCsprojPath"/> (idempotent). Returns true if the file was modified.
+    /// </summary>
+    public static bool AddProjectReference(string csprojPath, string referencedCsprojPath)
+    {
+        var csprojDir = Path.GetDirectoryName(Path.GetFullPath(csprojPath))!;
+        var include = Path.GetRelativePath(csprojDir, Path.GetFullPath(referencedCsprojPath))
+            .Replace('/', '\\'); // MSBuild convention
+        return AddProjectReferenceInclude(csprojPath, include);
+    }
+
+    /// <summary>
+    /// Adds a <c>&lt;ProjectReference&gt;</c> with a verbatim <paramref name="include"/> (idempotent) — e.g. an
+    /// MSBuild property-function path into a per-machine global cache, which stays valid on any PC.
+    /// </summary>
+    public static bool AddRawProjectReference(string csprojPath, string include) =>
+        AddProjectReferenceInclude(csprojPath, include);
+
+    private static bool AddProjectReferenceInclude(string csprojPath, string include)
+    {
+        var doc = XDocument.Load(csprojPath, LoadOptions.PreserveWhitespace);
+        var project = doc.Root ?? throw new InvalidOperationException($"'{csprojPath}' has no root element.");
+
+        var already = project.Descendants()
+            .Where(e => e.Name.LocalName == "ProjectReference")
+            .Select(e => (string?)e.Attribute("Include"))
+            .Any(p => string.Equals(NormalizePath(p), NormalizePath(include), StringComparison.OrdinalIgnoreCase));
+
+        if (already)
+        {
+            return false;
+        }
+
+        var ns = project.Name.Namespace;
+        var itemGroup = new XElement(ns + "ItemGroup",
+            new XText("\n    "),
+            new XElement(ns + "ProjectReference", new XAttribute("Include", include)),
+            new XText("\n  "));
+
+        // Append on its own indented lines so the .csproj stays readable.
+        project.Add(new XText("\n  "), itemGroup, new XText("\n"));
+
+        doc.Save(csprojPath);
+        return true;
+    }
+
+    /// <summary>
+    /// Adds a <c>&lt;PackageReference&gt;</c> for <paramref name="packageId"/> (optionally pinned to
+    /// <paramref name="version"/>) to <paramref name="csprojPath"/> (idempotent). Returns true if modified.
+    /// </summary>
+    public static bool AddPackageReference(string csprojPath, string packageId, string? version)
+    {
+        var doc = XDocument.Load(csprojPath, LoadOptions.PreserveWhitespace);
+        var project = doc.Root ?? throw new InvalidOperationException($"'{csprojPath}' has no root element.");
+
+        var existing = project.Descendants()
+            .Where(e => e.Name.LocalName == "PackageReference")
+            .FirstOrDefault(e => string.Equals(((string?)e.Attribute("Include"))?.Trim(), packageId, StringComparison.OrdinalIgnoreCase));
+
+        if (existing is not null)
+        {
+            // Already referenced: bump the pinned version if a different one was requested, else no-op.
+            if (!string.IsNullOrWhiteSpace(version)
+                && !string.Equals((string?)existing.Attribute("Version"), version, StringComparison.Ordinal))
+            {
+                existing.SetAttributeValue("Version", version);
+                doc.Save(csprojPath);
+                return true;
+            }
+
+            return false;
+        }
+
+        var ns = project.Name.Namespace;
+        var reference = new XElement(ns + "PackageReference", new XAttribute("Include", packageId));
+        if (!string.IsNullOrWhiteSpace(version))
+        {
+            reference.Add(new XAttribute("Version", version));
+        }
+
+        var itemGroup = new XElement(ns + "ItemGroup",
+            new XText("\n    "),
+            reference,
+            new XText("\n  "));
+
+        project.Add(new XText("\n  "), itemGroup, new XText("\n"));
+
+        doc.Save(csprojPath);
+        return true;
+    }
+
+    /// <summary>
+    /// Rewrites the <c>Version</c> of every <c>Stride.*</c> <c>&lt;PackageReference&gt;</c> to
+    /// <paramref name="strideVersion"/> (mismatch remediation). Returns true if the file was modified.
+    /// </summary>
+    public static bool RetargetStridePackages(string csprojPath, string strideVersion)
+    {
+        var doc = XDocument.Load(csprojPath, LoadOptions.PreserveWhitespace);
+        var project = doc.Root ?? throw new InvalidOperationException($"'{csprojPath}' has no root element.");
+
+        var changed = false;
+        foreach (var reference in project.Descendants().Where(e => e.Name.LocalName == "PackageReference"))
+        {
+            var id = ((string?)reference.Attribute("Include"))?.Trim();
+            if (id is null || !id.StartsWith("Stride.", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!string.Equals((string?)reference.Attribute("Version"), strideVersion, StringComparison.Ordinal))
+            {
+                reference.SetAttributeValue("Version", strideVersion);
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            doc.Save(csprojPath);
+        }
+
+        return changed;
+    }
+
+    /// <summary>
+    /// Removes the <c>&lt;ProjectReference&gt;</c> whose <c>Include</c> matches <paramref name="include"/>
+    /// verbatim (idempotent) — needed for global-cache references written as an MSBuild property-function
+    /// path, which have no on-disk relative form to recompute. Returns true if the file was modified.
+    /// </summary>
+    public static bool RemoveRawProjectReference(string csprojPath, string include) =>
+        RemoveItem(csprojPath, "ProjectReference",
+            existing => string.Equals(NormalizePath(existing), NormalizePath(include), StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Removes the <c>&lt;PackageReference&gt;</c> for <paramref name="packageId"/> from
+    /// <paramref name="csprojPath"/> (idempotent). Returns true if the file was modified.
+    /// </summary>
+    public static bool RemovePackageReference(string csprojPath, string packageId) =>
+        RemoveItem(csprojPath, "PackageReference",
+            include => string.Equals(include?.Trim(), packageId, StringComparison.OrdinalIgnoreCase));
+
+    private static bool RemoveItem(string csprojPath, string localName, Func<string?, bool> matches)
+    {
+        var doc = XDocument.Load(csprojPath, LoadOptions.PreserveWhitespace);
+        var project = doc.Root ?? throw new InvalidOperationException($"'{csprojPath}' has no root element.");
+
+        var found = project.Descendants()
+            .Where(e => e.Name.LocalName == localName && matches((string?)e.Attribute("Include")))
+            .ToList();
+
+        if (found.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var element in found)
+        {
+            var parent = element.Parent;
+
+            // Drop the element and the whitespace that indented it, keeping the file tidy.
+            if (element.PreviousNode is XText before && string.IsNullOrWhiteSpace(before.Value))
+            {
+                before.Remove();
+            }
+
+            element.Remove();
+
+            // If that emptied its ItemGroup, remove the now-blank group too.
+            if (parent is { } group && group.Name.LocalName == "ItemGroup" && !group.Elements().Any())
+            {
+                if (group.PreviousNode is XText groupBefore && string.IsNullOrWhiteSpace(groupBefore.Value))
+                {
+                    groupBefore.Remove();
+                }
+
+                group.Remove();
+            }
+        }
+
+        doc.Save(csprojPath);
+        return true;
+    }
+
+    private static string? NormalizePath(string? path) =>
+        path?.Replace('/', '\\').Trim();
+}

@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/StrideAssetStore.App/StrideAssetStore.App.csproj" />
+    <Project Path="src/StrideAssetStore.Cli/StrideAssetStore.Cli.csproj" />
+    <Project Path="src/StrideAssetStore.Core/StrideAssetStore.Core.csproj" />
+    <Project Path="src/StrideAssetStore.Desktop/StrideAssetStore.Desktop.csproj" />
+    <Project Path="src/StrideAssetStore.UI/StrideAssetStore.UI.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/StrideAssetStore.Core.Tests/StrideAssetStore.Core.Tests.csproj" />
+    <Project Path="tests/StrideAssetStore.Desktop.Tests/StrideAssetStore.Desktop.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <!-- Keep the original code namespace so both hosts (WASM + Photino) reuse types unchanged. -->
+    <RootNamespace>StrideAssetStore.App</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.9" />
+    <PackageReference Include="Markdig" Version="0.37.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\StrideAssetStore.Core\StrideAssetStore.Core.csproj" />
+  </ItemGroup>
+
+</Project>
