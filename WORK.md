@@ -99,14 +99,14 @@ Portée validée : **code + repo GitHub + URL Pages**.
 ### 7. Documentation
 - [x] `README.md` racine : projets, split Core/Core.Local, section CLI consommateur
 - [x] `src/StrideAssetStore.Cli/README.md` — README du package NuGet (requis par le `pack`)
-- [ ] Page Download / About de l'app : vérifier qu'elles mentionnent le CLI
-- [ ] Relire l'ensemble des textes UI pour les mentions périmées
+- [x] Page Download et section Architecture de About : le CLI y est présenté
+- [x] Scan des noms et URLs périmés dans src/, tests/ et .github/ : seul le User-Agent du CLI traînait
 
 ### 8. Nettoyage
 - [x] `OpenBrowser` dupliqué supprimé, `DesktopBuilds` remonté dans Core, doc de classe de
       l'installeur corrigée (elle se disait « desktop-only »), `OutputType Library` obsolète retiré
       du projet de test, URL du catalogue centralisée dans `CatalogDefaults`
-- [ ] Passe dead-code complète sur `Desktop/Services` et les pages Razor
+- [x] Passe dead-code : aucun type ni membre public non consommé — rien à supprimer au-delà des doublons déjà retirés
 
 ---
 

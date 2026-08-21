@@ -12,7 +12,7 @@ public sealed class GitHubStars
 
     public GitHubStars(string? token)
     {
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("assetstore-cli");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("StrideAssetStore-cli");
         _http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         if (!string.IsNullOrWhiteSpace(token))
         {

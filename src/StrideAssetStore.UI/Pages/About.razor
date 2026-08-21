@@ -92,6 +92,8 @@
         <li><strong>Author repos</strong> — the assets. The store never writes to them.</li>
         <li><strong>AssetContainer</strong> — the registry: PR-submitted entries, JSON schemas, catalog (categories/licenses), CI, and the generated <span class="mono">index.lock.json</span>.</li>
         <li><strong>StrideAssetStore</strong> — the C# code: a pure Core library reused by a CLI, the WASM storefront, a shared Razor UI, and the desktop app. The same Razor UI runs in two hosts — WebAssembly (online storefront) and Blazor Server (the local desktop app) — so the experience is identical online and offline.</li>
+        <li><strong>Core vs Core.Local</strong> — Core holds only what a browser can run (models, catalog, search); everything needing a real machine (git, hashing, project files, the installer) lives in Core.Local, used by the desktop app and the CLI. The storefront's build fails if it ever gains a reference to it.</li>
+        <li><strong>Without any app</strong> — <span class="mono">dotnet tool install -g StrideAssetStore</span> gives you <span class="mono">strideassetstore add/list/update/remove</span>, driving the same installer as the desktop app.</li>
     </ul>
 </section>
 
