@@ -9,8 +9,8 @@
 <a class="back" href="">← Back to catalog</a>
 <h1 style="margin:.2rem 0 .3rem">Prerequisites</h1>
 <p class="lead">
-    The desktop app installs assets and opens registry pull requests using your machine's own
-    command-line tools — no token to paste. Here's what it found.
+    The desktop app uses your machine's own command-line tools: <span class="mono">git</span> to install
+    assets, and the GitHub CLI to open registry pull requests without pasting a token. Here's what it found.
 </p>
 
 @if (!Cli.Supported)
@@ -101,9 +101,9 @@ else
 <section class="panel">
     <h2>The command-line tool</h2>
     <p class="install-hint" style="margin-top:0">
-        <span class="mono">strideassetstore</span> installs assets into a project without this app, and
-        it is how this app is updated: <span class="mono">strideassetstore app update</span>. It needs
-        the <a href="https://dotnet.microsoft.com/download" target="_blank" rel="noopener">.NET SDK</a>.
+        <span class="mono">strideassetstore</span> installs assets into a project from a terminal, without
+        this app. Optional. Requires the
+        <a href="https://dotnet.microsoft.com/download" target="_blank" rel="noopener">.NET SDK</a>.
         <a href="https://www.nuget.org/packages/StrideAssetStore" target="_blank" rel="noopener">Package on NuGet ↗</a>
     </p>
 </section>

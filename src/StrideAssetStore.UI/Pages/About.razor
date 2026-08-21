@@ -26,11 +26,10 @@
         plan</em>: it would only happen if the Stride community and maintainers want it.
     </p>
     <p>
-        <strong>Transparency on the code.</strong> A large part of this project was
-        <strong>"vibe coded" with an AI assistant and has had very little human review</strong> so far.
-        It works end to end, but it should be treated as a proof-of-concept, not production-ready
-        software. A proper human code audit is a prerequisite to anything official — and a reason this
-        RFC exists.
+        <strong>Transparency on the code.</strong> Most of this code was <strong>written with an AI
+        assistant and has had little human review</strong>. It works end to end, but treat it as a
+        proof of concept: a human audit is a prerequisite to any official use, and a reason this RFC
+        exists.
     </p>
 </section>
 
@@ -91,7 +90,7 @@
     <ul class="problems" style="color:var(--text)">
         <li><strong>Author repos</strong> — the assets. The store never writes to them.</li>
         <li><strong>AssetContainer</strong> — the registry: PR-submitted entries, JSON schemas, catalog (categories/licenses), CI, and the generated <span class="mono">index.lock.json</span>.</li>
-        <li><strong>StrideAssetStore</strong> — the C# code: a pure Core library reused by a CLI, the WASM storefront, a shared Razor UI, and the desktop app. The same Razor UI runs in two hosts — WebAssembly (online storefront) and Blazor Server (the local desktop app) — so the experience is identical online and offline.</li>
+        <li><strong>StrideAssetStore</strong> — the C# code: a pure Core library reused by a CLI, the WASM storefront, a shared Razor UI, and the desktop app. The same Razor UI runs in two hosts — WebAssembly (online storefront) and Blazor Server (the local desktop app) — so browsing and publishing work the same way in both; installing into a project is the desktop app's job.</li>
         <li><strong>Core vs Core.Local</strong> — Core holds only what a browser can run (models, catalog, search); everything needing a real machine (git, hashing, project files, the installer) lives in Core.Local, used by the desktop app and the CLI. The storefront's build fails if it ever gains a reference to it.</li>
         <li><strong>Without any app</strong> — <span class="mono">dotnet tool install -g StrideAssetStore</span> gives you <span class="mono">strideassetstore add/list/update/remove</span>, driving the same installer as the desktop app.</li>
     </ul>
@@ -99,7 +98,7 @@
 
 <section class="panel">
     <h2>5 · Storefront features</h2>
-    <p>Everything below runs <strong>client-side in the browser</strong> (WASM) or <strong>locally</strong> (desktop app) — there is no application server in the loop.</p>
+    <p>Everything below runs <strong>client-side in the browser</strong> (WASM) or <strong>locally</strong> (desktop app) — nothing runs on a server of ours, because there are none.</p>
     <p><strong>Catalog &amp; discovery.</strong></p>
     <ul class="problems" style="color:var(--text)">
         <li>Browse, full-text <strong>search</strong>, and filter by <strong>category</strong>, <strong>license</strong> and <strong>Stride version</strong>; sort by name / stars / recency.</li>
@@ -120,7 +119,7 @@
     </ul>
     <p><strong>desktop app (local).</strong></p>
     <ul class="problems" style="color:var(--text)">
-        <li>One-click <strong>install</strong> into a chosen <span class="mono">.csproj</span> (or several projects of a <span class="mono">.sln</span>/<span class="mono">.slnx</span>): clones the asset and its resolved dependencies next to your solution and wires the <span class="mono">&lt;ProjectReference&gt;</span>.</li>
+        <li><strong>Install</strong> into a chosen <span class="mono">.csproj</span> (or several projects of a <span class="mono">.sln</span>/<span class="mono">.slnx</span>): clones the asset and its resolved dependencies next to your solution and wires the <span class="mono">&lt;ProjectReference&gt;</span>.</li>
         <li>An <strong>Installed</strong> manager that scans what you have, compares it against the catalog, and offers updates.</li>
     </ul>
 </section>
@@ -187,7 +186,7 @@ registry/com.author.cool-asset.json
 
 <section class="panel">
     <h2>9 · Validation &amp; integrity</h2>
-    <p>The publish form gives instant, lightweight feedback (id, required fields, category/license). The authoritative validator — the shared C# Core — runs in the <span class="mono">assetstore</span> CLI and in CI. On each pull request it:</p>
+    <p>The publish form gives instant, lightweight feedback (id, required fields, category/license). The authoritative validator — the shared C# Core — runs in the <span class="mono">strideassetstore</span> CLI and in CI. On each pull request it:</p>
     <ol class="problems" style="color:var(--text)">
         <li>validates <span class="mono">registry/&lt;id&gt;.json</span> and <span class="mono">AssetData/manifest.json</span> against the JSON Schemas (with <span class="mono">format</span> assertions);</li>
         <li>checks category/license against the catalog and id ↔ file-name consistency; requires <span class="mono">https://</span> repo URLs;</li>
@@ -274,9 +273,9 @@ registry/com.author.cool-asset.json
         Assets, ownership, licensing, history and integrity are <strong>fully decentralized</strong> across
         independent Git repos. What is centralized today is purely <strong>coordination</strong>: a single
         registry repo and GitHub as host (Pages, Actions, raw files, API). That choice is pragmatic — Stride
-        already lives on GitHub — and deliberately thin: there is <strong>no hard-coded URL in the code</strong>.
-        The registry owner/repo/branch and the index URL are configuration, so the whole system can be
-        re-pointed (or mirrored) without code changes.
+        already lives on GitHub — and deliberately thin: the registry owner, repository, branch and index URL are
+        <strong>configuration, not code</strong>, so the whole system can be re-pointed (or mirrored)
+        without code changes.
     </p>
 </section>
 
@@ -370,7 +369,7 @@ registry/com.author.cool-asset.json
         </div>
         <div class="link-row">
             <a href="https://github.com/Nicogo1705/StrideAssetStore" target="_blank" rel="noopener">🧰 Code &amp; desktop app — StrideAssetStore</a>
-            <span>The C# core, the <span class="mono">assetstore</span> CLI, this web app, and the cross-platform desktop app (clone &amp; build to install assets into a project).</span>
+            <span>The C# core, the <span class="mono">strideassetstore</span> CLI, this web app, and the cross-platform desktop app (clone &amp; build to install assets into a project).</span>
         </div>
         <div class="link-row">
             <a href="https://github.com/Nicogo1705?tab=repositories&q=Stride" target="_blank" rel="noopener">📦 Assets</a>

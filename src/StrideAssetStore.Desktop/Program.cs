@@ -140,6 +140,15 @@ app.MapMethods("/console/toggle", ["GET", "POST", "OPTIONS"], (HttpContext ctx) 
         return Results.NoContent();
     }
 
+    if (!OperatingSystem.IsWindows())
+    {
+        // Nothing to toggle: the console window is an AllocConsole feature. Say so rather than
+        // reporting a state change that never happened.
+        return HttpMethods.IsGet(ctx.Request.Method)
+            ? Results.Content(RescuePage("The console window is a Windows-only feature."), "text/html; charset=utf-8")
+            : Results.Json(new { visible = false, supported = false });
+    }
+
     var visible = ConsoleWindow.Toggle();
     if (!HttpMethods.IsGet(ctx.Request.Method))
     {
@@ -449,7 +458,12 @@ static void RequestQuit(IHostApplicationLifetime lifetime)
 /// </summary>
 static string RescuePage(string? notice)
 {
-    var consoleState = ConsoleWindow.IsOpen ? "open" : "closed";
+    // The console window is a Windows-only feature (AllocConsole). Elsewhere there is no state to
+    // report and no button that would do anything, so neither is shown.
+    var console = OperatingSystem.IsWindows()
+        ? ($"<p>The console window is currently <strong>{(ConsoleWindow.IsOpen ? "open" : "closed")}</strong>.</p>",
+           "<a class=\"btn\" href=\"/console/toggle\">🖥 Toggle console</a>")
+        : ("", "");
     var note = notice is null ? "" : $"<p class=\"notice\">{System.Net.WebUtility.HtmlEncode(notice)}</p>";
     var hotkeys = StrideAssetStore.Desktop.Services.GlobalHotkeys.Description is { } h
         ? $"<p class=\"hint\">Anywhere in Windows: {System.Net.WebUtility.HtmlEncode(h)}</p>"
@@ -478,9 +492,10 @@ static string RescuePage(string? notice)
           <h1>Community Stride Asset Store — app controls</h1>
           {{note}}
           <p>These controls work without the app's interface, so they stay available when a page
-             fails or the connection to it is lost. The console window is currently <strong>{{consoleState}}</strong>.</p>
+             fails or the connection to it is lost.</p>
+          {{console.Item1}}
           <div class="row">
-            <a class="btn" href="/console/toggle">🖥 Toggle console</a>
+            {{console.Item2}}
             <a class="btn danger" href="/app/quit">⏻ Quit the app</a>
             <a class="btn" href="/">↩ Back to the app</a>
           </div>

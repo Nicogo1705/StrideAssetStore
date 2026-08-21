@@ -85,7 +85,7 @@ else
                     }
                     @if (Asset.Forks is { } forks)
                     {
-                        <span class="badge" title="GitHub forks — people who took this asset somewhere of their own">⑂ @forks</span>
+                        <span class="badge" title="GitHub forks">⑂ @forks</span>
                     }
                 </div>
                 <div style="margin-top:.6rem; display:flex; gap:.5rem; flex-wrap:wrap">
@@ -96,7 +96,7 @@ else
                     @if (Env.Initialized && !Env.IsLocal)
                     {
                         <button type="button" class="btn" @onclick="ShareAsync"
-                                title="Copy a shareable link (renders a preview card on Discord & co)">
+                                title="Copy a link to this asset">
                             @(_shared ? "✓ Link copied" : "🔗 Share")
                         </button>
                     }
@@ -300,7 +300,7 @@ else
         {
             <section>
                 <h2>External dependencies</h2>
-                <p class="install-hint">NuGet packages the project references (from the latest <strong>@Asset.Latest.Ref</strong> — not store assets).</p>
+                <p class="install-hint">NuGet packages referenced by the project on <span class="mono">@Asset.Latest.Ref</span>. Store assets are listed under Dependencies.</p>
                 <div class="extdeps">
                     @foreach (var pkg in v.ExternalDependencies)
                     {

@@ -11,8 +11,8 @@
 <a class="back" href="">← Back to catalog</a>
 <h1 style="margin:.2rem 0 .3rem">My projects</h1>
 <p class="lead">
-    Manage the store assets used by your Stride solutions — like a package manager, but for git-native assets.
-    Track as many projects as you like; the list is saved on this machine.
+    Manage the store assets used by your Stride solutions. Track as many projects as you like; the list
+    is saved on this machine.
 </p>
 
 <div class="mp-layout">
@@ -164,7 +164,7 @@
                                                 @if (IsGlobalCacheClone(asset) || asset.Status == "missing")
                                                 {
                                                     <select class="ipt" style="max-width:9rem;padding:.05rem .4rem;font-size:.78rem"
-                                                            title="Ref this project follows for the asset — picking another one downloads it (if needed) and rewires the reference"
+                                                            title="The version this project follows — picking another one downloads it if needed and updates the project reference"
                                                             disabled="@_busy" value="@asset.Ref"
                                                             @onchange="e => SwitchRef(node.CsprojPath, asset, (string?)e.Value ?? string.Empty)">
                                                         @if (string.IsNullOrEmpty(asset.Ref))

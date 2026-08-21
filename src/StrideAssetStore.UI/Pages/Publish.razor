@@ -21,8 +21,8 @@
 <p class="lead">
     Publish, certify or remove assets in
     <a href="@($"https://github.com/{Registry.Owner}/{Registry.Repo}")" target="_blank" rel="noopener">@Registry.Owner/@Registry.Repo</a>.
-    Every action is a <strong>pull request</strong> against the registry — nothing about your asset is copied or re-hosted;
-    the store always reads it live from your repo.
+    Every action is a <strong>pull request</strong> against the registry — nothing about your asset is copied or
+    re-hosted: the registry stores a pointer, and the catalog is rebuilt from your repository.
 </p>
 
 <div class="modes" role="tablist">
@@ -166,8 +166,8 @@
         <h2>2 · Submit to the registry</h2>
         <p class="install-hint">
             Point us at your asset. Both methods below open a pull request adding
-            <code>registry/@(DisplayId).json</code> — the tiny pointer the bot reads your manifest from.
-            You never re-enter your manifest here; even the asset id is read from it.
+            <code>registry/@(DisplayId).json</code> — the pointer the registry uses to find your asset.
+            The asset id is read from your manifest; you never re-enter it here.
         </p>
 
         <div class="form">
@@ -198,7 +198,7 @@
 
         @if (_method == PublishMethod.Assisted)
         {
-            <AssistedPrPanel Description="Sign in with a GitHub token and the store forks the registry (if needed), commits the pointer file and opens the pull request for you — all from your browser."
+            <AssistedPrPanel Description="Sign in with a GitHub token; the store forks the registry if needed, commits the pointer file and opens the pull request."
                              ButtonLabel="Open pull request"
                              Busy="_busy" CanSubmit="CanSubmit" DisabledReason="@DisabledReason"
                              OnSubmit="Submit" Result="_result" />

@@ -78,8 +78,8 @@
             @if (Env.Initialized)
             {
                 <span class="env @(Env.IsLocal ? "local" : "online")"
-                      title="@(Env.IsLocal ? "Running the local desktop app — install available" : "Hosted on GitHub Pages — get the desktop app for one-click install")">
-                    ● @(Env.IsLocal ? "Desktop app" : "GitHub Pages hosted")
+                      title="@(Env.IsLocal ? "Running the local desktop app — you can install assets into a project" : "Browsing online — install assets with the desktop app")">
+                    ● @(Env.IsLocal ? "Desktop app" : "Online")
                 </span>
             }
         </nav>
@@ -159,7 +159,7 @@
     @if (Env.InstallAvailable && _cliStatus is not null && !_cliStatus.ReadyToPublish)
     {
         <div class="update-banner">
-            <span>🛠 <strong>Command-line tools</strong> — @(!_cliStatus.GitInstalled ? "git is missing" : !_cliStatus.GhInstalled ? "the GitHub CLI (gh) is missing" : "gh isn't signed in") for installing and publishing.</span>
+            <span>🛠 <strong>Command-line tools</strong> — @(!_cliStatus.GitInstalled ? "git is missing — it is what installs assets" : !_cliStatus.GhInstalled ? "the GitHub CLI (gh) is missing — it is what opens pull requests" : "gh isn't signed in, so it can't open pull requests")</span>
             <span class="update-actions"><a class="btn primary" href="setup">Set them up</a></span>
         </div>
     }

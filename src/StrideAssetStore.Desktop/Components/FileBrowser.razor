@@ -6,7 +6,7 @@
     <div class="fb-path">
         <button class="btn" title="Up one level" @onclick="GoUp" disabled="@(_dir is null)">↑</button>
         <input class="ipt" list="fb-suggest" value="@_input" @oninput="OnInput" @onkeydown="OnKey"
-               placeholder="Type or paste a folder path (it follows you as you type / or \)" />
+               placeholder="Type or paste a folder path" />
         <datalist id="fb-suggest">
             @foreach (var s in Suggestions())
             {

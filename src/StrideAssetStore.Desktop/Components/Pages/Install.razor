@@ -138,7 +138,7 @@ else
     }
 
     <section class="panel">
-        <h2>@(IsNuget ? "Choose a project" : "…or install into a project")</h2>
+        <h2>Choose a project</h2>
         @if (_tracked.Count > 0)
         {
             <p class="install-hint">Your tracked projects (managed in <a href="projects">My projects</a>):</p>
@@ -200,8 +200,8 @@ else
                 {
                     <div class="cache-note">
                         ⚠ <strong>Unreviewed source.</strong> This version is not certified: nobody has reviewed
-                        its code (including custom MSBuild targets) for the registry. It is cloned into your
-                        solution and <strong>runs as part of your build</strong> — only install assets whose
+                        its code (including custom MSBuild targets) for the registry. Its projects are added to your
+                        solution and <strong>compile with your build</strong> — only install assets whose
                         authors you trust, or pick a ✓ certified version above when one exists.
                     </div>
                 }

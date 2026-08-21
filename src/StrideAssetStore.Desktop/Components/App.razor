@@ -21,7 +21,10 @@
             <div class="reconnect-sub">The Community Stride Asset Store lost its connection — retrying.</div>
             @* The top bar's 🖥/⏻ buttons need the (now dead) circuit; these plain links don't. *@
             <div class="rescue-row">
-                <a class="rescue-btn" href="/console/toggle">🖥 Console</a>
+                @if (OperatingSystem.IsWindows())
+                {
+                    <a class="rescue-btn" href="/console/toggle">🖥 Console</a>
+                }
                 <a class="rescue-btn" href="/app/quit">⏻ Quit</a>
                 <a class="rescue-btn" href="">↻ Reload</a>
             </div>
@@ -37,7 +40,10 @@
         The app itself is still running — reload, or use the controls below.
         <span class="rescue-row">
             <a class="rescue-btn reload" href="">↻ Reload</a>
-            <a class="rescue-btn" href="/console/toggle">🖥 Console</a>
+            @if (OperatingSystem.IsWindows())
+            {
+                <a class="rescue-btn" href="/console/toggle">🖥 Console</a>
+            }
             <a class="rescue-btn" href="/app/quit">⏻ Quit</a>
         </span>
     </div>
