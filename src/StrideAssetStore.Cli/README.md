@@ -71,6 +71,16 @@ The fork is recorded on the project reference itself:
 so it travels with your project — a teammate who clones the repository and runs `update` follows
 the same fork, without being told. `list` shows those assets as `fork` rather than `local`.
 
+### Keeping the tool itself up to date
+
+```bash
+dotnet tool update -g StrideAssetStore
+```
+
+The tool checks nuget.org for a newer version at most once a day, in the background, and mentions it
+after the command's output. Set `STRIDEASSETSTORE_NO_UPDATE_CHECK=1` (or `NO_COLOR`) to turn that
+off; it is skipped automatically when output is redirected.
+
 ### Solutions with more than one project
 
 ```bash

@@ -48,16 +48,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Create the release as a draft (or force an existing one back to draft)
+      - name: Create the release as a draft, or take an empty published one back
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
           REPO="${{ github.repository }}"
-          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+          if ! gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            gh release create "$TAG" --draft --title "$TAG" --generate-notes --repo "$REPO"
+            exit 0
+          fi
+
+          # It already exists. Only force it back to draft when it carries no archives — the
+          # release-from-the-UI case this job is for. Re-running over a release that already shipped
+          # would otherwise hide it for the length of the matrix, and releases/latest/download would
+          # serve the previous version to everyone meanwhile.
+          assets=$(gh release view "$TAG" --repo "$REPO" --json assets -q '.assets | length')
+          if [ "$assets" -eq 0 ]; then
             gh release edit "$TAG" --draft=true --repo "$REPO"
           else
-            gh release create "$TAG" --draft --title "$TAG" --generate-notes --repo "$REPO"
+            echo "$TAG already has $assets asset(s) — leaving its published state alone."
           fi
 
   build:
@@ -149,7 +159,9 @@ jobs:
   # It needs `id-token: write`, and nuget.org's policy pins this file name — renaming this
   # workflow breaks publishing until the policy is updated.
   publish-cli:
-    needs: build
+    # After checksums, which is what publishes the release: a version on nuget.org cannot be taken
+    # back, and shipping one whose desktop release never became visible strands anyone who installs it.
+    needs: [build, checksums]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -209,17 +221,34 @@ jobs:
           # Doing it here also means a half-finished release is never the "latest" one.
           gh release edit "$TAG" --draft=false --latest --repo "${{ github.repository }}"
 
-  # Without this, one failed matrix leg skips `checksums`, the release stays a draft, and nothing
-  # says so: the tag is pushed, the Releases tab looks empty, and releases/latest/download resolves
-  # to the previous version. Exactly the v0.9.0 symptom, one step further along.
-  report-draft-left-behind:
-    needs: build
+  # A release that never became visible is the failure mode worth shouting about: the tag is pushed,
+  # the Releases tab looks empty, and releases/latest/download keeps serving the previous version.
+  # It depends on every job that can leave it that way — depending on `build` alone missed the most
+  # likely one, since `checksums` is what actually publishes.
+  report-release-not-published:
+    needs: [build, checksums, publish-cli]
     if: failure()
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Say the release is still a draft
+      - name: Report what state the release is actually in
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          echo "::error::A build leg failed, so $TAG was never published and is still a draft."
-          echo "::error::Fix the failure and re-run this workflow; nothing downstream sees a draft release."
+          REPO="${{ github.repository }}"
+
+          # Asked, not assumed: this job also runs when `test` failed and nothing was built, and a
+          # release cut from the GitHub UI is public and empty in that case — not a draft.
+          if ! state=$(gh release view "$TAG" --repo "$REPO" --json isDraft,assets 2>/dev/null); then
+            echo "::error::$TAG failed to build and no release exists for it. Fix the failure and re-run."
+            exit 0
+          fi
+
+          draft=$(echo "$state" | jq -r '.isDraft')
+          assets=$(echo "$state" | jq -r '.assets | length')
+          if [ "$draft" = "true" ]; then
+            echo "::error::$TAG is still a DRAFT with $assets asset(s): invisible, and releases/latest/download serves the previous version. Fix the failure and re-run."
+          else
+            echo "::error::$TAG is PUBLISHED with $assets asset(s), which may be incomplete. Check it before announcing."
+          fi

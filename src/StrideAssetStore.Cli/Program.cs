@@ -3,6 +3,7 @@
 
 using System.Reflection;
 using StrideAssetStore.Cli.Commands;
+using StrideAssetStore.Cli.Local;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -16,6 +17,10 @@ if (Console.IsOutputRedirected)
         ColorSystem = ColorSystemSupport.NoColors,
     });
 }
+
+// Started before the command so the answer is usually ready when it ends, and printed after its
+// output so a version notice never delays or buries what was asked for.
+StrideAssetStore.Cli.Local.ToolUpdateNotice.Begin();
 
 var app = new CommandApp();
 app.Configure(config =>
@@ -92,4 +97,6 @@ app.Configure(config =>
         .WithDescription("Generate static per-asset OG/SEO pages and a sitemap from an index.lock.json.");
 });
 
-return app.Run(args);
+var exitCode = app.Run(args);
+ToolUpdateNotice.End();
+return exitCode;

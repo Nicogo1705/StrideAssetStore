@@ -185,7 +185,7 @@ change and not a code change:
 | Workflow | What it guards |
 |---|---|
 | `ci.yml` | Build and tests on every push and PR. |
-| `release.yml` | On a `v*` tag: self-contained desktop builds for Windows, Linux and macOS, each smoke-tested on its native runner (it must serve **and** deliver `blazor.web.js`), checksums, and the CLI published to nuget.org through Trusted Publishing. |
+| `release.yml` | On a `v*` tag: **the test suite first** (nothing else gates the publish — `ci.yml` doesn't run on tags), then self-contained desktop builds for Windows, Linux and macOS, each smoke-tested on its native runner (it must serve **and** deliver `blazor.web.js`), checksums, and the CLI published to nuget.org through Trusted Publishing. |
 | `deploy-pages.yml` | Deploys the storefront and regenerates the per-asset share pages daily. |
 | `asset-e2e.yml` | The promise, end to end, on all three OSes: install the tool, add a published asset to a real Stride game, compile it, and run the game until it renders a frame. |
 

@@ -14,7 +14,7 @@ public sealed record RegistryEntry
 
     public required RefPointer Latest { get; init; }
 
-    /// <summary>Versions stamped as quality-approved by the registry maintainers (CODEOWNERS). CODEOWNERS-protected.</summary>
+    /// <summary>Versions stamped as quality-approved by the registry maintainers. Only a maintainer can merge a change to it.</summary>
     public IReadOnlyList<CertifiedVersion> Certified { get; init; } = [];
 
     /// <summary>Deprecation marker: the asset stays installable but the storefront warns
@@ -27,7 +27,8 @@ public sealed record RefPointer
 {
     public required string Ref { get; init; }
 
-    /// <summary>Resolved 40-char commit SHA (filled by the bot).</summary>
+    /// <summary>Optional commit pin. Informative: the resolved SHA is recorded in index.lock.json, and
+    /// nothing writes it back into the registry entry.</summary>
     public string? Commit { get; init; }
 }
 
