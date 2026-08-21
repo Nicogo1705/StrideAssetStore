@@ -693,8 +693,18 @@ else
         _loading = true;
         StateHasChanged();
         var catalog = Catalog;
-        _cache = await Task.Run(() => Installer.ListCachedAssets(catalog));
-        _loading = false;
+        try
+        {
+            _cache = await Task.Run(() => Installer.ListCachedAssets(catalog));
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message; // otherwise the page stays on its loading state for good
+        }
+        finally
+        {
+            _loading = false;
+        }
         _ = Attention.RefreshAsync(); // update/delete funnel through here - keep the nav dots honest
         await RefreshAuthors();
     }
@@ -765,13 +775,7 @@ else
         }
     }
 
-    private static string FormatSize(long bytes) => bytes switch
-    {
-        >= 1L << 30 => $"{bytes / (double)(1L << 30):0.#} GB",
-        >= 1L << 20 => $"{bytes / (double)(1L << 20):0.#} MB",
-        >= 1L << 10 => $"{bytes / (double)(1L << 10):0.#} KB",
-        _ => $"{bytes} B",
-    };
+    private static string FormatSize(long bytes) => ByteSize.Format(bytes);
 
     private static RenderFragment StatusBadge(string status) => status switch
     {

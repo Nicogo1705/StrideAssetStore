@@ -746,10 +746,7 @@ else
 
     private async Task Copy(string text) => await Env.CopyAsync(text);
 
-    private static string FormatSize(long bytes) =>
-        bytes >= 1024 * 1024 ? $"{bytes / 1024.0 / 1024.0:0.0} MB"
-        : bytes >= 1024 ? $"{bytes / 1024.0:0.0} KB"
-        : $"{bytes} B";
+    private static string FormatSize(long bytes) => ByteSize.Format(bytes);
 
     public void Dispose() => State.Changed -= OnChanged;
 }

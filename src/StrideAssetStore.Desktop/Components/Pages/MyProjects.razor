@@ -489,18 +489,31 @@
         StateHasChanged();
         var path = _selected;
         var catalog = Catalog;
-        var (view, cache) = await Task.Run(() =>
-            (Installer.Analyze(path, catalog), Installer.ListCachedAssets(catalog)));
-
-        // A newer selection may have started while this was running — don't clobber it with a stale result.
-        if (!string.Equals(_selected, path, StringComparison.OrdinalIgnoreCase))
+        try
         {
-            return;
-        }
+            var (view, cache) = await Task.Run(() =>
+                (Installer.Analyze(path, catalog), Installer.ListCachedAssets(catalog)));
 
-        _view = view;
-        _cache = cache;
-        _loading = false;
+            // A newer selection may have started while this was running — don't clobber it with a stale result.
+            if (!string.Equals(_selected, path, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            _view = view;
+            _cache = cache;
+        }
+        catch (Exception ex)
+        {
+            // An unreadable .csproj or a cache folder we can't walk used to leave the page on
+            // "Analyzing project…" for good.
+            _view = null;
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
         _ = Attention.RefreshAsync(); // every action re-analyzes, so the nav dots follow reality
     }
 

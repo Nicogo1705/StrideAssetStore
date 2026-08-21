@@ -471,11 +471,23 @@ else
         var reference = _ref;
         var catalog = State.Catalog!.Assets.ToDictionary(a => a.Id, StringComparer.Ordinal);
         var fork = _useFork && !string.IsNullOrWhiteSpace(_fork) ? _fork.Trim() : null;
-        var result = await Task.Run(() => Installer.DownloadToCache(asset, catalog, solutionPath: null, refFolder: reference, fork: fork));
-        _result = result.Success
-            ? result with { Messages = [.. result.Messages, "Shared asset ready — attach it to a project from My projects whenever you like."] }
-            : result;
-        _busy = false;
+        try
+        {
+            var result = await Task.Run(() => Installer.DownloadToCache(asset, catalog, solutionPath: null, refFolder: reference, fork: fork));
+            _result = result.Success
+                ? result with { Messages = [.. result.Messages, "Shared asset ready — attach it to a project from My projects whenever you like."] }
+                : result;
+        }
+        catch (Exception ex)
+        {
+            // A full disk or a locked folder would otherwise kill the circuit and leave the page
+            // stuck on "Downloading…" with no way back.
+            _result = new InstallResult(false, [$"✗ {ex.Message}"]);
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private async Task DoInstall()
@@ -488,12 +500,22 @@ else
         var nuget = IsNuget;
         var solution = _picked; // the picked .sln/.slnx (or lone .csproj) — asset projects get added to it
         var catalog = State.Catalog!.Assets.ToDictionary(a => a.Id, StringComparer.Ordinal);
-        // Run the blocking git/IO work off the render thread so the "Installing…" state shows.
-        _result = await Task.Run(() => nuget
-            ? Installer.InstallNuget(asset, targets)
-            : Installer.Install(asset, reference, targets, catalog, solution,
-                _useFork && !string.IsNullOrWhiteSpace(_fork) ? _fork.Trim() : null));
-        _busy = false;
+        var fork = _useFork && !string.IsNullOrWhiteSpace(_fork) ? _fork.Trim() : null;
+        try
+        {
+            // Run the blocking git/IO work off the render thread so the "Installing…" state shows.
+            _result = await Task.Run(() => nuget
+                ? Installer.InstallNuget(asset, targets)
+                : Installer.Install(asset, reference, targets, catalog, solution, fork));
+        }
+        catch (Exception ex)
+        {
+            _result = new InstallResult(false, [$"✗ {ex.Message}"]);
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private void OnChanged() => InvokeAsync(StateHasChanged);

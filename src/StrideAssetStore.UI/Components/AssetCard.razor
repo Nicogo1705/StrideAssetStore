@@ -130,13 +130,7 @@
         (dep.Reason ?? "This asset is deprecated.")
         + (string.IsNullOrEmpty(dep.Successor) ? "" : $" Use {dep.Successor} instead.");
 
-    private static string FormatSize(long bytes) => bytes switch
-    {
-        >= 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024 * 1024):F1} GB",
-        >= 1024 * 1024 => $"{bytes / (1024.0 * 1024):F1} MB",
-        >= 1024 => $"{bytes / 1024.0:F0} KB",
-        _ => $"{bytes} B",
-    };
+    private static string FormatSize(long bytes) => ByteSize.Format(bytes);
 
     private bool HoverMediaIsVideo =>
         HoverMedia is { } m && VideoExtensions.Any(e => m.EndsWith(e, StringComparison.OrdinalIgnoreCase));

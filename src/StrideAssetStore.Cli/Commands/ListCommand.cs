@@ -6,6 +6,7 @@ using Spectre.Console;
 using Spectre.Console.Cli;
 using StrideAssetStore.Cli.Local;
 using StrideAssetStore.Core.Local.Install;
+using StrideAssetStore.Core.Models;
 
 namespace StrideAssetStore.Cli.Commands;
 
@@ -123,11 +124,5 @@ internal sealed class ListCommand : AsyncCommand<ListSettings>
         return 0;
     }
 
-    private static string FormatSize(long bytes) => bytes switch
-    {
-        >= 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024 * 1024):F1} GB",
-        >= 1024 * 1024 => $"{bytes / (1024.0 * 1024):F1} MB",
-        >= 1024 => $"{bytes / 1024.0:F0} KB",
-        _ => $"{bytes} B",
-    };
+    private static string FormatSize(long bytes) => ByteSize.Format(bytes);
 }
