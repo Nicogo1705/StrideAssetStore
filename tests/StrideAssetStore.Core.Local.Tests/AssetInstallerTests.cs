@@ -180,6 +180,23 @@ public sealed class DesktopInstallerTests
     }
 
     [Fact]
+    public void DeleteClone_refuses_a_folder_outside_the_shared_cache()
+    {
+        using var ws = new InstallerWorkspace();
+        // A repository the user cloned themselves and attached — AttachCached supports exactly this.
+        var (ownRepo, _) = ws.CreateAssetClone(Path.Combine("dev", "MyFork"), "com.t.asset", "TestAsset");
+        var installer = new AssetInstaller();
+
+        Assert.False(installer.DeleteClone(ownRepo));
+        Assert.True(Directory.Exists(ownRepo)); // their work, their .git, still there
+
+        var (cached, _) = ws.CreateAssetClone(
+            Path.Combine("appdata", "StrideAssetStore", "Assets", "master", "Cached"), "com.t.other", "Cached");
+        Assert.True(installer.DeleteClone(cached));
+        Assert.False(Directory.Exists(cached));
+    }
+
+    [Fact]
     public void AttachCached_records_the_fork_a_cached_clone_came_from()
     {
         using var ws = new InstallerWorkspace();
@@ -197,7 +214,11 @@ public sealed class DesktopInstallerTests
         // Without this attribute, `update` resolves the reference against the registry's repository
         // and walks the project off the fork without saying so.
         Assert.Contains(@"Fork=""someone/TestAsset""", File.ReadAllText(gameCsproj));
-        var installed = Assert.Single(Assert.Single(installer.Analyze(gameCsproj, catalog).Projects).Assets);
+
+        // Analyzing a fork asks the remote where it stands, and someone/TestAsset is a real request
+        // to github.com. A git that cannot start keeps this fixture offline, as it claims to be.
+        var offline = new AssetInstaller(new StrideAssetStore.Core.Local.Git.GitClient("git-not-here"));
+        var installed = Assert.Single(Assert.Single(offline.Analyze(gameCsproj, catalog).Projects).Assets);
         Assert.Equal("someone/TestAsset", installed.Fork);
     }
 

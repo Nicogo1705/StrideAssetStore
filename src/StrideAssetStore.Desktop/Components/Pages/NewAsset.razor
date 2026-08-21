@@ -3,7 +3,7 @@
 @inject AssetScaffolder Scaffolder
 @inject CatalogState State
 @inject AppEnvironment Env
-@inject IWebHostEnvironment WebEnv
+@inject HttpClient Http
 @using StrideAssetStore.Desktop.Services
 @using System.Text.Json
 
@@ -28,6 +28,10 @@
         <label class="wide">Store id
             <input class="ipt mono" @bind="_id" @bind:event="oninput" placeholder="com.you.cool-thing" />
         </label>
+        @if (_catalogError is not null)
+        {
+            <p class="notice error wide" style="margin:0">@_catalogError</p>
+        }
         <label>Category
             <select class="ipt" @bind="_category">
                 @foreach (var category in Categories)
@@ -104,26 +108,32 @@
     private List<string> _messages = [];
     private ScaffoldResult? _result;
 
-    // The FULL allowed sets from the registry catalog files bundled in wwwroot/data — a select
-    // built from the indexed assets would only offer the categories already in use.
+    // The FULL allowed sets from the registry catalog files shipped by the shared UI library — a
+    // select built from the indexed assets would only offer the categories already in use.
     private IReadOnlyList<string> Categories => _allCategories is { Count: > 0 } c ? c : ["Scripts"];
 
     private IReadOnlyList<string> Licenses => _allLicenses is { Count: > 0 } l ? l : ["MIT"];
 
     private List<string> _allCategories = [], _allLicenses = [];
 
+    private string? _catalogError;
+
     protected override async Task OnInitializedAsync()
     {
         await State.EnsureLoadedAsync();
-        _allCategories = ReadCatalogIds("categories.json", "categories");
-        _allLicenses = ReadCatalogIds("licenses.json", "licenses");
+        _allCategories = await ReadCatalogIdsAsync("categories.json", "categories");
+        _allLicenses = await ReadCatalogIdsAsync("licenses.json", "licenses");
     }
 
-    private List<string> ReadCatalogIds(string file, string arrayName)
+    private async Task<List<string>> ReadCatalogIdsAsync(string file, string arrayName)
     {
         try
         {
-            using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(WebEnv.WebRootPath, "data", file)));
+            // Served from the shared UI library, the one copy both hosts read. Reading it off
+            // WebRootPath stopped working the day it moved there, and the catch below made that
+            // silent: the form fell back to a single category and a single licence.
+            using var doc = JsonDocument.Parse(
+                await Http.GetStringAsync($"_content/StrideAssetStore.UI/data/{file}"));
             // categories.json holds {id,label} objects, licenses.json plain strings — accept both.
             return doc.RootElement.GetProperty(arrayName).EnumerateArray()
                 .Select(e => e.ValueKind == JsonValueKind.String ? e.GetString() : e.GetProperty("id").GetString())
@@ -131,8 +141,9 @@
                 .Select(id => id!)
                 .ToList();
         }
-        catch
+        catch (Exception ex)
         {
+            _catalogError = $"Couldn't read the registry's {arrayName} list ({ex.Message}). The choices below are incomplete.";
             return [];
         }
     }

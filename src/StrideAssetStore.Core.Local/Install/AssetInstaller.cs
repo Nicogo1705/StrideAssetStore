@@ -697,13 +697,11 @@ public sealed class AssetInstaller(GitClient? git = null)
     {
         try
         {
-            var expanded = rawInclude.Replace(GlobalCacheInclude, GlobalCacheRoot, StringComparison.Ordinal);
-            var oldFull = Path.GetFullPath(Path.IsPathRooted(expanded)
-                ? expanded
-                : Path.Combine(Path.GetDirectoryName(csprojPath) ?? ".", expanded));
-
+            // ResolveInclude, not a second expansion written by hand: an include uses MSBuild's
+            // backslashes, and translating them is exactly what a private copy forgot to do — which
+            // made this guard a no-op everywhere except Windows.
+            var oldFull = ResolveInclude(csprojPath, rawInclude);
             var newClone = Path.GetFullPath(Path.Combine(GlobalCacheRoot, SafeRefFolderName(newRef), newCloneFolder));
-
             return !oldFull.StartsWith(newClone + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
         }
         catch
@@ -751,7 +749,16 @@ public sealed class AssetInstaller(GitClient? git = null)
     public bool UninstallNuget(string csprojPath, string packageId) =>
         CsprojEditor.RemovePackageReference(csprojPath, packageId);
 
-    /// <summary>Deletes a cloned asset folder from disk (used when no project references it any more).</summary>
+    /// <summary>
+    /// Deletes a downloaded asset folder from the shared cache (used when no project references it
+    /// any more). Refuses anything outside the cache and returns false.
+    /// </summary>
+    /// <remarks>
+    /// AttachCached accepts a clone the user made themselves, anywhere on disk, and that path ends up
+    /// in ProjectAsset.CloneRoot. Deleting it would take their own repository with it — .git, unpushed
+    /// commits and all — under a message about "the shared asset folder". The store only ever deletes
+    /// what the store downloaded.
+    /// </remarks>
     public bool DeleteClone(string cloneRoot)
     {
         if (string.IsNullOrWhiteSpace(cloneRoot) || !Directory.Exists(cloneRoot))
@@ -759,7 +766,13 @@ public sealed class AssetInstaller(GitClient? git = null)
             return false;
         }
 
-        ForceDeleteDirectory(cloneRoot);
+        var full = Path.GetFullPath(cloneRoot);
+        if (!full.StartsWith(GlobalCacheRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        ForceDeleteDirectory(full);
         return true;
     }
 

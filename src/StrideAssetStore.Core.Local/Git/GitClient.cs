@@ -270,13 +270,39 @@ public sealed class GitClient(string gitExecutable = "git")
             WorkingDirectory = workingDirectory ?? Environment.CurrentDirectory,
         };
 
+        // The app is a WinExe with no console and no cancel button, so a prompt nobody can answer is
+        // a freeze: git asking for credentials on a renamed or private repository, or the Git
+        // Credential Manager opening a window behind the browser. Fail instead. (ProcessRunner does
+        // the same for gh — every child this project starts must be non-interactive.)
+        info.Environment["GIT_TERMINAL_PROMPT"] = "0";
+        info.Environment["GCM_INTERACTIVE"] = "never";
+        info.Environment["GIT_ASKPASS"] = "";
+        info.Environment["SSH_ASKPASS"] = "";
+
         foreach (var arg in args)
         {
             info.ArgumentList.Add(arg);
         }
 
-        using var process = Process.Start(info)
-            ?? throw new InvalidOperationException($"Unable to start '{gitExecutable}'.");
+        // A missing git is an answer, not a crash: Process.Start throws Win32Exception when the
+        // executable isn't on PATH, and callers like AnalyzeProject are not wrapped — one machine
+        // without git took down the whole project analysis instead of reporting it.
+        Process? started;
+        try
+        {
+            started = Process.Start(info);
+        }
+        catch (Exception ex)
+        {
+            return (-1, "", $"Unable to run '{gitExecutable}': {ex.Message}");
+        }
+
+        if (started is null)
+        {
+            return (-1, "", $"Unable to start '{gitExecutable}'.");
+        }
+
+        using var process = started;
 
         // Read both pipes concurrently to avoid a deadlock when one fills its buffer (git writes
         // progress to stderr while output goes to stdout).
