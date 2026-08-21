@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: "Publish the storefront to GitHub Pages"
 
 # Publishes the Blazor WASM store to GitHub Pages on every push to main.
 # Requires Pages to be enabled with "GitHub Actions" as the source (repo Settings → Pages).

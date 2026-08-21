@@ -1,4 +1,4 @@
-name: Release desktop app
+name: "Release the desktop apps and the CLI on NuGet"
 
 # Builds the self-contained desktop app for Windows, Linux and macOS and attaches the archives to a
 # GitHub Release. Runs on a version tag (e.g. `v0.1.0`) or manual dispatch.

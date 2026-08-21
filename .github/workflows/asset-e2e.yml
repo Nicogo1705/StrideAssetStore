@@ -1,4 +1,4 @@
-name: Asset end-to-end (install, build, run a game)
+name: "Install an asset and run a Stride game (Win/Linux/macOS)"
 
 # Proves the promise the store makes, on every OS it claims to support: install the CLI, use it to
 # add a published asset to a real Stride game, compile it, and run the game until it renders.

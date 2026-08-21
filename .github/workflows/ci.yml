@@ -1,4 +1,4 @@
-name: CI
+name: "Build & test the solution"
 
 # Build the whole solution and run the tests on every push/PR.
 
