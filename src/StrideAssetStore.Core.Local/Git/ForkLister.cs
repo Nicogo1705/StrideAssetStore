@@ -26,12 +26,21 @@ public sealed class ForkLister(HttpClient? http = null)
     /// empty list rather than throwing when GitHub can't answer: not knowing the forks must never
     /// stop someone from typing one in.
     /// </summary>
-    public async Task<IReadOnlyList<AssetFork>> ListAsync(string repoUrl, CancellationToken cancellation = default)
+    public async Task<IReadOnlyList<AssetFork>> ListAsync(string repoUrl, CancellationToken cancellation = default) =>
+        (await TryListAsync(repoUrl, cancellation)).Forks;
+
+    /// <summary>
+    /// Same, but says whether GitHub actually answered. A caller that prints a conclusion needs the
+    /// difference: "this asset has no forks" and "we couldn't ask" are not the same sentence, and
+    /// rate limiting (60 requests an hour per IP, anonymously) makes the second one common.
+    /// </summary>
+    public async Task<(bool Reached, IReadOnlyList<AssetFork> Forks)> TryListAsync(
+        string repoUrl, CancellationToken cancellation = default)
     {
         var parts = repoUrl.TrimEnd('/').Split('/');
         if (parts.Length < 2)
         {
-            return [];
+            return (false, []); // not a repository URL we can ask about
         }
 
         var (owner, repo) = (parts[^2], parts[^1].EndsWith(".git", StringComparison.OrdinalIgnoreCase)
@@ -54,7 +63,7 @@ public sealed class ForkLister(HttpClient? http = null)
             using var response = await _http.SendAsync(request, cancellation);
             if (!response.IsSuccessStatusCode)
             {
-                return [];
+                return (false, []);
             }
 
             using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellation));
@@ -76,11 +85,11 @@ public sealed class ForkLister(HttpClient? http = null)
                         ? pushed : null));
             }
 
-            return [.. forks.OrderByDescending(f => f.Stars).ThenByDescending(f => f.PushedAt)];
+            return (true, [.. forks.OrderByDescending(f => f.Stars).ThenByDescending(f => f.PushedAt)]);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return [];
+            return (false, []);
         }
     }
 }

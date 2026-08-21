@@ -18,13 +18,20 @@ internal class CatalogSettings : CommandSettings
     public bool Offline { get; init; }
 }
 
-/// <summary>Options shared by the commands that act on a solution or project.</summary>
-internal class ProjectScopedSettings : CatalogSettings
+/// <summary>Options for the commands that read a solution or project without changing it.</summary>
+internal class TargetSettings : CatalogSettings
 {
     [CommandOption("-t|--target <PATH>")]
     [Description("Solution or .csproj to act on. Defaults to the nearest one from the current directory.")]
     public string? Target { get; init; }
+}
 
+/// <summary>
+/// Options for the commands that change a solution or project. Kept apart from <see cref="TargetSettings"/>
+/// so a read-only command doesn't advertise a project filter it ignores, or a confirmation it never asks.
+/// </summary>
+internal class ProjectScopedSettings : TargetSettings
+{
     [CommandOption("-p|--project <NAME>")]
     [Description("Which project inside the solution to act on, when there is more than one.")]
     public string? Project { get; init; }

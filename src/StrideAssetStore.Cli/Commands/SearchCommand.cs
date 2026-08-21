@@ -65,7 +65,7 @@ internal sealed class SearchCommand : AsyncCommand<SearchSettings>
         table.AddColumn("★");
         table.AddColumn("");
 
-        foreach (var asset in results.Take(settings.Take))
+        foreach (var asset in results.Take(Math.Max(1, settings.Take)))
         {
             table.AddRow(
                 Markup.Escape(asset.Id),

@@ -10,7 +10,7 @@ using StrideAssetStore.Core.Models;
 
 namespace StrideAssetStore.Cli.Commands;
 
-internal sealed class ListSettings : ProjectScopedSettings
+internal sealed class ListSettings : TargetSettings
 {
     [CommandOption("--cached")]
     [Description("List what sits in the shared per-machine cache instead of what this project references.")]

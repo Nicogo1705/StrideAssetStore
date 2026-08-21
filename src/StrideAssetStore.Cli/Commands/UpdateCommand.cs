@@ -54,7 +54,17 @@ internal sealed class UpdateCommand : AsyncCommand<UpdateSettings>
             return 1;
         }
 
+        // --project / --all-projects were inherited options this command ignored, and the "use the
+        // full id" advice below could not fix the case they exist for: one asset referenced by two
+        // projects of a solution has the same id in both, so --version was simply impossible there.
+        var scope = settings.AllProjects || settings.Project is not null
+            ? ProjectTarget.SelectProjects(installer, target, settings.Project, settings.AllProjects)
+                .Select(Path.GetFullPath)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : null;
+
         var installed = view.Projects
+            .Where(p => scope is null || scope.Contains(Path.GetFullPath(p.CsprojPath)))
             .SelectMany(p => p.Assets.Select(a => (Project: p, Asset: a)))
             .Where(x => settings.Asset is null || Matches(x.Asset, settings.Asset))
             .ToList();
@@ -69,14 +79,17 @@ internal sealed class UpdateCommand : AsyncCommand<UpdateSettings>
 
         return switching
             ? Switch(installer, installed, catalog, target, settings)
-            : UpdateAll(installer, installed);
+            : UpdateAll(installer, installed, catalog);
     }
 
     private static bool Matches(ProjectAsset asset, string query) =>
         asset.Id.Contains(query, StringComparison.OrdinalIgnoreCase)
         || asset.Name.Contains(query, StringComparison.OrdinalIgnoreCase);
 
-    private static int UpdateAll(AssetInstaller installer, List<(ProjectNode Project, ProjectAsset Asset)> installed)
+    private static int UpdateAll(
+        AssetInstaller installer,
+        List<(ProjectNode Project, ProjectAsset Asset)> installed,
+        IReadOnlyDictionary<string, IndexedAsset> catalog)
     {
         // NuGet-installed assets are the package manager's business, not ours.
         var updatable = installed.Where(x => x.Asset.Kind == "local").ToList();
@@ -99,7 +112,11 @@ internal sealed class UpdateCommand : AsyncCommand<UpdateSettings>
                 continue;
             }
 
-            var reference = string.IsNullOrEmpty(asset.Ref) ? "main" : asset.Ref;
+            // A legacy clone records no ref. "main" was a guess, and a repository on `master` got
+            // told git couldn't update a branch the user never chose. The catalog knows the real one.
+            var reference = string.IsNullOrEmpty(asset.Ref)
+                ? (catalog.TryGetValue(asset.Id, out var entry) ? entry.Latest.Ref : "main")
+                : asset.Ref;
             var commit = installer.UpdateInstalled(asset.CloneRoot, reference);
             if (commit is null)
             {
@@ -135,8 +152,20 @@ internal sealed class UpdateCommand : AsyncCommand<UpdateSettings>
     {
         if (installed.Count > 1)
         {
+            var distinct = installed.Select(x => x.Asset.Id).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (distinct.Count > 1)
+            {
+                AnsiConsole.MarkupLineInterpolated(
+                    $"[red]'{settings.Asset}' matches {distinct.Count} installed assets:[/] {string.Join(", ", distinct)}.");
+                AnsiConsole.MarkupLine("[grey]Use the full id.[/]");
+                return 1;
+            }
+
+            // Same asset, several projects: the id can't disambiguate it — the project can.
+            var projects = string.Join(", ", installed.Select(x => x.Project.Name).Distinct());
             AnsiConsole.MarkupLineInterpolated(
-                $"[red]'{settings.Asset}' matches {installed.Count} installed assets.[/] Use the full id.");
+                $"[red]{installed[0].Asset.Name} is referenced by {installed.Count} projects:[/] {projects}.");
+            AnsiConsole.MarkupLine("[grey]Pick one with --project <NAME>, or switch them all with --all-projects.[/]");
             return 1;
         }
 

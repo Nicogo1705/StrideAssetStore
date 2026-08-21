@@ -229,7 +229,7 @@ internal sealed class AppStartCommand : AsyncCommand<AppSettings>
             }
         }
 
-        AnsiConsole.MarkupLine("[yellow]Started, but it hasn't answered yet.[/] Check its console window.");
+        AnsiConsole.MarkupLine("[yellow]Started, but it hasn't answered yet.[/] Check http://localhost:5111.");
         return 0;
     }
 }

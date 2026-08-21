@@ -26,7 +26,17 @@ internal sealed class ForkListCommand : AsyncCommand<ForkListSettings>
         CliOutput.NoteCatalogSource(fromCache, index);
 
         var asset = CatalogAccess.Resolve(index, settings.Asset);
-        var forks = await new ForkLister().ListAsync(asset.Repo, cancellation);
+        var (reached, forks) = await new ForkLister().TryListAsync(asset.Repo, cancellation);
+
+        if (!reached)
+        {
+            // Saying "no forks" here would turn a failed request into a fact. GitHub allows 60
+            // requests an hour per IP anonymously, so this is a normal thing to hit.
+            AnsiConsole.MarkupLineInterpolated(
+                $"[yellow]GitHub didn't answer for {asset.Manifest.Name} — rate limit, proxy, or no network.[/]");
+            AnsiConsole.MarkupLine("[grey]Set GITHUB_TOKEN to raise the limit. `add --fork owner/repo` works regardless.[/]");
+            return 1;
+        }
 
         if (forks.Count == 0)
         {
