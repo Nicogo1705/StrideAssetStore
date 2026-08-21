@@ -184,8 +184,22 @@ app.MapGet("/api/attention", async (
 // terminal actually opened, so the UI can fall back to showing the command rather than lying.
 app.MapPost("/app/update", () =>
 {
-    const string command = "strideassetstore app update";
-    return Results.Json(new { opened = StrideAssetStore.Core.Local.Shell.DesktopShell.OpenTerminal(command), command });
+    const string tool = "strideassetstore";
+    const string command = $"{tool} app update";
+
+    // Opening a terminal on a command that isn't installed would just print "not recognized" and
+    // look like the button is broken. Say what's missing instead.
+    if (!StrideAssetStore.Core.Local.Shell.DesktopShell.CommandExists(tool))
+    {
+        return Results.Json(new { opened = false, command, toolMissing = true });
+    }
+
+    return Results.Json(new
+    {
+        opened = StrideAssetStore.Core.Local.Shell.DesktopShell.OpenTerminal(command),
+        command,
+        toolMissing = false,
+    });
 });
 
 app.MapMethods("/app/quit", ["GET", "POST", "OPTIONS"], (HttpContext ctx, IHostApplicationLifetime lifetime) =>

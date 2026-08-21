@@ -38,6 +38,31 @@ public static class DesktopShell
         linux: ("xdg-open", Quote(url)));
 
     /// <summary>
+    /// Whether <paramref name="executable"/> can be launched from this process's environment — i.e.
+    /// whether opening a terminal on it would do anything but print "not recognized".
+    /// </summary>
+    public static bool CommandExists(string executable)
+    {
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo(executable, "--version")
+            {
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            });
+
+            process?.WaitForExit(5000);
+            return process is not null;
+        }
+        catch
+        {
+            // Win32Exception when it isn't on PATH — the only answer that matters here.
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Opens a terminal window running <paramref name="command"/>, left open afterwards so its output
     /// stays readable. False when no terminal could be launched — Linux has no single one, and the
     /// caller still has the command to show.

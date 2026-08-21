@@ -199,12 +199,17 @@
         try
         {
             var response = await Http.PostAsync("app/update", null);
-            var opened = response.IsSuccessStatusCode
-                && (await response.Content.ReadFromJsonAsync<TerminalLaunch>())?.Opened == true;
+            var launch = response.IsSuccessStatusCode
+                ? await response.Content.ReadFromJsonAsync<TerminalLaunch>()
+                : null;
 
-            _remoteControlNotice = opened
-                ? "<strong>Updating in the terminal.</strong> This app stops, updates and starts again."
-                : $"<strong>Couldn't open a terminal.</strong> Run <code>{UpdateCommand}</code> yourself.";
+            _remoteControlNotice = launch switch
+            {
+                { Opened: true } => "<strong>Updating in the terminal.</strong> This app stops, updates and starts again.",
+                { ToolMissing: true } =>
+                    "<strong>The tool isn't installed.</strong> Run <code>dotnet tool install -g StrideAssetStore</code> first.",
+                _ => $"<strong>Couldn't open a terminal.</strong> Run <code>{UpdateCommand}</code> yourself.",
+            };
         }
         catch
         {
@@ -212,7 +217,7 @@
         }
     }
 
-    private sealed record TerminalLaunch(bool Opened, string Command);
+    private sealed record TerminalLaunch(bool Opened, string Command, bool ToolMissing);
 
     private void OnAttentionChanged() => InvokeAsync(StateHasChanged);
 
