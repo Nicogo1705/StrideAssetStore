@@ -13,9 +13,9 @@ public static class DesktopShell
 {
     /// <summary>Opens a folder in the system file manager.</summary>
     public static bool OpenFolder(string path) => Start(
-        windows: ("explorer.exe", Quote(path)),
-        macos: ("open", Quote(path)),
-        linux: ("xdg-open", Quote(path)));
+        windows: ("explorer.exe", [path]),
+        macos: ("open", [path]),
+        linux: ("xdg-open", [path]));
 
     /// <summary>
     /// Opens the file manager with <paramref name="path"/> selected. Only Windows and macOS can
@@ -25,17 +25,34 @@ public static class DesktopShell
     {
         var parent = Path.GetDirectoryName(Path.GetFullPath(path));
         return Start(
-            windows: ("explorer.exe", $"/select,{Quote(path)}"),
-            macos: ("open", $"-R {Quote(path)}"),
-            linux: ("xdg-open", Quote(parent ?? path)));
+            windows: ("explorer.exe", [$"/select,{path}"]),
+            macos: ("open", ["-R", path]),
+            linux: ("xdg-open", [parent ?? path]));
     }
 
     /// <summary>Opens a URL in the user's default browser.</summary>
-    public static bool OpenUrl(string url) => Start(
-        // cmd's `start` treats the first quoted argument as a window title, hence the empty one.
-        windows: ("cmd", $"/c start \"\" {Quote(url)}"),
-        macos: ("open", Quote(url)),
-        linux: ("xdg-open", Quote(url)));
+    /// <remarks>
+    /// Windows goes through ShellExecute rather than <c>cmd /c start</c>: URLs come from the
+    /// published index, which anyone can propose an entry to, and a quote inside one escaped the
+    /// quoting and handed the rest to the command interpreter.
+    /// </remarks>
+    public static bool OpenUrl(string url)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            try
+            {
+                using var process = Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+                return process is not null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        return Start(default, ("open", [url]), ("xdg-open", [url]));
+    }
 
     /// <summary>
     /// Whether <paramref name="executable"/> can be launched from this process's environment — i.e.
@@ -72,19 +89,25 @@ public static class DesktopShell
         if (OperatingSystem.IsWindows())
         {
             // /k keeps the window after the command finishes; the user sees what happened.
-            return Start(("cmd.exe", $"/k {command}"), default, default, useShellExecute: true);
+            return Start(("cmd.exe", ["/k", command]), default, default, useShellExecute: true);
         }
 
         if (OperatingSystem.IsMacOS())
         {
             var script = command.Replace("\\", "\\\\").Replace("\"", "\\\"");
-            return Start(default, ("osascript", $"-e \"tell application \\\"Terminal\\\" to do script \\\"{script}\\\"\" -e \"tell application \\\"Terminal\\\" to activate\""), default);
+            return Start(default, ("osascript",
+                ["-e", $"tell application \"Terminal\" to do script \"{script}\"",
+                 "-e", "tell application \"Terminal\" to activate"]), default);
         }
 
         // No standard terminal on Linux: try the usual suspects, and let the caller fall back.
         foreach (var terminal in (string[])["x-terminal-emulator", "gnome-terminal", "konsole", "xterm"])
         {
-            if (Start(default, default, (terminal, $"-e bash -c '{command}; exec bash'")))
+            // ArgumentList, not one string: .NET splits Arguments with Windows rules even on Unix,
+            // where a single quote is not a quoting character — the shell command came out shredded
+            // into separate argv entries and never ran, while the terminal opened and reported
+            // success.
+            if (Start(default, default, (terminal, ["-e", $"bash -c \"{command}; exec bash\""])))
             {
                 return true;
             }
@@ -93,8 +116,8 @@ public static class DesktopShell
         return false;
     }
 
-    private static bool Start((string File, string Args) windows, (string File, string Args) macos,
-        (string File, string Args) linux, bool useShellExecute = false)
+    private static bool Start((string File, string[] Args) windows, (string File, string[] Args) macos,
+        (string File, string[] Args) linux, bool useShellExecute = false)
     {
         var (file, args) = OperatingSystem.IsWindows() ? windows
             : OperatingSystem.IsMacOS() ? macos
@@ -110,7 +133,15 @@ public static class DesktopShell
             // Normally false: the launcher IS the shell, and true would make the child inherit this
             // process's console on Windows. Opening a terminal is the exception — it needs its own
             // window, which is precisely what ShellExecute gives it.
-            using var process = Process.Start(new ProcessStartInfo(file, args) { UseShellExecute = useShellExecute });
+            // ArgumentList quotes each argument for the platform; a single Arguments string would
+            // leave that to whatever the caller pasted in.
+            var info = new ProcessStartInfo(file) { UseShellExecute = useShellExecute };
+            foreach (var argument in args)
+            {
+                info.ArgumentList.Add(argument);
+            }
+
+            using var process = Process.Start(info);
             return process is not null;
         }
         catch
@@ -120,6 +151,4 @@ public static class DesktopShell
             return false;
         }
     }
-
-    private static string Quote(string value) => $"\"{value}\"";
 }
