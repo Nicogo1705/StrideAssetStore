@@ -37,10 +37,16 @@ public sealed class GitClient(string gitExecutable = "git")
 
     /// <summary>
     /// Shallow-clones <paramref name="repoUrl"/> at <paramref name="refName"/> into a directory,
-    /// checking out <b>only the <c>AssetData/</c> folder</b> (sparse). The store consumes nothing
-    /// else, so the rest of the repo — sample/.Windows projects, solutions, etc. — is never written.
+    /// by default checking out <b>only the <c>AssetData/</c> folder</b> (sparse). The store consumes
+    /// nothing else, so the rest of the repo — sample/.Windows projects, solutions, etc. — is never
+    /// written.
     /// </summary>
-    public void ShallowClone(string repoUrl, string refName, string destination)
+    /// <remarks>
+    /// Pass <c>assetDataOnly: false</c> for a fork. The registry has no say over someone's copy, so a
+    /// fork restructured for their own game keeps its project outside <c>AssetData/</c> — checking out
+    /// only that folder would hand the caller an empty tree and nothing to reference.
+    /// </remarks>
+    public void ShallowClone(string repoUrl, string refName, string destination, bool assetDataOnly = true)
     {
         RejectOptionLike(repoUrl, refName);
 
@@ -57,10 +63,13 @@ public sealed class GitClient(string gitExecutable = "git")
             throw new InvalidOperationException($"git clone failed for {repoUrl}@{refName}: {clone.StdErr}");
         }
 
-        // Restrict the working tree to AssetData/ before checking it out.
-        Run(destination, "config", "core.sparseCheckout", "true");
-        Run(destination, "config", "core.sparseCheckoutCone", "false");
-        File.WriteAllText(Path.Combine(destination, ".git", "info", "sparse-checkout"), "/AssetData/\n");
+        if (assetDataOnly)
+        {
+            // Restrict the working tree to AssetData/ before checking it out.
+            Run(destination, "config", "core.sparseCheckout", "true");
+            Run(destination, "config", "core.sparseCheckoutCone", "false");
+            File.WriteAllText(Path.Combine(destination, ".git", "info", "sparse-checkout"), "/AssetData/\n");
+        }
 
         var checkout = Run(destination, [.. SafeProtocol, "checkout", refName]);
         if (checkout.ExitCode != 0)

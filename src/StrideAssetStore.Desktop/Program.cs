@@ -188,8 +188,15 @@ app.MapGet("/api/attention", async (
 // Opens a terminal running the update. The app deliberately cannot update itself — but it can hand
 // the job to the tool that can, which saves the user copying a command by hand. Reports whether a
 // terminal actually opened, so the UI can fall back to showing the command rather than lying.
-app.MapPost("/app/update", () =>
+app.MapPost("/app/update", (HttpContext ctx) =>
 {
+    // Same guard as the other controls: this one stops the app and reinstalls its binary, so a
+    // website must not be able to trigger it either.
+    if (!AllowControlOrigin(ctx, storefrontOrigin))
+    {
+        return Results.StatusCode(StatusCodes.Status403Forbidden);
+    }
+
     const string tool = "strideassetstore";
     const string command = $"{tool} app update";
 
@@ -345,31 +352,56 @@ static string? SameOriginReferer(HttpContext ctx)
 }
 
 /// <summary>
-/// Authorizes a cross-origin call to the window controls and stamps the CORS response headers.
-/// Only the app's own pages and the official storefront may drive them — these endpoints close
-/// the app, so a random website must not be able to reach them. Chrome's Private Network Access
-/// preflight (public page → localhost) needs the extra allow header.
+/// Authorizes a call to the window controls and stamps the CORS response headers. These endpoints
+/// close the app, so only the app's own pages, the official storefront, the address bar and the CLI
+/// may reach them.
 /// </summary>
+/// <remarks>
+/// A missing <c>Origin</c> header does NOT mean "typed in the address bar": browsers omit it on every
+/// GET subresource, so trusting it let any website on the internet stop the app with
+/// <c>&lt;img src="http://localhost:5111/app/quit"&gt;</c>. <c>Sec-Fetch-Site</c> is what actually
+/// distinguishes those cases — every current browser sends it and it cannot be set by script, while a
+/// non-browser client (the CLI's HttpClient, which POSTs /app/quit) sends none at all.
+/// </remarks>
 static bool AllowControlOrigin(HttpContext ctx, string storefrontOrigin)
 {
     var origin = ctx.Request.Headers.Origin.ToString();
-    if (string.IsNullOrEmpty(origin))
-    {
-        return true; // address-bar navigation — no CORS involved at all
-    }
+    var site = ctx.Request.Headers["Sec-Fetch-Site"].ToString();
+    var fromStorefront = string.Equals(origin, storefrontOrigin, StringComparison.OrdinalIgnoreCase);
 
-    var allowed = string.Equals(origin, storefrontOrigin, StringComparison.OrdinalIgnoreCase)
-        || (Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback);
-    if (!allowed)
+    if (site is "cross-site" or "same-site")
     {
+        // Only the storefront may drive the app from another origin, and never as a sub-resource:
+        // a page may fetch() these, it may not fire them from an <img>, <script> or <iframe>.
+        if (!fromStorefront || ctx.Request.Headers["Sec-Fetch-Dest"].ToString() is not ("empty" or "document"))
+        {
+            return false;
+        }
+    }
+    else if (site is not ("" or "none" or "same-origin"))
+    {
+        return false; // unknown value from a future browser — refuse rather than guess
+    }
+    else if (!string.IsNullOrEmpty(origin)
+        && !fromStorefront
+        && !(Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+            && uri.IsLoopback
+            && uri.Port == StrideAssetStore.Core.Local.Releases.RunningApp.Port))
+    {
+        // Loopback is not a trust boundary: any dev server or local tool on another port would
+        // otherwise be able to stop the app.
         return false;
     }
 
-    ctx.Response.Headers.AccessControlAllowOrigin = origin;
-    ctx.Response.Headers["Access-Control-Allow-Private-Network"] = "true";
-    ctx.Response.Headers.AccessControlAllowMethods = "GET, POST";
-    ctx.Response.Headers.AccessControlAllowHeaders = "Content-Type";
-    ctx.Response.Headers.Vary = "Origin";
+    if (!string.IsNullOrEmpty(origin))
+    {
+        ctx.Response.Headers.AccessControlAllowOrigin = origin;
+        ctx.Response.Headers["Access-Control-Allow-Private-Network"] = "true";
+        ctx.Response.Headers.AccessControlAllowMethods = "GET, POST";
+        ctx.Response.Headers.AccessControlAllowHeaders = "Content-Type";
+        ctx.Response.Headers.Vary = "Origin";
+    }
+
     return true;
 }
 

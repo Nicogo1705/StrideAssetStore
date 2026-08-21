@@ -22,6 +22,16 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      # The schema, validator and index-builder tests read the registry's schemas from a sibling
+      # checkout. Without it they returned early and were reported green — every one of them has
+      # been a no-op in CI. TestPaths now refuses to skip when CI is set, so a missing checkout
+      # fails the run instead of hiding it.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: Nicogo1705/AssetContainer
+          path: AssetContainer
+
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: "10.0.x"

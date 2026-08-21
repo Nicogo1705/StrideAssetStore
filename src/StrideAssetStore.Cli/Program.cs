@@ -22,6 +22,15 @@ app.Configure(config =>
 {
     config.SetApplicationName("strideassetstore");
 
+    // Expected failures travel as exceptions here — an ambiguous asset id, no solution in sight, a
+    // version nobody published. Without this they reach the user as a stack trace and exit -1 (255
+    // in a shell), burying messages that were written to be read.
+    config.SetExceptionHandler((exception, _) =>
+    {
+        AnsiConsole.MarkupLineInterpolated($"[red]{exception.Message}[/]");
+        return 1;
+    });
+
     // Without this, Spectre answers `--version` with "Unexpected option". Bug reports ask for it,
     // and so does CI when it checks the tool it just installed. The informational version carries
     // the build suffix (a local build says 99.0.0.0-local, so it can't be mistaken for a release).

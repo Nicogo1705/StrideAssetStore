@@ -305,7 +305,8 @@ public sealed class AssetInstaller(GitClient? git = null)
             // A fork gets its own folder: same repo name, different owner, and it must never land on
             // top of the asset it forked — that clone is shared by every project on this machine.
             var assetFolder = Clone(rootRepo, reference, refRoot, messages,
-                fork is null ? null : GitClient.SafeForkFolderName(fork));
+                fork is null ? null : GitClient.SafeForkFolderName(fork),
+                assetDataOnly: fork is null);
             if (fork is null)
             {
                 VerifyHash(refRoot, assetFolder, string.Equals(reference, asset.Latest.Ref, StringComparison.Ordinal) ? asset.Latest.ContentHash : null, asset.Manifest.Name, messages);
@@ -343,23 +344,39 @@ public sealed class AssetInstaller(GitClient? git = null)
             }
 
             var assetData = Path.Combine(refRoot, assetFolder, "AssetData");
+            var clonedRoot = Path.Combine(refRoot, assetFolder);
             var assetCsproj = CsprojInspector.FindProjects(assetData).FirstOrDefault();
+
+            // AssetData/ is the registry's convention, and the registry has no say over a fork:
+            // someone who restructured their copy for their own game still has a project worth
+            // referencing. Look through the whole clone before giving up on it — which is why a
+            // fork is cloned in full (ShallowClone assetDataOnly: false) and a registry asset isn't.
+            if (assetCsproj is null && fork is not null)
+            {
+                var elsewhere = CsprojInspector.FindProjects(clonedRoot);
+                if (elsewhere.Count == 1)
+                {
+                    assetCsproj = elsewhere[0];
+                    messages.Add($"• {fork} has no AssetData/ layout; referencing "
+                        + $"{Path.GetRelativePath(clonedRoot, assetCsproj)} instead.");
+                }
+                else if (elsewhere.Count > 1)
+                {
+                    messages.Add($"✗ {fork} has no AssetData/ layout and {elsewhere.Count} projects — "
+                        + "nothing says which one to reference. The clone is kept at "
+                        + $"{clonedRoot} so you can point at one yourself.");
+                    return new InstallResult(false, messages);
+                }
+            }
+
             if (assetCsproj is null)
             {
-                // Whatever was cloned isn't a store asset. Don't leave it in the shared cache, where
-                // it would sit forever as a "broken" entry nobody can explain — this is the common
-                // outcome of naming a fork that was never an asset, or one that has moved on.
-                var cloneRoot = Path.Combine(refRoot, assetFolder);
-                var removed = DeleteClone(cloneRoot);
-
+                // Kept, not deleted: it is the user's clone of a repository they named, and they may
+                // want to look at it. `list --cached` shows it and `remove --delete-clone` drops it.
                 messages.Add(fork is null
-                    ? "✗ No .csproj under AssetData/ — this repository doesn't look like a store asset."
-                    : $"✗ {fork} has no .csproj under AssetData/ — it doesn't look like a store asset.");
-                if (!removed)
-                {
-                    messages.Add($"⚠ The clone at {cloneRoot} couldn't be removed; delete it by hand.");
-                }
-
+                    ? $"✗ No .csproj anywhere in the clone — {asset.Repo} doesn't look like a store asset."
+                    : $"✗ No .csproj anywhere in {fork} — nothing to reference.");
+                messages.Add($"• The clone is kept at {clonedRoot}; nothing was written to your project.");
                 return new InstallResult(false, messages);
             }
 
@@ -832,7 +849,8 @@ public sealed class AssetInstaller(GitClient? git = null)
             // Same rule as an install: a fork replaces the root repository and gets its own cache
             // folder, and neither the content hash nor the certified commits describe it.
             var folder = Clone(fork is null ? asset.Repo : ForkRepoUrl(fork), checkoutRef, targetRoot, messages,
-                fork is null ? null : GitClient.SafeForkFolderName(fork));
+                fork is null ? null : GitClient.SafeForkFolderName(fork),
+                assetDataOnly: fork is null);
 
             if (fork is null)
             {
@@ -1084,7 +1102,7 @@ public sealed class AssetInstaller(GitClient? git = null)
         }
     }
 
-    private string Clone(string repo, string reference, string storeRoot, List<string> messages, string? folderName = null)
+    private string Clone(string repo, string reference, string storeRoot, List<string> messages, string? folderName = null, bool assetDataOnly = true)
     {
         var folder = folderName ?? GitClient.SafeRepoFolderName(repo);
         var dest = Path.Combine(storeRoot, folder);
@@ -1110,7 +1128,7 @@ public sealed class AssetInstaller(GitClient? git = null)
                 ForceDeleteDirectory(dest);
             }
 
-            _git.ShallowClone(repo, reference, dest);
+            _git.ShallowClone(repo, reference, dest, assetDataOnly);
             messages.Add($"✓ Cloned {folder} ({reference})");
         }
 

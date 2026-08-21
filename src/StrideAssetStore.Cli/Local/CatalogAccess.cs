@@ -45,7 +45,10 @@ internal static class CatalogAccess
             await cache.SaveAsync(index, cancellation);
             return (index, false);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        // Not "is not OperationCanceledException": HttpClient reports its own timeout as a
+        // TaskCanceledException, which derives from it — so the one failure this fallback exists
+        // for was the one it let through. Only a cancellation the caller actually asked for stops us.
+        catch (Exception ex) when (!cancellation.IsCancellationRequested)
         {
             var cached = await cache.TryLoadAsync(cancellation)
                 ?? throw new InvalidOperationException($"Couldn't fetch the catalog from {url} and no snapshot is cached: {ex.Message}");

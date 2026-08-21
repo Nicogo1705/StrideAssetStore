@@ -15,7 +15,18 @@ internal static class TestPaths
 
     public static string Container => Path.Combine(Workspace!, "AssetContainer");
 
-    public static bool Available => Workspace is not null;
+    /// <summary>
+    /// Whether the schemas are reachable. Skipping is a convenience for a developer who hasn't
+    /// cloned the registry — never for CI, where a silent skip meant five test files reported green
+    /// without executing anything. There, a missing checkout is a failure.
+    /// </summary>
+    public static bool Available =>
+        Workspace is not null
+        || (Environment.GetEnvironmentVariable("CI") is "true" or "True"
+            ? throw new InvalidOperationException(
+                "The sibling AssetContainer checkout is missing, so the schema and validation tests "
+                + "would silently pass. Check it out next to this repository.")
+            : false);
 
     private static string? FindWorkspace()
     {
