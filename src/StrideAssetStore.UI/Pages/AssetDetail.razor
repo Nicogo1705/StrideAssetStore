@@ -554,6 +554,8 @@ else
     {
         // Reset per-asset selections when navigating between assets.
         _versionRef = null;
+        _badgeCopied = false;
+        _shared = false;
         _view = "install";
         _lightbox = null;
         await LoadRepoDataAsync();
@@ -572,8 +574,7 @@ else
 
     private async Task CopyBadgeAsync()
     {
-        await JS.InvokeVoidAsync("assetStoreEnv.copy", BadgeMarkdown);
-        _badgeCopied = true;
+        _badgeCopied = await Env.CopyAsync(BadgeMarkdown);
     }
 
     /// <summary>Web → desktop bridge: try stride-assetstore://install?…; the JS helper falls back
@@ -598,8 +599,7 @@ else
             return;
         }
 
-        await JS.InvokeVoidAsync("assetStoreEnv.copy", $"{Nav.BaseUri}a/{Uri.EscapeDataString(Asset.Id)}/");
-        _shared = true;
+        _shared = await Env.CopyAsync($"{Nav.BaseUri}a/{Uri.EscapeDataString(Asset.Id)}/");
     }
 
     private async Task LoadRepoDataAsync()

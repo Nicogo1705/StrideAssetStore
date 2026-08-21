@@ -49,16 +49,19 @@ public sealed class AppEnvironment(IJSRuntime js, bool? knownLocal = null)
         Initialized = true;
     }
 
-    /// <summary>Copies text to the clipboard (best-effort).</summary>
-    public async Task CopyAsync(string text)
+    /// <summary>
+    /// Copies to the clipboard and reports whether it worked, so a caller does not show "✓ Copied"
+    /// when nothing was copied (the clipboard API is unavailable outside a secure context).
+    /// </summary>
+    public async Task<bool> CopyAsync(string text)
     {
         try
         {
-            await js.InvokeVoidAsync("assetStoreEnv.copy", text);
+            return await js.InvokeAsync<bool>("assetStoreEnv.copy", text);
         }
         catch
         {
-            // Clipboard may be unavailable (insecure context); ignore.
+            return false;
         }
     }
 }

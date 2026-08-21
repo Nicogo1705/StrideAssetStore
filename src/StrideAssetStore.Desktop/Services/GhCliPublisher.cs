@@ -1,7 +1,7 @@
 // Copyright (c) <YEAR> <COPYRIGHT HOLDER>
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
-using System.Diagnostics;
+using StrideAssetStore.Core.Local.Shell;
 using System.Text;
 using System.Text.Json;
 using StrideAssetStore.App.Services;
@@ -298,40 +298,11 @@ public sealed class GhCliPublisher(RegistryOptions registry) : ICliPublisher
         return r.Ok && !string.IsNullOrWhiteSpace(r.StdOut) ? r.StdOut.Trim() : null;
     }
 
-    private static Task<ProcResult> RunAsync(string exe, IReadOnlyList<string> args, CancellationToken ct) =>
-        Task.Run(() =>
-        {
-            var info = new ProcessStartInfo(exe)
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            };
-            foreach (var a in args)
-            {
-                info.ArgumentList.Add(a);
-            }
-
-            try
-            {
-                using var p = Process.Start(info);
-                if (p is null)
-                {
-                    return new ProcResult(-1, "", $"Unable to start '{exe}'.");
-                }
-
-                var stdout = p.StandardOutput.ReadToEndAsync(ct);
-                var stderr = p.StandardError.ReadToEndAsync(ct);
-                p.WaitForExit();
-                return new ProcResult(p.ExitCode, stdout.GetAwaiter().GetResult(), stderr.GetAwaiter().GetResult());
-            }
-            catch (Exception ex)
-            {
-                // Executable not found on PATH, etc.
-                return new ProcResult(-1, "", ex.Message);
-            }
-        }, ct);
+    private static async Task<ProcResult> RunAsync(string exe, IReadOnlyList<string> args, CancellationToken ct)
+    {
+        var result = await ProcessRunner.RunAsync(exe, args, cancellation: ct);
+        return new ProcResult(result.ExitCode, result.StdOut, result.StdErr);
+    }
 
     private static string Describe(ProcResult r)
     {

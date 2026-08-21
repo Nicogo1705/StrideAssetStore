@@ -21,6 +21,9 @@ public static class RunningApp
     /// storefront's detection both hard-code it.</summary>
     public const int Port = 5111;
 
+    /// <summary>The <c>app</c> field /api/ping answers with — how a caller knows it reached us.</summary>
+    public const string AppMarker = "stride-assetstore";
+
     private static string Base => $"http://localhost:{Port}";
 
     /// <summary>Whether the app is up, and which version it is. Never throws.</summary>
@@ -37,6 +40,15 @@ public static class RunningApp
             }
 
             using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellation));
+
+            // Check the marker: a 200 on this port proves something is listening, not that it is us.
+            // Another dev server answering here would otherwise be taken for the app — and stopped.
+            if (!document.RootElement.TryGetProperty("app", out var name)
+                || name.GetString() != AppMarker)
+            {
+                return new AppPing(false, null);
+            }
+
             return new AppPing(true,
                 document.RootElement.TryGetProperty("version", out var v) ? v.GetString() : null);
         }

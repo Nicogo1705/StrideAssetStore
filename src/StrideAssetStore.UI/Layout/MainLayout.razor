@@ -184,11 +184,7 @@
 
     private bool _commandCopied;
 
-    private async Task CopyUpdateCommandAsync()
-    {
-        await Env.CopyAsync(UpdateCommand);
-        _commandCopied = true;
-    }
+    private async Task CopyUpdateCommandAsync() => _commandCopied = await Env.CopyAsync(UpdateCommand);
 
     /// <summary>
     /// Hands the update to a terminal. The app can't update itself — the tool can, and it stops this

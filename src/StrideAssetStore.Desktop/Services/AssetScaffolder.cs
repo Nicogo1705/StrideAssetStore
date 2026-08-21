@@ -1,7 +1,7 @@
 // Copyright (c) <YEAR> <COPYRIGHT HOLDER>
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
-using System.Diagnostics;
+using StrideAssetStore.Core.Local.Shell;
 using System.Text.Json;
 using StrideAssetStore.App.Services;
 
@@ -206,38 +206,9 @@ public sealed class AssetScaffolder(RegistryOptions registry)
         }
     }
 
-    private static Task<ProcResult> RunAsync(string exe, IReadOnlyList<string> args, string workingDir, CancellationToken ct) =>
-        Task.Run(() =>
-        {
-            var info = new ProcessStartInfo(exe)
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                WorkingDirectory = workingDir,
-            };
-            foreach (var argument in args)
-            {
-                info.ArgumentList.Add(argument);
-            }
-
-            try
-            {
-                using var process = Process.Start(info);
-                if (process is null)
-                {
-                    return new ProcResult(-1, "", $"Unable to start '{exe}'.");
-                }
-
-                var stdout = process.StandardOutput.ReadToEndAsync(ct);
-                var stderr = process.StandardError.ReadToEndAsync(ct);
-                process.WaitForExit();
-                return new ProcResult(process.ExitCode, stdout.GetAwaiter().GetResult(), stderr.GetAwaiter().GetResult());
-            }
-            catch (Exception ex)
-            {
-                return new ProcResult(-1, "", ex.Message);
-            }
-        }, ct);
+    private static async Task<ProcResult> RunAsync(string exe, IReadOnlyList<string> args, string workingDir, CancellationToken ct)
+    {
+        var result = await ProcessRunner.RunAsync(exe, args, workingDir, cancellation: ct);
+        return new ProcResult(result.ExitCode, result.StdOut, result.StdErr);
+    }
 }

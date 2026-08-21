@@ -1,7 +1,7 @@
 // Copyright (c) <YEAR> <COPYRIGHT HOLDER>
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
-using System.Diagnostics;
+using StrideAssetStore.Core.Local.Shell;
 using System.Text.Json;
 using StrideAssetStore.Core.Local.Install;
 using StrideAssetStore.Core.Models;
@@ -262,38 +262,8 @@ public sealed class AuthorRepoService
 
     private static (int ExitCode, string Stdout, string Stderr) Run(string exe, IReadOnlyList<string> args, string? workingDir = null)
     {
-        var info = new ProcessStartInfo(exe)
-        {
-            WorkingDirectory = workingDir ?? Environment.CurrentDirectory,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-        foreach (var argument in args)
-        {
-            info.ArgumentList.Add(argument);
-        }
-
-        try
-        {
-            using var process = Process.Start(info);
-            if (process is null)
-            {
-                return (-1, "", $"{exe} not found");
-            }
-
-            // Both streams concurrently — sequential ReadToEnd deadlocks when the child fills
-            // the stderr pipe while we're still draining stdout (verbose git push output).
-            var stdout = process.StandardOutput.ReadToEndAsync();
-            var stderr = process.StandardError.ReadToEndAsync();
-            process.WaitForExit();
-            return (process.ExitCode, stdout.GetAwaiter().GetResult(), stderr.GetAwaiter().GetResult());
-        }
-        catch (Exception ex)
-        {
-            return (-1, "", ex.Message);
-        }
+        var result = ProcessRunner.RunAsync(exe, args, workingDir).GetAwaiter().GetResult();
+        return (result.ExitCode, result.StdOut, result.StdErr);
     }
 
     private List<string> Read()

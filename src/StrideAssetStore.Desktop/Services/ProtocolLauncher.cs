@@ -2,7 +2,6 @@
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
 using System.Diagnostics;
-using System.Net.Sockets;
 
 namespace StrideAssetStore.Desktop.Services;
 
@@ -62,18 +61,13 @@ public static class ProtocolLauncher
 
     /// <summary>True when another instance of the app already serves on the local port — then the
     /// protocol launch just opens a browser tab there instead of starting a second server.</summary>
-    public static bool IsAlreadyRunning(int port)
-    {
-        try
-        {
-            using var client = new TcpClient();
-            return client.ConnectAsync("127.0.0.1", port).Wait(TimeSpan.FromMilliseconds(500));
-        }
-        catch
-        {
-            return false;
-        }
-    }
+    /// <remarks>
+    /// Asks who is there rather than only whether the port is taken: any other tool holding 5111
+    /// would otherwise make the app open a tab on a stranger's server and exit without a word.
+    /// </remarks>
+    public static bool IsAlreadyRunning(int port) =>
+        port == StrideAssetStore.Core.Local.Releases.RunningApp.Port
+        && StrideAssetStore.Core.Local.Releases.RunningApp.PingAsync().GetAwaiter().GetResult().Running;
 
     /// <summary>
     /// Best-effort registration of the scheme for the current user (HKCU — no admin prompt),

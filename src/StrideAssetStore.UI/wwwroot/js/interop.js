@@ -1,9 +1,27 @@
 // Copyright (c) <YEAR> <COPYRIGHT HOLDER> - MIT license
 window.assetStoreEnv = {
     hostname: function () { return location.hostname; },
+    // Returns whether the text actually reached the clipboard. navigator.clipboard is absent in an
+    // insecure context, and resolving anyway made every caller claim "✓ Copied" over nothing.
     copy: function (text) {
-        if (navigator.clipboard) { return navigator.clipboard.writeText(text); }
-        return Promise.resolve();
+        if (navigator.clipboard) {
+            return navigator.clipboard.writeText(text).then(function () { return true; },
+                                                            function () { return false; });
+        }
+        try {
+            var area = document.createElement('textarea');
+            area.value = text;
+            area.setAttribute('readonly', '');
+            area.style.position = 'fixed';
+            area.style.opacity = '0';
+            document.body.appendChild(area);
+            area.select();
+            var ok = document.execCommand('copy');
+            document.body.removeChild(area);
+            return Promise.resolve(ok);
+        } catch (e) {
+            return Promise.resolve(false);
+        }
     },
     // Web → desktop bridge: try a custom-protocol URL (stride-assetstore://…). If nothing
     // handles it the page keeps focus, and after a grace period we fall back (download page).

@@ -53,8 +53,18 @@ jobs:
       - name: Publish
         run: dotnet publish src/StrideAssetStore.App/StrideAssetStore.App.csproj -c Release -o publish -p:Version=${{ steps.ver.outputs.version || '1.0.0' }}
 
+      # Project pages are served under /<repo>/, so the SDK's <base href="/"> has to be rewritten or
+      # every route 404s. Derived from the repository, and verified: an sed that stops matching (the
+      # SDK dropping the self-closing space, say) would otherwise ship a broken site on a green run.
       - name: Rewrite base href for project pages
-        run: sed -i 's|<base href="/" />|<base href="/StrideAssetStore/" />|' publish/wwwroot/index.html
+        run: |
+          BASE="/${GITHUB_REPOSITORY#*/}/"
+          sed -i -E "s|<base href=\"/\" ?/?>|<base href=\"$BASE\" />|" publish/wwwroot/index.html
+          grep -q "<base href=\"$BASE\"" publish/wwwroot/index.html || {
+            echo "::error::base href was not rewritten to $BASE — the published site would 404 on every route."
+            grep -o '<base[^>]*>' publish/wwwroot/index.html || echo "(no <base> tag at all)"
+            exit 1
+          }
 
       - name: Generate per-asset OG pages + sitemap
         run: |
