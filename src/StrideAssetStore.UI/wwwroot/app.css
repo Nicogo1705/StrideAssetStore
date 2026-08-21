@@ -104,8 +104,7 @@ a.theme-toggle:hover { text-decoration: none; }
 .card:hover { border-color: var(--accent); transform: translateY(-2px); text-decoration: none; }
 /* The link is the card's content, so it stays clickable with or without this stylesheet. The tag
    chips are siblings of it: a <button> inside an <a> is invalid HTML. */
-.card-link { display: flex; flex-direction: column; flex: 1; color: inherit; }
-.card-link:hover { text-decoration: none; }
+.card-link, .card-link:hover { display: flex; flex-direction: column; flex: 1; color: inherit; text-decoration: none; }
 .card-link:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 /* Certification at a glance: green edge for certified, accent-blue for the rest. */
 .card.cert { border-color: rgba(74, 222, 128, .45); }

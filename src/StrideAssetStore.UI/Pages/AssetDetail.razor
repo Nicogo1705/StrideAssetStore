@@ -219,8 +219,9 @@ else
                 @if (Env.InstallAvailable)
                 {
                     <div class="install-cta">
-                        <a class="btn primary" href="@($"projects/install?id={Uri.EscapeDataString(Asset.Id)}&mode={DefaultImport}&ref={Uri.EscapeDataString(ActiveRef)}")">⤓ Install into a project…</a>
-                        <span class="install-hint">clone + <code>&lt;ProjectReference&gt;</code>@(m.Nuget is not null ? ", or add the NuGet package" : "") — pick the target project &amp; options on the next screen.</span>
+                        <a class="btn primary" href="@($"projects/install?id={Uri.EscapeDataString(Asset.Id)}&mode={DefaultImport}&ref={Uri.EscapeDataString(ActiveRef)}")">⤓ Install…</a>
+                        <span class="install-hint">Download it for this machine, or add it to a project as
+                            <code>&lt;ProjectReference&gt;</code>@(m.Nuget is not null ? " or a NuGet package" : "") — chosen on the next screen.</span>
                     </div>
                 }
                 else

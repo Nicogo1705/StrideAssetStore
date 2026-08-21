@@ -7,7 +7,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <title>Community Stride Asset Store</title>
-    <link rel="stylesheet" href="_content/StrideAssetStore.UI/app.css" />
+    @* Versioned: the page markup ships inside the assembly, this stylesheet does not, and a browser
+       holding on to the previous one styles new markup with old rules. *@
+    <link rel="stylesheet" href="@($"_content/StrideAssetStore.UI/app.css?v={AppVersion}")" />
     <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
@@ -53,3 +55,8 @@
 </body>
 
 </html>
+
+@code {
+    private static readonly string AppVersion =
+        System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "dev";
+}
