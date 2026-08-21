@@ -83,8 +83,10 @@ strideassetstore app update      # update it
 strideassetstore app open        # open the store in a browser
 ```
 
-`update` stops a running app before replacing its files — on Windows a running executable is locked,
-and extracting over it would leave a broken install — then starts it again if it was running.
+`update` is how the desktop app gets updated — it never replaces itself, so an update doesn't
+depend on its interface working. It stops a running app before replacing its files — on Windows a
+running executable is locked, and extracting over it would leave a broken install — then starts it
+again if it was running.
 `start` won't launch a second copy, and waits until the app actually answers before saying so.
 
 ### Scripts and CI

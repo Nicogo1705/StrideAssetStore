@@ -75,7 +75,6 @@ builder.Services.AddScoped<StrideAssetStore.Core.Local.Install.AssetInstaller>()
 builder.Services.AddSingleton<StrideAssetStore.Core.Local.Git.ForkLister>();
 builder.Services.AddSingleton<StrideAssetStore.Desktop.Services.ProjectStore>();
 builder.Services.AddSingleton<StrideAssetStore.Desktop.Services.AuthorRepoService>();
-builder.Services.AddSingleton<StrideAssetStore.Desktop.Services.SelfUpdater>();
 builder.Services.AddScoped<StrideAssetStore.Desktop.Services.AssetScaffolder>();
 
 // Desktop can open registry PRs with the local git + GitHub CLI (no pasted token). Overrides the
@@ -180,10 +179,6 @@ app.MapGet("/api/attention", async (
         return Results.Json(new { projects = 0, assets = 0 });
     }
 });
-app.MapPost("/app/self-update", (string tag, StrideAssetStore.Desktop.Services.SelfUpdater updater) =>
-    Results.Json(new { started = updater.TryStart(tag) }));
-app.MapGet("/app/self-update/status", (StrideAssetStore.Desktop.Services.SelfUpdater updater) =>
-    Results.Json(new { stage = updater.Stage, percent = updater.Percent, error = updater.Error, target = updater.TargetDir }));
 app.MapMethods("/app/quit", ["GET", "POST", "OPTIONS"], (HttpContext ctx, IHostApplicationLifetime lifetime) =>
 {
     if (!AllowControlOrigin(ctx, storefrontOrigin))

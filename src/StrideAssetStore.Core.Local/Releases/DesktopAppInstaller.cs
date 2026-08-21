@@ -18,8 +18,8 @@ public sealed record DesktopRelease(string Version, string? DownloadUrl, long? S
 
 /// <summary>
 /// Installs and updates the desktop app from its GitHub releases, so someone who found the store
-/// through the CLI never has to visit a download page. The app's own in-place updater handles the
-/// running-process case; this one is for a machine where it isn't running (or isn't there at all).
+/// through the CLI never has to visit a download page. This is the only supported update path: the
+/// app doesn't replace itself, so updating never depends on its UI being alive.
 /// </summary>
 public sealed class DesktopAppInstaller(HttpClient? http = null)
 {

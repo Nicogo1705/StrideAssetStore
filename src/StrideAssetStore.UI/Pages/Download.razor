@@ -14,6 +14,36 @@
     required. You only need <strong>git</strong> on your <code>PATH</code> to clone assets.
 </p>
 
+@* First on the page on purpose: the tool owns a single install location and drives updates from
+   the terminal, so getting the app this way still works when the app's own UI doesn't. *@
+<section class="panel">
+    <h2>Recommended: install from a terminal</h2>
+    <ul class="steps">
+        <li><code>dotnet tool install -g StrideAssetStore</code></li>
+        <li><code>strideassetstore app install</code> — fetches the build for your machine</li>
+        <li><code>strideassetstore app update</code> — the way to update it afterwards</li>
+    </ul>
+    <p>
+        The tool keeps the app in one known location and updates it from outside, so you never end
+        up with several copies and an update still works when the app's own interface doesn't.
+    </p>
+    <p>
+        It also installs assets into your project without the app at all — same shared cache, same
+        portable project reference: <code>strideassetstore search grass</code>,
+        <code>strideassetstore add grass</code>, <code>strideassetstore update</code>.
+    </p>
+    <p class="install-hint">
+        Needs the .NET SDK and <code>git</code> on your <code>PATH</code>.
+        <a href="https://www.nuget.org/packages/StrideAssetStore" target="_blank" rel="noopener">Package on NuGet ↗</a>
+    </p>
+</section>
+
+<h2 style="margin:1.6rem 0 .3rem">Or download the archive</h2>
+<p class="lead">
+    The manual alternative when you'd rather not install the .NET SDK. Updating then means coming
+    back here for the next archive.
+</p>
+
 <p class="dl-version">
     @if (Updater.LatestVersion is { } latest)
     {
@@ -59,24 +89,9 @@
         <li>Run <code>StrideAssetStore.Desktop</code> (<code>.exe</code> on Windows). It starts a local server and opens your browser at <code>http://localhost:5111</code>.</li>
         <li>On macOS/Linux you may need to mark it executable first: <code>chmod +x StrideAssetStore.Desktop</code>. On macOS, right-click → Open the first time to bypass Gatekeeper (the build is unsigned).</li>
     </ol>
-</section>
-
-@* Offered here rather than buried elsewhere: someone on this page wants to install assets, and
-   for that the tool is often the shorter path — nothing to unpack, nothing to keep running. *@
-<section class="panel">
-    <h2>Prefer a terminal?</h2>
-    <p>
-        The command-line tool installs and updates assets in your project without the app — same
-        shared cache, same portable project reference.
-    </p>
-    <ul class="steps">
-        <li><code>dotnet tool install -g StrideAssetStore</code></li>
-        <li>then, from your game's folder: <code>strideassetstore search grass</code>, <code>strideassetstore add grass</code>, <code>strideassetstore update</code></li>
-        <li>it can also fetch this app for you: <code>strideassetstore app install</code></li>
-    </ul>
     <p class="install-hint">
-        Needs the .NET SDK and <code>git</code> on your <code>PATH</code>.
-        <a href="https://www.nuget.org/packages/StrideAssetStore" target="_blank" rel="noopener">Package on NuGet ↗</a>
+        Updating is a terminal job: <code>strideassetstore app update</code>. The app tells you when
+        a release is out, but it never replaces itself.
     </p>
 </section>
 
