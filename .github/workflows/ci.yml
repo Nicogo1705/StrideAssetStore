@@ -1,12 +1,12 @@
 name: "Build & test the solution"
 
-# Build the whole solution and run the tests on every push to main, every PR, and every release
-# tag — a tag ships the CLI to nuget.org, and nothing else on that path runs the test suite.
+# Build the whole solution and run the tests on every push to main and every PR. Release tags are
+# covered by release.yml's own test job, which actually gates the publish — this workflow runs in
+# parallel with it and could not.
 
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 

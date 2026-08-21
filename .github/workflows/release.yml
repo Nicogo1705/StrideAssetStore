@@ -20,7 +20,48 @@ permissions:
   contents: write
 
 jobs:
+  # Runs here rather than relying on ci.yml: a tag triggers both workflows in parallel, so a red
+  # suite there blocked nothing — and a version pushed to nuget.org cannot be taken back.
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      # The schema and validator tests read the registry's schemas from a sibling checkout, and
+      # TestPaths fails rather than skipping when CI is set.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: Nicogo1705/AssetContainer
+          path: AssetContainer
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: "10.0.x"
+      - run: dotnet build --configuration Release
+      - run: dotnet test --configuration Release --no-build
+
+  # Creating the release from the matrix could not cover the common case of cutting a release from
+  # the GitHub UI: the release already exists and is already published when this workflow starts, so
+  # `gh release view` succeeded and --draft was never applied. Doing it once, first, also removes the
+  # race between the four legs.
+  prepare:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Create the release as a draft (or force an existing one back to draft)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          REPO="${{ github.repository }}"
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            gh release edit "$TAG" --draft=true --repo "$REPO"
+          else
+            gh release create "$TAG" --draft --title "$TAG" --generate-notes --repo "$REPO"
+          fi
+
   build:
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
@@ -99,13 +140,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          TAG="${{ steps.ver.outputs.tag }}"
-          # Create the release if it doesn't exist yet (tolerate the matrix race). As a draft: the
-          # first matrix leg to finish would otherwise publish a "latest" release carrying one
-          # platform's archive, which is exactly what the update check and `app install` read.
-          # The checksums job flips it public once every archive is attached.
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --draft --title "$TAG" --generate-notes || true
-          gh release upload "$TAG" StrideAssetStore-${{ matrix.rid }}.* --clobber
+          # The release exists and is a draft: the prepare job saw to that.
+          gh release upload "${{ steps.ver.outputs.tag }}" StrideAssetStore-${{ matrix.rid }}.* --clobber
 
   # The CLI ships to nuget.org as `StrideAssetStore`, so `dotnet tool install -g StrideAssetStore`
   # tracks the same version as the desktop builds. Authentication is NuGet Trusted Publishing
@@ -172,3 +208,18 @@ jobs:
           # update check and `app install` both see a release with no build for their machine.
           # Doing it here also means a half-finished release is never the "latest" one.
           gh release edit "$TAG" --draft=false --latest --repo "${{ github.repository }}"
+
+  # Without this, one failed matrix leg skips `checksums`, the release stays a draft, and nothing
+  # says so: the tag is pushed, the Releases tab looks empty, and releases/latest/download resolves
+  # to the previous version. Exactly the v0.9.0 symptom, one step further along.
+  report-draft-left-behind:
+    needs: build
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Say the release is still a draft
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "::error::A build leg failed, so $TAG was never published and is still a draft."
+          echo "::error::Fix the failure and re-run this workflow; nothing downstream sees a draft release."

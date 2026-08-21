@@ -72,7 +72,7 @@ jobs:
           dotnet run --project src/StrideAssetStore.Cli/StrideAssetStore.Cli.csproj -c Release -- \
             generate-pages --index index.lock.json --out publish/wwwroot \
             --app-index publish/wwwroot/index.html \
-            --site "https://${{ github.repository_owner }}.github.io/${GITHUB_REPOSITORY#*/}"
+            --site "https://$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]').github.io/${GITHUB_REPOSITORY#*/}"
 
       - name: SPA fallback + disable Jekyll
         run: |
