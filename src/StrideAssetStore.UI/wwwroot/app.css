@@ -283,8 +283,13 @@ a.theme-toggle:hover { text-decoration: none; }
 .form.one-col { grid-template-columns: 1fr; }
 .form.one-col label:has(> input[type=checkbox]) { flex-direction: row; align-items: center; gap: .45rem; }
 .ipt { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: .45rem .6rem; font-size: .9rem; }
-.problems { margin: .6rem 0 0; padding-left: 1.1rem; color: var(--warn); font-size: .82rem; }
-.problems li { margin: .1rem 0; }
+/* .problems is for lists of things that are wrong (it is warning-coloured); .bullets is the plain
+   prose list. They used to be one class, which is why the RFC page carried an inline colour
+   override on every list it had. */
+.problems, .bullets { margin: .6rem 0 0; padding-left: 1.1rem; font-size: .82rem; }
+.problems li, .bullets li { margin: .1rem 0; }
+.problems { color: var(--warn); }
+.bullets { color: var(--text); }
 
 /* Environment badge */
 .env { font-size: .8rem; margin-right: 1rem; }
