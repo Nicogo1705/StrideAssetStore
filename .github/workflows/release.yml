@@ -163,3 +163,9 @@ jobs:
           sha256sum StrideAssetStore-* > SHA256SUMS
           cat SHA256SUMS
           gh release upload "$TAG" SHA256SUMS --clobber --repo "${{ github.repository }}"
+
+          # Publish last, once every archive and the checksums are attached. v0.9.0 shipped as a
+          # draft: invisible, and releases/latest/download/... resolves to nothing, so the in-app
+          # update check and `app install` both see a release with no build for their machine.
+          # Doing it here also means a half-finished release is never the "latest" one.
+          gh release edit "$TAG" --draft=false --latest --repo "${{ github.repository }}"
