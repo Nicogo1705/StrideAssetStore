@@ -59,11 +59,16 @@ jobs:
         shell: bash
         run: |
           DIR="publish/${{ matrix.rid }}"
-          BIN="$DIR/StrideAssetStore.Desktop"
-          [ "${{ runner.os }}" = "Windows" ] && BIN="$DIR/StrideAssetStore.Desktop.exe"
-          chmod +x "$BIN" 2>/dev/null || true
+          BIN="./StrideAssetStore.Desktop"
+          [ "${{ runner.os }}" = "Windows" ] && BIN="./StrideAssetStore.Desktop.exe"
+          chmod +x "$DIR/${BIN#./}" 2>/dev/null || true
+          # Started from its OWN folder: the content root is the working directory, so launching it
+          # from elsewhere leaves it looking for a wwwroot that isn't there and serving no static
+          # file at all — including the Blazor script. That is how a user runs it, too.
+          pushd "$DIR" > /dev/null
           "$BIN" &
           PID=$!
+          popd > /dev/null
           OK=0
           for i in $(seq 1 20); do
             if curl -fsS http://localhost:5111/ >/dev/null 2>&1; then OK=1; break; fi
