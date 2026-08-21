@@ -123,7 +123,14 @@
             <span>⬆ <strong>Update available</strong> — v@(Updater.LatestVersion) is out (you're on v@(Updater.CurrentVersion))@(Updater.DownloadSize is { } dl ? $" · 📦 {FormatSize(dl)}" : "") — run:</span>
             <span class="update-actions">
                 <span class="mono">@UpdateCommand</span>
-                <button type="button" class="btn primary" title="Copy the command to the clipboard"
+                @if (Env.IsLocal)
+                {
+                    <button type="button" class="btn primary" title="Open a terminal and run it — this app will stop, update and come back"
+                            @onclick="RunUpdateAsync">▶ Run it</button>
+                }
+                @* Kept next to it on purpose: no terminal opens on some Linux desktops, and a
+                   command you can paste is never the wrong answer. *@
+                <button type="button" class="btn" title="Copy the command to the clipboard"
                         @onclick="CopyUpdateCommandAsync">@(_commandCopied ? "✓ Copied" : "Copy")</button>
                 @if (Updater.DownloadUrl is not null)
                 {
@@ -181,6 +188,31 @@
         await Env.CopyAsync(UpdateCommand);
         _commandCopied = true;
     }
+
+    /// <summary>
+    /// Hands the update to a terminal. The app can't update itself — the tool can, and it stops this
+    /// app first, so the window you get is where the story continues. When no terminal opens (Linux
+    /// has no standard one), say so instead of leaving a button that did nothing.
+    /// </summary>
+    private async Task RunUpdateAsync()
+    {
+        try
+        {
+            var response = await Http.PostAsync("app/update", null);
+            var opened = response.IsSuccessStatusCode
+                && (await response.Content.ReadFromJsonAsync<TerminalLaunch>())?.Opened == true;
+
+            _remoteControlNotice = opened
+                ? "<strong>Updating in the terminal.</strong> This app stops, updates and starts again."
+                : $"<strong>Couldn't open a terminal.</strong> Run <code>{UpdateCommand}</code> yourself.";
+        }
+        catch
+        {
+            _remoteControlNotice = $"<strong>Couldn't reach the app.</strong> Run <code>{UpdateCommand}</code> yourself.";
+        }
+    }
+
+    private sealed record TerminalLaunch(bool Opened, string Command);
 
     private void OnAttentionChanged() => InvokeAsync(StateHasChanged);
 

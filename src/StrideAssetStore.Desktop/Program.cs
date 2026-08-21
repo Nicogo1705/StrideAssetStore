@@ -179,6 +179,15 @@ app.MapGet("/api/attention", async (
         return Results.Json(new { projects = 0, assets = 0 });
     }
 });
+// Opens a terminal running the update. The app deliberately cannot update itself — but it can hand
+// the job to the tool that can, which saves the user copying a command by hand. Reports whether a
+// terminal actually opened, so the UI can fall back to showing the command rather than lying.
+app.MapPost("/app/update", () =>
+{
+    const string command = "strideassetstore app update";
+    return Results.Json(new { opened = StrideAssetStore.Core.Local.Shell.DesktopShell.OpenTerminal(command), command });
+});
+
 app.MapMethods("/app/quit", ["GET", "POST", "OPTIONS"], (HttpContext ctx, IHostApplicationLifetime lifetime) =>
 {
     if (!AllowControlOrigin(ctx, storefrontOrigin))

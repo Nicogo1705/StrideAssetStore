@@ -37,18 +37,55 @@ public static class DesktopShell
         macos: ("open", Quote(url)),
         linux: ("xdg-open", Quote(url)));
 
+    /// <summary>
+    /// Opens a terminal window running <paramref name="command"/>, left open afterwards so its output
+    /// stays readable. False when no terminal could be launched — Linux has no single one, and the
+    /// caller still has the command to show.
+    /// </summary>
+    public static bool OpenTerminal(string command)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            // /k keeps the window after the command finishes; the user sees what happened.
+            return Start(("cmd.exe", $"/k {command}"), default, default, useShellExecute: true);
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            var script = command.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            return Start(default, ("osascript", $"-e \"tell application \\\"Terminal\\\" to do script \\\"{script}\\\"\" -e \"tell application \\\"Terminal\\\" to activate\""), default);
+        }
+
+        // No standard terminal on Linux: try the usual suspects, and let the caller fall back.
+        foreach (var terminal in (string[])["x-terminal-emulator", "gnome-terminal", "konsole", "xterm"])
+        {
+            if (Start(default, default, (terminal, $"-e bash -c '{command}; exec bash'")))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static bool Start((string File, string Args) windows, (string File, string Args) macos,
-        (string File, string Args) linux)
+        (string File, string Args) linux, bool useShellExecute = false)
     {
         var (file, args) = OperatingSystem.IsWindows() ? windows
             : OperatingSystem.IsMacOS() ? macos
             : linux;
 
+        if (string.IsNullOrEmpty(file))
+        {
+            return false; // nothing defined for this platform
+        }
+
         try
         {
-            // UseShellExecute stays false: the launcher IS the shell here, and true would make the
-            // child inherit this process's console on Windows.
-            using var process = Process.Start(new ProcessStartInfo(file, args) { UseShellExecute = false });
+            // Normally false: the launcher IS the shell, and true would make the child inherit this
+            // process's console on Windows. Opening a terminal is the exception — it needs its own
+            // window, which is precisely what ShellExecute gives it.
+            using var process = Process.Start(new ProcessStartInfo(file, args) { UseShellExecute = useShellExecute });
             return process is not null;
         }
         catch
