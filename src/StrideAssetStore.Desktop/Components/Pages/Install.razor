@@ -4,6 +4,7 @@
 @inject CatalogState State
 @inject AssetInstaller Installer
 @inject ProjectStore Store
+@inject StrideAssetStore.Core.Local.Git.ForkLister Forks
 
 @if (Asset is null)
 {
@@ -182,15 +183,36 @@ else
                 @* Someone's fork is a different asset with the same name: its own tags, its own
                    history, and none of the registry's guarantees. Offered plainly, said plainly. *@
                 <label class="check" style="margin-top:.5rem">
-                    <input type="checkbox" checked="@_useFork" @onchange="e => _useFork = (bool)e.Value!" />
+                    <input type="checkbox" checked="@_useFork" @onchange="OnUseForkChanged" />
                     <span>Install from a fork
                         <span class="install-hint">— someone else's copy of this asset, with its own versions.</span></span>
                 </label>
                 @if (_useFork)
                 {
                     <div class="cmd" style="margin:.15rem 0 0 1.7rem">
+                        @if (_loadingForks)
+                        {
+                            <span class="install-hint">Looking for forks…</span>
+                        }
+                        else if (_forks.Count > 0)
+                        {
+                            <select class="ipt" style="flex:1" @bind="_fork">
+                                <option value="">— pick a fork —</option>
+                                @foreach (var f in _forks)
+                                {
+                                    <option value="@f.FullName">
+                                        @f.FullName@(f.Stars > 0 ? $" · ★ {f.Stars}" : "")@(f.PushedAt is { } d ? $" · pushed {d:yyyy-MM-dd}" : "")
+                                    </option>
+                                }
+                            </select>
+                        }
+                        @* Always available: a fork can live outside GitHub, or be too new to be listed. *@
                         <input class="ipt" style="flex:1" placeholder="owner/repo" @bind="_fork" />
                     </div>
+                    @if (!_loadingForks && _forks.Count == 0)
+                    {
+                        <p class="install-hint" style="margin:.2rem 0 0 1.7rem">No fork found on GitHub — type one if you have it.</p>
+                    }
                     <p class="install-hint" style="margin:.35rem 0 0 1.7rem">
                         ⚠ <strong>Fork — outside the store.</strong> The content hash isn't verified and no
                         certification applies: you are trusting whoever owns that repository. It is cached
@@ -243,6 +265,28 @@ else
     // Install from someone's fork rather than the asset's own repository.
     private bool _useFork;
     private string _fork = "";
+    private bool _loadingForks;
+    private IReadOnlyList<StrideAssetStore.Core.Local.Git.AssetFork> _forks = [];
+
+    /// <summary>Loads the fork list the first time the option is opened — one API call, not one per render.</summary>
+    private async Task OnUseForkChanged(ChangeEventArgs e)
+    {
+        _useFork = (bool)e.Value!;
+        if (!_useFork || _forks.Count > 0 || _loadingForks || Asset is null)
+        {
+            return;
+        }
+
+        _loadingForks = true;
+        try
+        {
+            _forks = await Forks.ListAsync(Asset.Repo);
+        }
+        finally
+        {
+            _loadingForks = false;
+        }
+    }
     private bool _browsing;
     private bool _showPlatform;
 

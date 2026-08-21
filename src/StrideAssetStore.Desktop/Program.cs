@@ -71,6 +71,8 @@ builder.Services.AddStrideAssetStoreUi(
     builder.Configuration.GetSection("App").Get<StrideAssetStore.App.Services.AppInfo>(),
     knownLocal: true); // this IS the local app — never wait for the browser to say so
 builder.Services.AddScoped<StrideAssetStore.Core.Local.Install.AssetInstaller>();
+// One instance: it holds an HttpClient and its answers are cached per asset by the page.
+builder.Services.AddSingleton<StrideAssetStore.Core.Local.Git.ForkLister>();
 builder.Services.AddSingleton<StrideAssetStore.Desktop.Services.ProjectStore>();
 builder.Services.AddSingleton<StrideAssetStore.Desktop.Services.AuthorRepoService>();
 builder.Services.AddSingleton<StrideAssetStore.Desktop.Services.SelfUpdater>();
