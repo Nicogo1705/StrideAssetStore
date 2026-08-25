@@ -431,7 +431,7 @@ else
                     new("--remove", "", "Delete the alias instead of creating it.", OptKind.Flag),
                 ]),
             new("upgrade", "upgrade", "upgrade",
-                "Update the tool and the desktop app in one command. The app part runs there and then; the tool part opens a terminal, since it cannot replace its own files while it runs.",
+                "Update the tool and the desktop app in one command — installed assets are not touched, `update` is the command for those. The app part runs there and then; the tool part opens a terminal, since it cannot replace its own files while it runs.",
                 null, [RepoOption]),
             new("app status", "app status", "app status",
                 "Show what is installed, what is running, and the latest release.", null, [RepoOption]),

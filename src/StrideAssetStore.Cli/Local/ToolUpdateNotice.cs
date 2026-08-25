@@ -26,22 +26,42 @@ internal static class ToolUpdateNotice
     private static string StampFile => Path.Combine(AssetInstaller.AppRoot, "tool-update-check.json");
 
     private static Task<string?>? _pending;
+    private static bool _forced;
 
     /// <summary>
     /// Starts the check if one is due, without waiting for it. Call before the command runs so the
     /// answer is usually ready by the time it finishes.
     /// </summary>
-    public static void Begin()
+    /// <param name="force">
+    /// Ask nuget.org even if today's check already happened. True when the tool is run with no
+    /// arguments at all: that is somebody looking at the tool rather than using it, the one moment
+    /// where a network round-trip costs nothing and "you are one version behind" is the answer they
+    /// came for. Every other invocation keeps the once-a-day cadence — a version check must not be
+    /// something every `add` pays for.
+    /// </param>
+    public static void Begin(bool force = false)
     {
         // NO_COLOR and redirected output mean a script is reading us; a notice would be noise there.
+        // These still apply when forced: `strideassetstore > help.txt` is not a person reading.
         if (Console.IsOutputRedirected
             || Environment.GetEnvironmentVariable("NO_COLOR") is { Length: > 0 }
-            || Environment.GetEnvironmentVariable("STRIDEASSETSTORE_NO_UPDATE_CHECK") is { Length: > 0 }
-            || !IsDue())
+            || Environment.GetEnvironmentVariable("STRIDEASSETSTORE_NO_UPDATE_CHECK") is { Length: > 0 })
         {
             return;
         }
 
+        if (!force && !IsDue())
+        {
+            return;
+        }
+
+        // A forced check is still a check: stamping it means the next `add` doesn't repeat it.
+        if (force)
+        {
+            Stamp();
+        }
+
+        _forced = force;
         _pending = Task.Run(FetchLatestAsync);
     }
 
@@ -56,8 +76,10 @@ internal static class ToolUpdateNotice
         string? latest = null;
         try
         {
-            // A slow or unreachable nuget.org must not hold the command open.
-            latest = _pending.Wait(TimeSpan.FromSeconds(2)) ? _pending.Result : null;
+            // A slow or unreachable nuget.org must not hold the command open. The forced check gets
+            // longer: nothing else was asked for, so there is nothing it delays — and giving up at
+            // two seconds is how a deliberate "am I up to date?" answers with silence.
+            latest = _pending.Wait(TimeSpan.FromSeconds(_forced ? 6 : 2)) ? _pending.Result : null;
         }
         catch
         {
@@ -96,7 +118,7 @@ internal static class ToolUpdateNotice
         try
         {
             if (File.Exists(StampFile)
-                && JsonSerializer.Deserialize<Stamp>(File.ReadAllText(StampFile)) is { } stamp
+                && JsonSerializer.Deserialize<StampFileContent>(File.ReadAllText(StampFile)) is { } stamp
                 && DateTimeOffset.UtcNow - stamp.CheckedAt < CheckEvery)
             {
                 return false;
@@ -107,12 +129,18 @@ internal static class ToolUpdateNotice
             // Unreadable or corrupt: fall through and check, which also rewrites it.
         }
 
+        // Stamped before the request, not after: offline, retrying on every single command would
+        // cost a DNS timeout each time for an answer that isn't coming.
+        return Stamp();
+    }
+
+    /// <summary>Records that a check happened now. False when the folder can't be written.</summary>
+    private static bool Stamp()
+    {
         try
         {
-            // Stamped before the request, not after: offline, retrying on every single command would
-            // cost a DNS timeout each time for an answer that isn't coming.
             Directory.CreateDirectory(AssetInstaller.AppRoot);
-            File.WriteAllText(StampFile, JsonSerializer.Serialize(new Stamp(DateTimeOffset.UtcNow)));
+            File.WriteAllText(StampFile, JsonSerializer.Serialize(new StampFileContent(DateTimeOffset.UtcNow)));
             return true;
         }
         catch
@@ -142,5 +170,5 @@ internal static class ToolUpdateNotice
         }
     }
 
-    private sealed record Stamp(DateTimeOffset CheckedAt);
+    private sealed record StampFileContent(DateTimeOffset CheckedAt);
 }

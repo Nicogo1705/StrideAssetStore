@@ -38,8 +38,11 @@ if (Console.IsOutputRedirected)
 }
 
 // Started before the command so the answer is usually ready when it ends, and printed after its
-// output so a version notice never delays or buries what was asked for.
-StrideAssetStore.Cli.Local.ToolUpdateNotice.Begin();
+// output so a version notice never delays or buries what was asked for. Run with nothing at all —
+// which prints the help — it asks regardless of today's check: that is someone looking the tool
+// over, and "there is a newer one" belongs in that answer. `--version` deliberately does not, since
+// that is what scripts and the desktop app call.
+StrideAssetStore.Cli.Local.ToolUpdateNotice.Begin(force: args.Length == 0);
 
 var app = new CommandApp();
 app.Configure(config =>
@@ -128,7 +131,8 @@ app.Configure(config =>
         .WithExample("alias", "--remove");
 
     config.AddCommand<UpgradeCommand>("upgrade")
-        .WithDescription("Update this tool and the desktop app. (Assets are `update`.)")
+        .WithDescription(
+            "Update this tool and the desktop app. Installed assets are not touched — use `strideassetstore update` for those.")
         .WithExample("upgrade");
 
     config.AddCommand<UninstallCommand>("uninstall")

@@ -17,7 +17,8 @@ namespace StrideAssetStore.Cli.Commands;
 /// <c>strideassetstore app update</c> for the other — and the first one is not even this tool's
 /// own vocabulary. The app half runs here, with its progress bar. The tool half cannot: dotnet
 /// would be replacing the files of the process asking for it, so it is handed to a terminal that
-/// starts once this process is gone. Assets are a different thing entirely and stay with `update`.
+/// starts once this process is gone. Installed assets are a different thing entirely and are never
+/// touched here — `update` is the command for those.
 /// </remarks>
 internal sealed class UpgradeCommand : AsyncCommand<AppSettings>
 {
