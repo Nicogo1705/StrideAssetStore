@@ -398,6 +398,13 @@ else
                 new("--start", "", "Start the app once it is updated.", OptKind.Flag),
                 RepoOption,
             ]),
+            new("alias", "alias", "alias",
+                "Create a short name for the tool — `sas add grass` instead of the full seventeen letters. It writes a shim next to the tool itself, in the folder already on your PATH.",
+                null,
+                [
+                    new("--name", "Short name", "Defaults to 'sas'.", Placeholder: "sas"),
+                    new("--remove", "", "Delete the alias instead of creating it.", OptKind.Flag),
+                ]),
             new("upgrade", "upgrade", "upgrade",
                 "Update the tool and the desktop app in one command. The app part runs there and then; the tool part opens a terminal, since it cannot replace its own files while it runs.",
                 null, [RepoOption]),

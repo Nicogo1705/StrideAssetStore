@@ -73,6 +73,19 @@ The fork is recorded on the project reference itself:
 so it travels with your project — a teammate who clones the repository and runs `update` follows
 the same fork, without being told. `list` shows those assets as `fork` rather than `local`.
 
+### A shorter name
+
+```bash
+strideassetstore alias              # `sas add grass` from now on
+strideassetstore alias --name sast  # or your own
+strideassetstore alias --remove
+```
+
+A NuGet tool package can only declare one command, so the short name cannot ship inside it. This
+writes a two-line shim next to the tool itself, in the folder that is already on your `PATH` — no
+shell profile is touched, and it works the same in cmd, PowerShell and any Unix shell. `uninstall`
+takes it away again.
+
 ### Keeping everything up to date
 
 ```bash

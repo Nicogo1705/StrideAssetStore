@@ -110,6 +110,12 @@ app.Configure(config =>
         app.AddCommand<AppOpenCommand>("open").WithDescription("Open the store in a browser — the local app if it is running, otherwise the online storefront.");
     });
 
+    config.AddCommand<AliasCommand>("alias")
+        .WithDescription("Create a short name for this tool (`sas`), or remove it.")
+        .WithExample("alias")
+        .WithExample("alias", "--name", "sast")
+        .WithExample("alias", "--remove");
+
     config.AddCommand<UpgradeCommand>("upgrade")
         .WithDescription("Update this tool and the desktop app. (Assets are `update`.)")
         .WithExample("upgrade");

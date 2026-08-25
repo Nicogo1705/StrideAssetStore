@@ -101,6 +101,15 @@ internal sealed class UninstallCommand : AsyncCommand<UninstallSettings>
             // The whole folder, settings included (tracked projects, author repos, console state):
             // "uninstall" with no qualifier means nothing of it is expected to survive.
             yield return (AssetInstaller.AppRoot, "the desktop app, the downloaded assets and the settings");
+
+            // The short-name shims live with the tool, not under that folder. Left behind, they
+            // stay on PATH and fail with "the term is not recognized" long after everything else
+            // is gone — with nothing to say where they came from.
+            foreach (var alias in ToolAlias.All())
+            {
+                yield return (alias, $"the '{Path.GetFileNameWithoutExtension(alias)}' alias");
+            }
+
             yield break;
         }
 
