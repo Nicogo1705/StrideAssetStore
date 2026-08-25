@@ -9,6 +9,7 @@
 @inject RegistryOptions Registry
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject ICliRunner Runner
 
 @if (State.Loading)
 {
@@ -206,6 +207,7 @@ else
             <div class="modes">
                 <button class="mode @(_view == "install" ? "active" : "")" @onclick='() => _view = "install"'>⤓ Install</button>
                 <button class="mode @(_view == "source" ? "active" : "")" @onclick='() => _view = "source"'>Source &amp; ProjectReference</button>
+                <button class="mode @(_view == "cli" ? "active" : "")" @onclick='() => _view = "cli"'>⌨ Command line</button>
                 <button class="mode @(_view == "nuget" ? "active" : "") @(m.Nuget is null ? "disabled" : "")"
                         disabled="@(m.Nuget is null)"
                         title="@(m.Nuget is null ? "This asset is not published on NuGet" : "")"
@@ -235,6 +237,59 @@ else
                         </span>
                     </div>
                 }
+            }
+            else if (_view == "cli")
+            {
+                @* Someone who lives in a terminal still browses the store to find things. This tab
+                   is the bridge: the command for what the version picker above is showing, aimed
+                   at a project of theirs, without retyping an id that is long on purpose. *@
+                <p class="mode-desc">
+                    Install it with the <span class="mono">strideassetstore</span> tool, from a terminal.
+                    Same cache and same project reference as the app —
+                    <a href="setup">how to get the tool</a>.
+                </p>
+
+                @if (Runner.CanRun && Runner.KnownProjects.Count > 0)
+                {
+                    <label class="field" style="margin-bottom:.5rem">Into
+                        <select class="ipt" @bind="_cliTarget" @bind:after="() => _cliNotice = null">
+                            <option value="">the folder the command runs from</option>
+                            @foreach (var project in Runner.KnownProjects)
+                            {
+                                <option value="@project.Path">@project.Name</option>
+                            }
+                        </select>
+                    </label>
+                }
+
+                <div class="cmd">
+                    <code>@CliAddCommand</code>
+                    <button class="btn" @onclick="() => Copy(CliAddCommand)">Copy</button>
+                    @if (Runner.CanRun)
+                    {
+                        <button type="button" class="btn primary" disabled="@_cliRunning" @onclick="RunCliAddAsync">▶ Run it</button>
+                    }
+                </div>
+
+                @if (Runner.CanRun && _cliTarget.Length == 0)
+                {
+                    @* `add` resolves the solution from the current directory, and a terminal opened
+                       from here starts wherever the app did — which is not the user's game. *@
+                    <p class="install-hint">
+                        Pick a project above, or run the command yourself from your game's folder — otherwise it
+                        has no solution to install into.
+                    </p>
+                }
+
+                @if (_cliNotice is not null)
+                {
+                    <p class="install-hint">@((MarkupString)_cliNotice)</p>
+                }
+
+                <p class="install-hint" style="margin-top:.6rem">
+                    <span class="mono">strideassetstore info @Asset.Id</span> lists every published version;
+                    <span class="mono">strideassetstore remove @Asset.Id</span> takes it back out.
+                </p>
             }
             else if (_view == "nuget" && m.Nuget is not null)
             {
@@ -419,6 +474,9 @@ else
 
     private string? _versionRef;
     private string _view = "install";
+    private string _cliTarget = "";
+    private bool _cliRunning;
+    private string? _cliNotice;
     private int? _lightbox;
     private ElementReference _lightboxElement;
     private bool _focusLightbox;
@@ -560,6 +618,64 @@ else
     }
 
     private string CloneCommand => $"git clone --branch {ActiveRef} {Asset!.Repo}";
+
+    /// <summary>
+    /// The tool command for what the version picker is showing. A tag becomes <c>--version</c>
+    /// rather than <c>--ref</c>: it is the same commit, and it is the form that keeps meaning the
+    /// same thing when the command is pasted into a script or a README.
+    /// </summary>
+    private string CliAddCommand
+    {
+        get
+        {
+            var command = $"strideassetstore add {Asset!.Id}";
+            if (!OnLatest)
+            {
+                var tag = _versionRef!;
+                var version = Asset.Versions.FirstOrDefault(v => v.Tag == tag)?.Version ?? tag;
+                command += $" --version {version}";
+            }
+
+            // Only when the asset would be cloned by default and can also be a package: the tab is
+            // about installing what this page describes, and that is the source unless it says so.
+            if (Asset.Manifest.Nuget is not null && DefaultImport == "nuget")
+            {
+                command += " --nuget";
+            }
+
+            return _cliTarget.Length > 0 ? $"{command} --target {Quote(_cliTarget)}" : command;
+        }
+    }
+
+    /// <summary>Quotes a path a shell would otherwise split, or cut short at a metacharacter.</summary>
+    private static string Quote(string value) =>
+        value.Length > 0 && value.IndexOfAny([' ', '\t', '&', '|', '^', '<', '>', '(', ')', ';', ',', '%', '!']) >= 0
+            ? $"\"{value}\""
+            : value;
+
+    private async Task RunCliAddAsync()
+    {
+        _cliRunning = true;
+        _cliNotice = null;
+        try
+        {
+            // The terminal opens in the solution's folder as well as carrying --target: a command
+            // that is copied out of that window later still has to work where it landed.
+            var folder = _cliTarget.Length > 0 ? Path.GetDirectoryName(_cliTarget) : null;
+            var result = await Runner.RunAsync(CliAddCommand["strideassetstore ".Length..], folder);
+            _cliNotice = result switch
+            {
+                { Opened: true } => "<strong>Running in the terminal.</strong> Its window stays open when the command finishes.",
+                { ToolMissing: true } =>
+                    "<strong>The tool isn't installed.</strong> Run <code>dotnet tool install -g StrideAssetStore</code> first — see <a href=\"setup\">Prerequisites</a>.",
+                _ => "<strong>Couldn't open a terminal.</strong> Copy the command and run it yourself.",
+            };
+        }
+        finally
+        {
+            _cliRunning = false;
+        }
+    }
 
     private sealed record VLine(bool IsError, string Code, string Text);
 
