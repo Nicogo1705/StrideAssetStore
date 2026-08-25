@@ -52,6 +52,9 @@ internal sealed class GroupedHelpProvider(ICommandAppSettings settings) : HelpPr
         // One width for every group: each grid measures itself otherwise, and the descriptions
         // start at a different column in each block — which reads as four unrelated tables.
         var width = commands.Max(c => Label(c).Length);
+        // Capped: `add` alone carries eleven options, and letting the column grow to fit them on
+        // one line would leave the descriptions a few characters wide.
+        var optionsWidth = Math.Clamp(commands.Max(c => Options(c).Length), 10, 32);
 
         for (var index = 0; index < Groups.Length; index++)
         {
@@ -80,17 +83,23 @@ internal sealed class GroupedHelpProvider(ICommandAppSettings settings) : HelpPr
             // blank line and the line break are ours to add — without them the heading and the
             // first command share a line.
             result.Add(new Markup($"{Environment.NewLine}[yellow]{title}:[/]{Environment.NewLine}"));
-            result.Add(Table(members, width));
+            result.Add(Table(members, width, optionsWidth));
         }
 
         return result;
     }
 
-    /// <summary>Name and description in two columns, indented under the group heading.</summary>
-    private static IRenderable Table(IEnumerable<ICommandInfo> commands, int width)
+    /// <summary>
+    /// Name, description and the options the command takes, indented under the group heading. The
+    /// options are there so the list answers "what can I pass to this?" without a second `--help`
+    /// per command — which is the question a flag like <c>--cached</c> only raises once you know
+    /// it exists.
+    /// </summary>
+    private static IRenderable Table(IEnumerable<ICommandInfo> commands, int width, int optionsWidth)
     {
         var grid = new Grid();
-        grid.AddColumn(new GridColumn { Padding = new Padding(4, 0, 4, 0), NoWrap = true, Width = width });
+        grid.AddColumn(new GridColumn { Padding = new Padding(4, 0, 2, 0), NoWrap = true, Width = width });
+        grid.AddColumn(new GridColumn { Padding = new Padding(0, 0, 2, 0), Width = optionsWidth });
         grid.AddColumn(new GridColumn { Padding = new Padding(0, 0, 0, 0) });
 
         foreach (var command in commands)
@@ -99,11 +108,26 @@ internal sealed class GroupedHelpProvider(ICommandAppSettings settings) : HelpPr
             grid.AddRow(
                 new Markup($"[silver]{Markup.Escape(command.Name)}[/]"
                     + (arguments.Length > 0 ? $" [grey]{Markup.Escape(arguments)}[/]" : "")),
+                new Markup($"[grey]{Markup.Escape(Options(command))}[/]"),
                 new Markup(Markup.Escape(command.Description ?? "")));
         }
 
         return grid;
     }
+
+    /// <summary>
+    /// The command's own options, space-separated. <c>--help</c> is left out: every command has it,
+    /// so listing it fifteen times says nothing about any of them. Nothing else is filtered —
+    /// dropping "--version" as an app-level flag also dropped `add --version`, which is the option
+    /// this column exists to advertise.
+    /// </summary>
+    private static string Options(ICommandInfo command) =>
+        string.Join(' ', command.Parameters
+            .OfType<ICommandOption>()
+            .Select(o => o.LongNames.FirstOrDefault() is { Length: > 0 } name
+                ? $"--{name}"
+                : o.ShortNames.FirstOrDefault() is { Length: > 0 } shortName ? $"-{shortName}" : "")
+            .Where(name => name.Length > 0 && name != "--help"));
 
     /// <summary>What the first column holds, unstyled — the width every group is measured against.</summary>
     private static string Label(ICommandInfo command) =>

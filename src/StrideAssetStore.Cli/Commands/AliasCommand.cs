@@ -76,7 +76,20 @@ internal sealed class AliasCommand : Command<AliasSettings>
         }
 
         AnsiConsole.MarkupLineInterpolated($"[green]✓ {name}[/] now runs strideassetstore. [grey]({path})[/]");
-        AnsiConsole.MarkupLineInterpolated($"[grey]Try it in a new terminal:[/] [bold]{name} search grass[/]");
+
+        // A global tool lands in a folder that is on PATH; `dotnet tool install --tool-path` does
+        // not. Telling someone to "try it in a new terminal" when nothing can find it is the kind
+        // of small lie that costs ten minutes.
+        if (ToolAlias.OnPath(Path.GetDirectoryName(path)!))
+        {
+            AnsiConsole.MarkupLineInterpolated($"[grey]Try it in a new terminal:[/] [bold]{name} search grass[/]");
+        }
+        else
+        {
+            AnsiConsole.MarkupLineInterpolated(
+                $"[yellow]That folder isn't on your PATH[/] — this is a --tool-path install, so call it by its full path, or add the folder to PATH.");
+        }
+
         return 0;
     }
 

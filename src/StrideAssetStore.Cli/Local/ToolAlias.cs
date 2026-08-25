@@ -54,6 +54,28 @@ internal static class ToolAlias
     public static string PathFor(string directory, string name) =>
         Path.Combine(directory, OperatingSystem.IsWindows() ? $"{name}.cmd" : name);
 
+    /// <summary>Whether a folder is on PATH — i.e. whether a shim placed there is callable by name.</summary>
+    public static bool OnPath(string directory)
+    {
+        var full = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar);
+        return (Environment.GetEnvironmentVariable("PATH") ?? "")
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Any(entry =>
+            {
+                try
+                {
+                    return string.Equals(
+                        Path.GetFullPath(entry.Trim('"')).TrimEnd(Path.DirectorySeparatorChar),
+                        full,
+                        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+                }
+                catch
+                {
+                    return false; // a malformed PATH entry is not the one we are looking for
+                }
+            });
+    }
+
     /// <summary>Whether this file is a shim we wrote (and may therefore replace or delete).</summary>
     public static bool IsOurs(string path)
     {
