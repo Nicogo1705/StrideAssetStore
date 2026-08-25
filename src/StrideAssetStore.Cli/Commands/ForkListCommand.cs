@@ -46,7 +46,7 @@ internal sealed class ForkListCommand : AsyncCommand<ForkListSettings>
 
         var table = new Table().Border(TableBorder.Rounded);
         table.AddColumn("Fork");
-        table.AddColumn("★");
+        table.AddColumn(CliOutput.StarsColumn);
         table.AddColumn("Last push");
 
         foreach (var fork in forks)

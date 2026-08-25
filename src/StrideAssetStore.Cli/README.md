@@ -24,6 +24,7 @@ from the current directory, so there is usually nothing to configure.
 
 ```bash
 strideassetstore search grass              # find something
+strideassetstore info grass                # everything about it, including its published versions
 strideassetstore add grass                 # install it into this project
 strideassetstore list                      # what this project references, and its status
 strideassetstore update                    # bring every outdated asset up to date
@@ -38,6 +39,7 @@ An asset id is long, so any unambiguous fragment works: `add grass` resolves to
 By default an asset follows the branch its author publishes from. To pin a released version:
 
 ```bash
+strideassetstore info grass                    # which versions exist, and which are certified
 strideassetstore add grass --version 1.0.0     # a tag the author published
 strideassetstore update grass --version 1.1.0  # move an installed asset onto another version
 strideassetstore add grass --ref my-branch     # or a raw git ref
@@ -125,6 +127,24 @@ depend on its interface working. It stops a running app before replacing its fil
 running executable is locked, and extracting over it would leave a broken install — then starts it
 again if it was running.
 `start` won't launch a second copy, and waits until the app actually answers before saying so.
+
+### Removing it all
+
+```bash
+strideassetstore uninstall          # the app, the downloaded assets and the settings
+strideassetstore uninstall --app    # only the desktop app
+strideassetstore uninstall --cache  # only the downloaded assets
+```
+
+It stops the app before removing it, and says what it is about to delete before doing it. Projects
+that reference downloaded assets stop building until `add` or `update` fetches them again.
+
+The tool cannot remove itself while it runs — `dotnet` would be deleting the executable of the
+process asking. It prints the last step for you:
+
+```bash
+dotnet tool uninstall -g StrideAssetStore
+```
 
 ### Scripts and CI
 

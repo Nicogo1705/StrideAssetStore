@@ -62,7 +62,7 @@ internal sealed class SearchCommand : AsyncCommand<SearchSettings>
         table.AddColumn("Id");
         table.AddColumn("Name");
         table.AddColumn("Stride");
-        table.AddColumn("★");
+        table.AddColumn(CliOutput.StarsColumn);
         table.AddColumn("");
 
         var take = Math.Max(1, settings.Take);

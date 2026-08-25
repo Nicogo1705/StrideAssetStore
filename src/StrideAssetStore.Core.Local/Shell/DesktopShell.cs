@@ -120,17 +120,29 @@ public static class DesktopShell
     /// stays readable. False when no terminal could be launched — Linux has no single one, and the
     /// caller still has the command to show.
     /// </summary>
-    public static bool OpenTerminal(string command)
+    /// <param name="command">The command line to run, already quoted for a shell.</param>
+    /// <param name="workingDirectory">
+    /// Folder the terminal starts in, or null for this process's. Commands that act on a solution
+    /// find it from the current directory, so where the window opens is part of what they do.
+    /// </param>
+    public static bool OpenTerminal(string command, string? workingDirectory = null)
     {
+        var directory = string.IsNullOrWhiteSpace(workingDirectory) || !Directory.Exists(workingDirectory)
+            ? null
+            : workingDirectory;
+
         if (OperatingSystem.IsWindows())
         {
             // /k keeps the window after the command finishes; the user sees what happened.
-            return Start(("cmd.exe", ["/k", command]), default, default, useShellExecute: true);
+            return Start(("cmd.exe", ["/k", command]), default, default, useShellExecute: true, workingDirectory: directory);
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            var script = command.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            // The shell that Terminal.app opens starts in the home folder, so a chosen directory has
+            // to travel inside the script rather than as the launcher's working directory.
+            var script = (directory is null ? command : $"cd {Quote(directory)} && {command}")
+                .Replace("\\", "\\\\").Replace("\"", "\\\"");
             return Start(default, ("osascript",
                 ["-e", $"tell application \"Terminal\" to do script \"{script}\"",
                  "-e", "tell application \"Terminal\" to activate"]), default);
@@ -143,7 +155,8 @@ public static class DesktopShell
             // where a single quote is not a quoting character — the shell command came out shredded
             // into separate argv entries and never ran, while the terminal opened and reported
             // success.
-            if (Start(default, default, (terminal, ["-e", $"bash -c \"{command}; exec bash\""])))
+            if (Start(default, default, (terminal, ["-e", $"bash -c \"{command}; exec bash\""]),
+                workingDirectory: directory))
             {
                 return true;
             }
@@ -152,8 +165,11 @@ public static class DesktopShell
         return false;
     }
 
+    /// <summary>Quotes a path for a POSIX shell — single quotes, with any of its own escaped.</summary>
+    private static string Quote(string path) => "'" + path.Replace("'", "'\''") + "'";
+
     private static bool Start((string File, string[] Args) windows, (string File, string[] Args) macos,
-        (string File, string[] Args) linux, bool useShellExecute = false)
+        (string File, string[] Args) linux, bool useShellExecute = false, string? workingDirectory = null)
     {
         var (file, args) = OperatingSystem.IsWindows() ? windows
             : OperatingSystem.IsMacOS() ? macos
@@ -172,6 +188,11 @@ public static class DesktopShell
             // ArgumentList quotes each argument for the platform; a single Arguments string would
             // leave that to whatever the caller pasted in.
             var info = new ProcessStartInfo(file) { UseShellExecute = useShellExecute };
+            if (workingDirectory is not null)
+            {
+                info.WorkingDirectory = workingDirectory;
+            }
+
             foreach (var argument in args)
             {
                 info.ArgumentList.Add(argument);

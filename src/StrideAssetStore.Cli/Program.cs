@@ -2,10 +2,29 @@
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
 using System.Reflection;
+using System.Text;
 using StrideAssetStore.Cli.Commands;
 using StrideAssetStore.Cli.Local;
 using Spectre.Console;
 using Spectre.Console.Cli;
+
+// A Windows console still starts on a legacy code page (850, 437, 1252 depending on the install),
+// which has no glyph for anything this tool prints outside ASCII: the star column of `search`, the
+// green tick after an install, an em dash. They all arrived as "?". The switch is per-process — the
+// user's own console keeps its setting — and only for a real console: redirected output is decoded
+// by whatever captures it, and forcing the encoding there would prepend a BOM to it.
+if (OperatingSystem.IsWindows() && !Console.IsOutputRedirected)
+{
+    try
+    {
+        Console.OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+    }
+    catch (Exception)
+    {
+        // No console attached (a detached process, some CI agents), or policy in the way. Nothing
+        // would have been read anyway, and failing to pick an encoding must not end the command.
+    }
+}
 
 // When output is redirected (CI logs, a file, a pipe to tee), emit plain text instead of
 // ANSI colour codes — otherwise escape sequences leak into captured logs and PR comments.
@@ -51,6 +70,11 @@ app.Configure(config =>
         .WithDescription("Find assets in the store catalog.")
         .WithExample("search", "grass");
 
+    config.AddCommand<InfoCommand>("info")
+        .WithDescription("Show one asset in full — its published versions, what add would install, its dependencies.")
+        .WithExample("info", "grass")
+        .WithExample("info", "grass", "--versions");
+
     config.AddCommand<AddCommand>("add")
         .WithDescription("Install an asset into the project you are in.")
         .WithExample("add", "com.nicogo.grass")
@@ -85,6 +109,11 @@ app.Configure(config =>
         app.AddCommand<AppStopCommand>("stop").WithDescription("Stop the desktop app running on this machine.");
         app.AddCommand<AppOpenCommand>("open").WithDescription("Open the store in a browser — the local app if it is running, otherwise the online storefront.");
     });
+
+    config.AddCommand<UninstallCommand>("uninstall")
+        .WithDescription("Remove what this tool installed on this machine: the app, the downloaded assets, the settings.")
+        .WithExample("uninstall")
+        .WithExample("uninstall", "--app");
 
     // ── Registry maintenance (needs a checkout of the AssetContainer repository) ──
     config.AddCommand<ValidateCommand>("validate")

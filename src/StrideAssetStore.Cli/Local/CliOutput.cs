@@ -11,6 +11,13 @@ namespace StrideAssetStore.Cli.Local;
 internal static class CliOutput
 {
     /// <summary>
+    /// Heading for a column of GitHub star counts. The star itself needs a console that can print
+    /// it: the tool asks Windows for UTF-8 at startup, but that can fail (no console, a policy, a
+    /// font with no glyph), and a header reading "?" says nothing about what the column holds.
+    /// </summary>
+    public static string StarsColumn => AnsiConsole.Profile.Capabilities.Unicode ? "\u2605" : "Stars";
+
+    /// <summary>
     /// Says when the catalog came from the on-disk snapshot rather than the network. Acting on a
     /// week-old view of the registry is fine; not knowing you are is not.
     /// </summary>
