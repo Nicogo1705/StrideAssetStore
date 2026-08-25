@@ -14,22 +14,32 @@
 </p>
 
 <section class="panel">
-    <h2>Install with the .NET tool</h2>
+    <h2>Install with the .NET tool <span class="badge">recommended</span></h2>
     <ul class="steps">
         <li><code>dotnet tool install -g StrideAssetStore</code></li>
         <li><code>strideassetstore app install</code></li>
+        <li><code>strideassetstore app start</code></li>
     </ul>
     <p class="install-hint">
+        Identical on Windows, Linux and macOS, and it is the only path that updates itself:
+        <code>strideassetstore upgrade</code> brings both the tool and the app up to date.
         Requires the <a href="https://dotnet.microsoft.com/download" target="_blank" rel="noopener">.NET SDK</a>.
-        Update later with <code>strideassetstore app update</code>.
         <a href="https://www.nuget.org/packages/StrideAssetStore" target="_blank" rel="noopener">Package on NuGet ↗</a>
+    </p>
+    @* The one thing that trips people up outside Windows, and dotnet only mentions it once, in
+       the output of the install command — which scrolls away. *@
+    <p class="install-hint">
+        <strong>Linux and macOS:</strong> if the shell answers <span class="mono">command not found</span> afterwards,
+        <span class="mono">~/.dotnet/tools</span> isn't on your <span class="mono">PATH</span> yet — the install printed the
+        line to add to your <span class="mono">~/.bashrc</span> or <span class="mono">~/.zshrc</span>. Open a new terminal after adding it.
     </p>
 </section>
 
 <h2 style="margin:1.6rem 0 .3rem">Or download the archive</h2>
 <p class="lead">
     Self-contained builds — no .NET installation needed. You only need <strong>git</strong> on your
-    <code>PATH</code> to clone assets.
+    <code>PATH</code> to clone assets. Updates are manual: you download the next archive and replace
+    the folder yourself.
 </p>
 
 <p class="dl-version">
@@ -77,7 +87,14 @@
         <li>Run <code>StrideAssetStore.Desktop</code> (<code>.exe</code> on Windows). It starts a local server and opens your browser at <code>http://localhost:5111</code>.</li>
         <li>On macOS/Linux you may need to mark it executable first: <code>chmod +x StrideAssetStore.Desktop</code>. On macOS, right-click → Open the first time to bypass Gatekeeper (the build is unsigned).</li>
     </ol>
-    <p class="install-hint">To update, download the latest archive and replace the folder.</p>
+    <p class="install-hint">
+        To update, download the latest archive and replace the folder — or install the .NET tool
+        above, after which <code>strideassetstore upgrade</code> does it for you.
+    </p>
+    <p class="install-hint">
+        Already installed through the tool? <code>strideassetstore app start</code> launches it, on
+        any of the three platforms.
+    </p>
 </section>
 
 <section class="panel">

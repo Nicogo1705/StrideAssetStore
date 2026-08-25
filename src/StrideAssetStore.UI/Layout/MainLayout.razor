@@ -61,7 +61,11 @@
                 }
                 else
                 {
-                    <button type="button" class="btn-dl" title="Opens the desktop app if it's installed, otherwise takes you to the download page"
+                    @* The stride-assetstore:// scheme only registers itself on Windows, so on Linux
+                       and macOS this button can never find an installed app — it always ends on the
+                       download page. That page now leads with the tool, which is the answer there:
+                       `strideassetstore app start` does what the protocol does, on every platform. *@
+                    <button type="button" class="btn-dl" title="Opens the desktop app if it's installed, otherwise takes you to the download page — where `strideassetstore app start` works on any platform"
                             @onclick="OpenOrDownloadAsync">⬇ Open / download app</button>
                 }
 
