@@ -51,8 +51,16 @@ internal static class ToolAlias
         && name.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_')
         && !string.Equals(name, ToolName, StringComparison.OrdinalIgnoreCase);
 
-    public static string PathFor(string directory, string name) =>
-        Path.Combine(directory, OperatingSystem.IsWindows() ? $"{name}.cmd" : name);
+    /// <summary>
+    /// Every file that has to exist for <paramref name="name"/> to be a command. Windows needs two:
+    /// cmd and PowerShell find <c>sas.cmd</c> through PATHEXT and cannot run an extension-less file,
+    /// while Git Bash, MSYS and WSL only ever auto-append <c>.exe</c> — so a lone .cmd is invisible
+    /// to them, and a lone extension-less script is invisible to the other two.
+    /// </summary>
+    public static IReadOnlyList<string> PathsFor(string directory, string name) =>
+        OperatingSystem.IsWindows()
+            ? [Path.Combine(directory, $"{name}.cmd"), Path.Combine(directory, name)]
+            : [Path.Combine(directory, name)];
 
     /// <summary>Whether a folder is on PATH — i.e. whether a shim placed there is callable by name.</summary>
     public static bool OnPath(string directory)
@@ -91,24 +99,32 @@ internal static class ToolAlias
     }
 
     /// <summary>
-    /// Writes the shim. It calls the tool by its own folder (<c>%~dp0</c> / <c>dirname $0</c>)
-    /// rather than by name: resolving through PATH again would find whichever came first, which
-    /// on a machine with two installs is not necessarily the one the alias was made from.
+    /// Writes one shim, batch or shell depending on its extension. Either kind calls the tool
+    /// through its own folder (<c>%~dp0</c> / <c>dirname $0</c>) rather than by name: resolving
+    /// through PATH again would find whichever came first, which on a machine with two installs is
+    /// not necessarily the one the alias was made from.
     /// </summary>
     public static void Write(string path)
     {
-        if (OperatingSystem.IsWindows())
+        if (Path.GetExtension(path).Equals(".cmd", StringComparison.OrdinalIgnoreCase))
         {
             File.WriteAllText(path, $"@rem {Marker}\r\n@\"%~dp0{ToolName}.exe\" %*\r\n");
             return;
         }
 
-        File.WriteAllText(path, $"#!/bin/sh\n# {Marker}\nexec \"$(dirname \"$0\")/{ToolName}\" \"$@\"\n");
-        File.SetUnixFileMode(
-            path,
-            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
-            | UnixFileMode.GroupRead | UnixFileMode.GroupExecute
-            | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+        // The .exe suffix is spelled out for the Windows copy of this script: Git Bash resolves
+        // "strideassetstore" to the .exe by itself, but WSL and a plain sh do not.
+        var executable = OperatingSystem.IsWindows() ? $"{ToolName}.exe" : ToolName;
+        File.WriteAllText(path, $"#!/bin/sh\n# {Marker}\nexec \"$(dirname \"$0\")/{executable}\" \"$@\"\n");
+
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(
+                path,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+                | UnixFileMode.GroupRead | UnixFileMode.GroupExecute
+                | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+        }
     }
 
     /// <summary>Every shim we wrote, for the uninstall that has to clean up after itself.</summary>
@@ -119,9 +135,10 @@ internal static class ToolAlias
             yield break;
         }
 
-        var candidates = OperatingSystem.IsWindows()
-            ? System.IO.Directory.EnumerateFiles(directory, "*.cmd")
-            : System.IO.Directory.EnumerateFiles(directory);
+        // Everything but the binaries: a shim is a text file, and reading every .exe in the tools
+        // folder to look for a marker would be silly.
+        var candidates = System.IO.Directory.EnumerateFiles(directory)
+            .Where(f => Path.GetExtension(f) is "" or ".cmd");
 
         foreach (var candidate in candidates)
         {

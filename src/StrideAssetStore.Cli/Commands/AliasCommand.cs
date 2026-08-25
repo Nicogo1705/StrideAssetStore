@@ -51,36 +51,47 @@ internal sealed class AliasCommand : Command<AliasSettings>
             return 1;
         }
 
-        var path = ToolAlias.PathFor(directory, name);
-        return settings.Remove ? RemoveAlias(path, name) : CreateAlias(path, name);
+        var paths = ToolAlias.PathsFor(directory, name);
+        return settings.Remove ? RemoveAlias(paths, name) : CreateAlias(paths, name);
     }
 
-    private static int CreateAlias(string path, string name)
+    private static int CreateAlias(IReadOnlyList<string> paths, string name)
     {
         // Never write over something that isn't ours: this folder holds other people's tools, and
         // `alias --name dotnet-grpc` would otherwise replace one of them with a redirect to us.
-        if (File.Exists(path) && !ToolAlias.IsOurs(path))
+        foreach (var existing in paths.Where(p => File.Exists(p) && !ToolAlias.IsOurs(p)))
         {
-            AnsiConsole.MarkupLineInterpolated($"[red]{path} already exists[/] and wasn't created by this tool. Pick another name.");
+            AnsiConsole.MarkupLineInterpolated($"[red]{existing} already exists[/] and wasn't created by this tool. Pick another name.");
             return 1;
         }
 
-        try
+        foreach (var path in paths)
         {
-            ToolAlias.Write(path);
-        }
-        catch (Exception ex)
-        {
-            AnsiConsole.MarkupLineInterpolated($"[red]Couldn't write {path}:[/] {ex.Message}");
-            return 1;
+            try
+            {
+                ToolAlias.Write(path);
+            }
+            catch (Exception ex)
+            {
+                AnsiConsole.MarkupLineInterpolated($"[red]Couldn't write {path}:[/] {ex.Message}");
+                return 1;
+            }
         }
 
-        AnsiConsole.MarkupLineInterpolated($"[green]✓ {name}[/] now runs strideassetstore. [grey]({path})[/]");
+        var path0 = paths[0];
+        AnsiConsole.MarkupLineInterpolated($"[green]✓ {name}[/] now runs strideassetstore. [grey]({path0})[/]");
+        if (paths.Count > 1)
+        {
+            // Said, not hidden: someone looking at their tools folder should know why there are two.
+            AnsiConsole.MarkupLineInterpolated(
+                $"[grey]Two shims, on purpose:[/] {Path.GetFileName(paths[0])} [grey]for cmd and PowerShell,[/] {Path.GetFileName(paths[1])} [grey]for Git Bash, MSYS and WSL — those only ever look for a .exe.[/]");
+        }
+
 
         // A global tool lands in a folder that is on PATH; `dotnet tool install --tool-path` does
         // not. Telling someone to "try it in a new terminal" when nothing can find it is the kind
         // of small lie that costs ten minutes.
-        if (ToolAlias.OnPath(Path.GetDirectoryName(path)!))
+        if (ToolAlias.OnPath(Path.GetDirectoryName(path0)!))
         {
             AnsiConsole.MarkupLineInterpolated($"[grey]Try it in a new terminal:[/] [bold]{name} search grass[/]");
         }
@@ -93,29 +104,33 @@ internal sealed class AliasCommand : Command<AliasSettings>
         return 0;
     }
 
-    private static int RemoveAlias(string path, string name)
+    private static int RemoveAlias(IReadOnlyList<string> paths, string name)
     {
-        if (!File.Exists(path))
+        var present = paths.Where(File.Exists).ToList();
+        if (present.Count == 0)
         {
             AnsiConsole.MarkupLineInterpolated($"[grey]No '{name}' alias here — nothing to remove.[/]");
             return 0;
         }
 
         // Same rule in reverse: `alias --remove --name dotnet-grpc` must not delete another tool.
-        if (!ToolAlias.IsOurs(path))
+        foreach (var foreign in present.Where(p => !ToolAlias.IsOurs(p)))
         {
-            AnsiConsole.MarkupLineInterpolated($"[red]{path} wasn't created by this tool[/] — leaving it alone.");
+            AnsiConsole.MarkupLineInterpolated($"[red]{foreign} wasn't created by this tool[/] — leaving it alone.");
             return 1;
         }
 
-        try
+        foreach (var path in present)
         {
-            File.Delete(path);
-        }
-        catch (Exception ex)
-        {
-            AnsiConsole.MarkupLineInterpolated($"[red]Couldn't delete {path}:[/] {ex.Message}");
-            return 1;
+            try
+            {
+                File.Delete(path);
+            }
+            catch (Exception ex)
+            {
+                AnsiConsole.MarkupLineInterpolated($"[red]Couldn't delete {path}:[/] {ex.Message}");
+                return 1;
+            }
         }
 
         AnsiConsole.MarkupLineInterpolated($"[green]✓ Removed the '{name}' alias.[/]");
