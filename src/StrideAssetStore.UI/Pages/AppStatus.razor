@@ -5,6 +5,7 @@
 @inject UpdateService Updater
 @inject ToolVersionService Tool
 @inject ICliPublisher Cli
+@inject ICliRunner Runner
 @inject CatalogState Catalog
 @using StrideAssetStore.App.Services
 
@@ -134,16 +135,52 @@
                 <span> · <a href="https://www.nuget.org/packages/StrideAssetStore" target="_blank" rel="noopener">package ↗</a></span>
             </div>
 
-            <div>@(_status is { ToolInstalled: true } ? "Update it with" : "Install it with")</div>
-            <div>
-                @* Copy, not run: dotnet installs a tool by replacing its files, which is exactly
-                   what it cannot do while this app is the process holding them. *@
-                <span class="mono">@ToolCommand</span>
-                <button type="button" class="btn" style="margin-left:.5rem" @onclick="CopyToolCommandAsync">
-                    @(_toolCopied ? "✓ Copied" : "Copy")
-                </button>
-            </div>
+            @if (_status is { ToolInstalled: true })
+            {
+                @* The tool's own command comes first: it updates the tool AND this app, which is
+                   what someone on this page is actually after. The dotnet one stays below for the
+                   half of it, and because it is the one that works when the tool is too broken to
+                   run. Neither can be run from here — dotnet replaces the tool's files, and the
+                   tool's own upgrade opens the terminal it needs anyway. *@
+                <div>Update it with</div>
+                <div>
+                    <span class="mono">@UpgradeCommand</span>
+                    <button type="button" class="btn" style="margin-left:.5rem" @onclick="CopyUpgradeCommandAsync">
+                        @(_upgradeCopied ? "✓ Copied" : "Copy")
+                    </button>
+                    @if (Runner.CanRun)
+                    {
+                        <button type="button" class="btn primary" style="margin-left:.35rem" disabled="@_upgrading"
+                                title="Opens a terminal: it updates the app first — this one stops and comes back — then the tool in a window of its own"
+                                @onclick="RunUpgradeAsync">▶ Run it</button>
+                    }
+                    <span class="opt-hint">the tool and this app, in one command</span>
+                </div>
+
+                <div>Or just the tool</div>
+                <div>
+                    <span class="mono">@ToolCommand</span>
+                    <button type="button" class="btn" style="margin-left:.5rem" @onclick="CopyToolCommandAsync">
+                        @(_toolCopied ? "✓ Copied" : "Copy")
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div>Install it with</div>
+                <div>
+                    @* Copy, not run: there is no tool here to run it with. *@
+                    <span class="mono">@ToolCommand</span>
+                    <button type="button" class="btn" style="margin-left:.5rem" @onclick="CopyToolCommandAsync">
+                        @(_toolCopied ? "✓ Copied" : "Copy")
+                    </button>
+                </div>
+            }
         </div>
+        @if (_toolNotice is not null)
+        {
+            <p class="install-hint">@((MarkupString)_toolNotice)</p>
+        }
         <p class="install-hint">
             What it can do, and a builder for its commands, live on <a href="setup">Prerequisites</a>.
         </p>
@@ -212,13 +249,20 @@
     .bad { color: var(--warn); }
     .cmd-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
     .kv .mono { font-size: .85rem; }
+    .opt-hint { color: var(--muted); font-size: .75rem; margin-left: .5rem; }
 </style>
 
 @code {
+    /// <summary>The tool's own one-liner for both halves — the app here, the tool in a terminal.</summary>
+    private const string UpgradeCommand = "strideassetstore upgrade";
+
     private CliStatus? _status;
     private bool _checking;
     private bool _toolCopied;
+    private bool _upgradeCopied;
+    private bool _upgrading;
     private string? _notice;
+    private string? _toolNotice;
 
     private string ToolCommand =>
         _status is { ToolInstalled: true }
@@ -307,4 +351,31 @@
     }
 
     private async Task CopyToolCommandAsync() => _toolCopied = await Env.CopyAsync(ToolCommand);
+
+    private async Task CopyUpgradeCommandAsync() => _upgradeCopied = await Env.CopyAsync(UpgradeCommand);
+
+    /// <summary>
+    /// Runs `upgrade` in a terminal. It updates this app first — so this page is about to go away
+    /// and come back — and then opens its own window for the tool half, which cannot replace its
+    /// files while it is the process running.
+    /// </summary>
+    private async Task RunUpgradeAsync()
+    {
+        _upgrading = true;
+        _toolNotice = null;
+        try
+        {
+            var result = await Runner.RunAsync("upgrade");
+            _toolNotice = result switch
+            {
+                { Opened: true } => "<strong>Upgrading in the terminal.</strong> The app stops, updates and starts again; the tool follows in a window of its own.",
+                { ToolMissing: true } => "<strong>The tool isn't installed.</strong> Install it with the command above first.",
+                _ => $"<strong>Couldn't open a terminal.</strong> Run <code>{UpgradeCommand}</code> yourself.",
+            };
+        }
+        finally
+        {
+            _upgrading = false;
+        }
+    }
 }
