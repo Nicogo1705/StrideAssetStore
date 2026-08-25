@@ -73,6 +73,16 @@ The fork is recorded on the project reference itself:
 so it travels with your project — a teammate who clones the repository and runs `update` follows
 the same fork, without being told. `list` shows those assets as `fork` rather than `local`.
 
+### Keeping everything up to date
+
+```bash
+strideassetstore upgrade    # this tool, then the desktop app
+```
+
+It reports both versions, updates the app here (with its progress bar), and hands the tool half to
+a terminal that opens once the command exits — a global tool cannot replace its own files while it
+runs. `update` remains the one for assets; these are the two programs, not the content.
+
 ### Keeping the tool itself up to date
 
 ```bash

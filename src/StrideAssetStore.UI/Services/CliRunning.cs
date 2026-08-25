@@ -37,6 +37,24 @@ public interface ICliRunner
     Task<CliRunResult> RunAsync(string arguments, string? workingDirectory = null, CancellationToken ct = default);
 }
 
+/// <summary>Builds the argument strings a shell will read back the way they were meant.</summary>
+public static class ShellArg
+{
+    /// <summary>
+    /// Quotes a value that a shell would otherwise mangle. Whitespace is the obvious case; the one
+    /// that bites is a path like <c>C:\Dev\R&amp;D\Game.slnx</c>, where cmd reads the ampersand as a
+    /// command separator and runs the tail as a second command. Double quotes suit both cmd and
+    /// POSIX shells, which is what the built commands are pasted into.
+    /// </summary>
+    public static string Quote(string value) =>
+        value.Length > 0 && !value.StartsWith('"') && value.IndexOfAny(NeedsQuoting) >= 0
+            ? $"\"{value}\""
+            : value;
+
+    private static readonly char[] NeedsQuoting =
+        [' ', '\t', '&', '|', '^', '<', '>', '(', ')', ';', ',', '%', '!', '\'', '`', '$', '*', '?'];
+}
+
 /// <summary>Browser fallback: nothing local to run on, so commands are only ever copied.</summary>
 public sealed class NullCliRunner : ICliRunner
 {

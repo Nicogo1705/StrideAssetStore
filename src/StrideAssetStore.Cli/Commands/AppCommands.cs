@@ -39,8 +39,12 @@ internal sealed class AppInstallSettings : AppSettings
 /// </summary>
 internal sealed class AppInstallCommand : AsyncCommand<AppInstallSettings>
 {
-    protected override async Task<int> ExecuteAsync(
-        CommandContext context, AppInstallSettings settings, CancellationToken cancellation)
+    protected override Task<int> ExecuteAsync(
+        CommandContext context, AppInstallSettings settings, CancellationToken cancellation) =>
+        RunAsync(settings, cancellation);
+
+    /// <summary>The install itself, so `upgrade` can do this part without shelling out to itself.</summary>
+    internal static async Task<int> RunAsync(AppInstallSettings settings, CancellationToken cancellation)
     {
         var installer = new DesktopAppInstaller();
         var installed = DesktopAppInstaller.InstalledVersion();

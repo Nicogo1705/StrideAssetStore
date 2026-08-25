@@ -643,15 +643,9 @@ else
                 command += " --nuget";
             }
 
-            return _cliTarget.Length > 0 ? $"{command} --target {Quote(_cliTarget)}" : command;
+            return _cliTarget.Length > 0 ? $"{command} --target {ShellArg.Quote(_cliTarget)}" : command;
         }
     }
-
-    /// <summary>Quotes a path a shell would otherwise split, or cut short at a metacharacter.</summary>
-    private static string Quote(string value) =>
-        value.Length > 0 && value.IndexOfAny([' ', '\t', '&', '|', '^', '<', '>', '(', ')', ';', ',', '%', '!']) >= 0
-            ? $"\"{value}\""
-            : value;
 
     private async Task RunCliAddAsync()
     {

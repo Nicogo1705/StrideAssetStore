@@ -75,11 +75,16 @@ internal static class ToolUpdateNotice
         AnsiConsole.MarkupLine("[grey]Update with[/] [bold]dotnet tool update -g StrideAssetStore[/]");
     }
 
-    /// <summary>The running tool's version, or null for a local build with no version stamped.</summary>
-    private static Version? Current() =>
-        typeof(ToolUpdateNotice).Assembly.GetName().Version is { Major: not 99 } v ? v : null;
+    /// <summary>
+    /// The running tool's version, or null for a build that carries none: 99.0.0.0 is a local
+    /// Release build and 0.0.0.0 a Debug one. Both are older than every published version, so
+    /// treating them as a version turns "you are behind" into a permanent, wrong answer — and
+    /// `upgrade` would offer to replace a build made on purpose with the last release.
+    /// </summary>
+    internal static Version? Current() =>
+        typeof(ToolUpdateNotice).Assembly.GetName().Version is { Major: not 99 and not 0 } v ? v : null;
 
-    private static bool IsNewer(string latest, Version current) =>
+    internal static bool IsNewer(string latest, Version current) =>
         Version.TryParse(latest.Split('-')[0], out var parsed) && parsed > current;
 
     /// <summary>Whether a check is due, and stamps the file so the next run isn't.</summary>
@@ -117,7 +122,8 @@ internal static class ToolUpdateNotice
         }
     }
 
-    private static async Task<string?> FetchLatestAsync()
+    /// <summary>The newest released version on nuget.org, or null when it couldn't be read.</summary>
+    internal static async Task<string?> FetchLatestAsync()
     {
         try
         {

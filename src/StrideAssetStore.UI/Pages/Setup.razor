@@ -398,6 +398,9 @@ else
                 new("--start", "", "Start the app once it is updated.", OptKind.Flag),
                 RepoOption,
             ]),
+            new("upgrade", "upgrade", "upgrade",
+                "Update the tool and the desktop app in one command. The app part runs there and then; the tool part opens a terminal, since it cannot replace its own files while it runs.",
+                null, [RepoOption]),
             new("app status", "app status", "app status",
                 "Show what is installed, what is running, and the latest release.", null, [RepoOption]),
             new("app start", "app start", "app start", "Start the installed desktop app.", null, [RepoOption]),
@@ -490,7 +493,7 @@ else
                 var value = _argument.Trim();
                 // A required argument left empty shows its placeholder rather than vanishing: the
                 // preview then reads like the command it will become, and Copy/Run stay disabled.
-                parts.Add(value.Length > 0 ? Quote(value) : arg.Required ? $"<{arg.Label.ToUpperInvariant()}>" : "");
+                parts.Add(value.Length > 0 ? ShellArg.Quote(value) : arg.Required ? $"<{arg.Label.ToUpperInvariant()}>" : "");
             }
 
             foreach (var option in _command.Options)
@@ -501,7 +504,7 @@ else
                     continue;
                 }
 
-                parts.Add(option.Kind == OptKind.Flag ? option.Flag : $"{option.Flag} {Quote(value)}");
+                parts.Add(option.Kind == OptKind.Flag ? option.Flag : $"{option.Flag} {ShellArg.Quote(value)}");
             }
 
             return string.Join(' ', parts.Where(p => p.Length > 0));
@@ -543,10 +546,6 @@ else
     private string RunHint => Runner.CanRun
         ? WorkingDirectory is { } folder ? $"Opens a terminal in {folder}." : "Opens a terminal window."
         : "Paste it into a terminal opened in your solution folder.";
-
-    /// <summary>Quotes a value a shell would otherwise split. cmd and POSIX both take double quotes.</summary>
-    private static string Quote(string value) =>
-        value.Any(char.IsWhiteSpace) && !value.StartsWith('"') ? $"\"{value}\"" : value;
 
     private async Task CopyAsync()
     {

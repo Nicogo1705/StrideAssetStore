@@ -110,6 +110,10 @@ app.Configure(config =>
         app.AddCommand<AppOpenCommand>("open").WithDescription("Open the store in a browser — the local app if it is running, otherwise the online storefront.");
     });
 
+    config.AddCommand<UpgradeCommand>("upgrade")
+        .WithDescription("Update this tool and the desktop app. (Assets are `update`.)")
+        .WithExample("upgrade");
+
     config.AddCommand<UninstallCommand>("uninstall")
         .WithDescription("Remove what this tool installed on this machine: the app, the downloaded assets, the settings.")
         .WithExample("uninstall")
