@@ -181,10 +181,19 @@ app.MapGet("/app/controls", () => Results.Content(RescuePage(null), "text/html; 
 // Nav attention dots: things that deserve the user's eye (outdated assets, broken refs).
 // Computed on demand — the layout asks once per session, in the background.
 app.MapGet("/api/attention", async (
+    HttpContext ctx,
     StrideAssetStore.Desktop.Services.ProjectStore store,
     StrideAssetStore.Core.Local.Install.AssetInstaller installer,
     ICatalogSource source) =>
 {
+    // Guarded like the controls, though it changes nothing: every call walks the tracked solutions
+    // and analyses their references on disk, so an unguarded GET is work any page on the internet
+    // could ask this machine to repeat. The answer was never readable cross-origin; the work was.
+    if (!AllowControlOrigin(ctx, storefrontOrigin))
+    {
+        return Results.StatusCode(StatusCodes.Status403Forbidden);
+    }
+
     try
     {
         var index = await source.LoadAsync();

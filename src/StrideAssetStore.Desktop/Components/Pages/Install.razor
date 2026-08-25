@@ -35,7 +35,24 @@ else
     @if (IsNuget)
     {
         <section class="panel">
-            <p class="install-hint">NuGet install — adds <span class="mono">&lt;PackageReference Include="@Asset.Manifest.Nuget!.PackageId"@(Asset.Manifest.Nuget.PackageVersion is { } pv ? $" Version=\"{pv}\"" : "") /&gt;</span> to the projects you pick. No source is cloned.</p>
+            <p class="install-hint">NuGet install — adds <span class="mono">&lt;PackageReference Include="@Asset.Manifest.Nuget!.PackageId"@(NugetVersion is { } pv ? $" Version=\"{pv}\"" : "") /&gt;</span> to the projects you pick. No source is cloned.</p>
+            @* The version selector above is not decoration in this mode: the store's convention is
+               that an asset's git tag and its package version carry the same number, so picking a
+               tag pins the package to it. When an author breaks that convention, the restore fails
+               on a version that doesn't exist — a truthful error, and a better one than silently
+               installing something else. *@
+            <p class="install-hint">
+                @if (_ref == Asset.Latest.Ref)
+                {
+                    <text>Following <strong>@Asset.Latest.Ref</strong> pins nothing here: the package version comes from the
+                    manifest@(Asset.Manifest.Nuget.PackageVersion is null ? " — which declares none, so NuGet resolves the newest" : ""). Pick a tag above to pin one.</text>
+                }
+                else
+                {
+                    <text>Version <strong>@NugetVersion</strong>, from the tag picked above — a published asset uses the same
+                    number for its tag and its package.</text>
+                }
+            </p>
         </section>
     }
     else
@@ -300,6 +317,17 @@ else
     private bool IsNuget =>
         string.Equals(_importMode, "nuget", StringComparison.OrdinalIgnoreCase) && Asset?.Manifest.Nuget is not null;
 
+    /// <summary>
+    /// The package version a NuGet install pins: the number of the tag picked in the Version panel,
+    /// falling back to whatever the manifest declares while following the rolling branch. The store's
+    /// convention is that a published asset gives its git tag and its package the same number, which
+    /// is what lets one version picker drive both import modes.
+    /// </summary>
+    private string? NugetVersion =>
+        Asset is null || _ref == Asset.Latest.Ref
+            ? Asset?.Manifest.Nuget?.PackageVersion
+            : Asset.Versions.FirstOrDefault(v => v.Tag == _ref)?.Version ?? Asset.Manifest.Nuget?.PackageVersion;
+
     private bool IsCertified(string commit) =>
         Asset is not null && !string.IsNullOrEmpty(commit)
         && Asset.Certified.Any(c => string.Equals(c.Commit, commit, StringComparison.Ordinal));
@@ -429,6 +457,7 @@ else
         var reference = _ref;
         var targets = _checked.ToList();
         var nuget = IsNuget;
+        var nugetVersion = NugetVersion;
         var solution = _picked; // the picked .sln/.slnx (or lone .csproj) — asset projects get added to it
         var catalog = State.Catalog!.Assets.ToDictionary(a => a.Id, StringComparer.Ordinal);
         var fork = _useFork && !string.IsNullOrWhiteSpace(_fork) ? _fork.Trim() : null;
@@ -436,7 +465,7 @@ else
         {
             // Run the blocking git/IO work off the render thread so the "Installing…" state shows.
             _result = await Task.Run(() => nuget
-                ? Installer.InstallNuget(asset, targets)
+                ? Installer.InstallNuget(asset, targets, nugetVersion)
                 : Installer.Install(asset, reference, targets, catalog, solution, fork));
         }
         catch (Exception ex)

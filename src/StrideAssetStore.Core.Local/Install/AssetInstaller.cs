@@ -425,7 +425,16 @@ public sealed class AssetInstaller(GitClient? git = null)
     /// NuGet install: add a <c>&lt;PackageReference&gt;</c> for the asset's published package to each
     /// target project. No source is cloned. Requires the asset to declare a NuGet package.
     /// </summary>
-    public InstallResult InstallNuget(IndexedAsset asset, IReadOnlyList<string> targetCsprojPaths)
+    /// <param name="asset">The catalog entry being installed.</param>
+    /// <param name="targetCsprojPaths">Projects to add the reference to.</param>
+    /// <param name="version">
+    /// Package version to pin, when the caller has one in mind — the version picked in the UI, or
+    /// `add --version`. The store's convention is that an asset's git tag and its package version
+    /// carry the same number, which is what makes "install version 1.1.0" mean one thing whichever
+    /// import mode you choose. Null falls back to whatever the manifest declares.
+    /// </param>
+    public InstallResult InstallNuget(
+        IndexedAsset asset, IReadOnlyList<string> targetCsprojPaths, string? version = null)
     {
         var nuget = asset.Manifest.Nuget;
         if (nuget is null)
@@ -443,9 +452,10 @@ public sealed class AssetInstaller(GitClient? git = null)
         {
             foreach (var target in targetCsprojPaths)
             {
-                var added = CsprojEditor.AddPackageReference(target, nuget.PackageId, nuget.PackageVersion);
+                var pinned = string.IsNullOrWhiteSpace(version) ? nuget.PackageVersion : version;
+                var added = CsprojEditor.AddPackageReference(target, nuget.PackageId, pinned);
                 messages.Add(added
-                    ? $"✓ Added package {nuget.PackageId} to {Path.GetFileName(target)}"
+                    ? $"✓ Added package {nuget.PackageId}{(pinned is null ? "" : $" {pinned}")} to {Path.GetFileName(target)}"
                     : $"• {Path.GetFileName(target)} already references {nuget.PackageId}");
             }
 

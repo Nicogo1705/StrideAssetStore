@@ -306,9 +306,24 @@ else
             {
                 <p class="mode-desc">Reference the published package — no source is cloned.</p>
                 <div class="cmd">
-                    <code>@GitLinks.AddPackageCommand(m.Nuget.PackageId, m.Nuget.PackageVersion)</code>
-                    <button class="btn" @onclick="() => Copy(GitLinks.AddPackageCommand(m.Nuget.PackageId, m.Nuget.PackageVersion))">Copy</button>
+                    <code>@NugetCommand</code>
+                    <button class="btn" @onclick="() => Copy(NugetCommand)">Copy</button>
                 </div>
+                @* The version picker above drives this tab too, rather than being quietly ignored:
+                   the store's convention is that a published asset gives its git tag and its NuGet
+                   package the same number. Said out loud here because it is the authors' half of
+                   the bargain — break it and this command asks for a version nobody published. *@
+                <p class="install-hint">
+                    @if (OnLatest)
+                    {
+                        <text>No version pinned — NuGet resolves the newest published package. Pick a tag above to pin one.</text>
+                    }
+                    else
+                    {
+                        <text>Pinned to <strong>@NugetVersion</strong>, the number of the tag picked above: an asset publishes its
+                        package under the same number as its tag.</text>
+                    }
+                </p>
             }
             else
             {
@@ -660,6 +675,18 @@ else
             return _cliTarget.Length > 0 ? $"{command} --target {ShellArg.Quote(_cliTarget)}" : command;
         }
     }
+
+    /// <summary>
+    /// The package version this page offers: the number of the tag picked in the version selector,
+    /// or the manifest's own while following the rolling branch. One selector, both import modes —
+    /// which only works because tag and package version are the same number by convention.
+    /// </summary>
+    private string? NugetVersion =>
+        OnLatest
+            ? Asset!.Manifest.Nuget?.PackageVersion
+            : Asset!.Versions.FirstOrDefault(v => v.Tag == _versionRef)?.Version ?? Asset.Manifest.Nuget?.PackageVersion;
+
+    private string NugetCommand => GitLinks.AddPackageCommand(Asset!.Manifest.Nuget!.PackageId, NugetVersion);
 
     private async Task RunCliAddAsync()
     {

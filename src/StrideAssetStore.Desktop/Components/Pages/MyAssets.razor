@@ -198,6 +198,11 @@ else
                             <button class="btn" @onclick="() => Update(asset)" disabled="@_busy">Update</button>
                         }
                         <button class="btn" title="Open in Explorer" @onclick="() => OpenFolder(asset)">📂 Open</button>
+                        @* Retargeting existed only from My projects, where it aligns a clone with
+                           the project you were looking at. Here there is no project to align to —
+                           the point is the clone itself, which is what every project using it gets. *@
+                        <button class="btn" title="Rewrite this clone's Stride.* package references"
+                                @onclick="() => StartRetarget(asset)" disabled="@_busy">Stride version</button>
                         <button class="btn" @onclick="() => _pendingDelete = asset" disabled="@_busy">Delete</button>
                     </div>
                 </div>
@@ -216,6 +221,29 @@ else
         }
     </ul>
 }
+
+@* ── Retarget a cached clone's Stride version ── *@
+<Modal Visible="@(_pendingRetarget is not null)" Title="Retarget Stride version" OnClose="() => _pendingRetarget = null">
+    @if (_pendingRetarget is { } target)
+    {
+        <p class="install-hint" style="margin-top:0">
+            Rewrites the <span class="mono">Stride.*</span> package references of
+            <strong>@target.Name</strong>@(target.Ref.Length > 0 ? $" ({target.Ref})" : "") to the version you type.
+        </p>
+        <p class="install-hint" style="color:var(--warn)">
+            This clone is shared: <strong>every project referencing it</strong> builds against the new version.
+            It is a version bump, not a migration — code that a Stride release actually broke still needs fixing by hand.
+        </p>
+        <label class="field">Stride version
+            <input class="ipt mono" @bind="_retargetVersion" @bind:event="oninput" placeholder="4.4.0-beta5" />
+        </label>
+        <div class="modal-foot">
+            <button class="btn" @onclick="() => _pendingRetarget = null" disabled="@_busy">Cancel</button>
+            <button class="btn primary" @onclick="ConfirmRetarget"
+                    disabled="@(_busy || string.IsNullOrWhiteSpace(_retargetVersion))">Retarget</button>
+        </div>
+    }
+</Modal>
 
 @* ── Add a local author repo ── *@
 <Modal Visible="@_addingRepo" Title="Track a local asset repo" OnClose="() => _addingRepo = false">
@@ -412,6 +440,8 @@ else
         _ => "",
     };
     private CachedAsset? _pendingDelete;
+    private CachedAsset? _pendingRetarget;
+    private string _retargetVersion = "";
     private string? _error;
 
     private IReadOnlyList<AuthorRepo> _authors = [];
@@ -773,6 +803,52 @@ else
         }
         _ = Attention.RefreshAsync(); // update/delete funnel through here - keep the nav dots honest
         await RefreshAuthors(); // guarded internally
+    }
+
+    /// <summary>
+    /// Opens the retarget dialog, prefilled with the Stride version the catalog says this asset
+    /// targets — the value that is already correct is the one worth offering first.
+    /// </summary>
+    private void StartRetarget(CachedAsset asset)
+    {
+        _retargetVersion = State.Find(asset.Id)?.Latest.DetectedStrideVersion ?? "";
+        _pendingRetarget = asset;
+    }
+
+    /// <summary>
+    /// Rewrites the clone's Stride.* package references. Same call the project view makes when it
+    /// aligns an asset with a project — here the clone is the subject, so there is no second side
+    /// to choose between.
+    /// </summary>
+    private async Task ConfirmRetarget()
+    {
+        if (_pendingRetarget is not { } asset || string.IsNullOrWhiteSpace(_retargetVersion))
+        {
+            return;
+        }
+
+        _busy = true;
+        _messages = null;
+        var version = _retargetVersion.Trim();
+        try
+        {
+            var count = await Task.Run(() =>
+                Installer.RetargetStride(Installer.CloneCsprojs(asset.CloneRoot), version));
+            Say(count > 0
+                ? $"Retargeted {count} project file(s) of {asset.Name} to Stride {version}. Every project referencing this clone builds against it now."
+                : $"{asset.Name} already targets Stride {version} — nothing to change.");
+            _pendingRetarget = null;
+            await Refresh();
+        }
+        catch (Exception ex)
+        {
+            _pendingRetarget = null;
+            _error = $"Retarget failed: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private async Task Update(CachedAsset asset)

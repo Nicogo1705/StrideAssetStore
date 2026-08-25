@@ -83,7 +83,9 @@ internal sealed class AddCommand : AsyncCommand<AddSettings>
                 return 1;
             }
 
-            return CliOutput.Report(installer.InstallNuget(asset, projects));
+            // --version applies here too: the tag and the package version share a number by
+            // convention, so asking for 1.1.0 must not silently install whatever the manifest pins.
+            return CliOutput.Report(installer.InstallNuget(asset, projects, settings.Version));
         }
 
         if (!CliOutput.RequireGit())
