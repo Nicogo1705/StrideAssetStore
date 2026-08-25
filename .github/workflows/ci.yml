@@ -19,9 +19,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Three OSes, because half of what this codebase does is filesystem and process work whose rules
+  # differ per platform: case-sensitive path matching, executable bits, how a child process is
+  # detached. Those bugs are invisible on one runner and obvious on three.
   build-test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 

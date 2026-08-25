@@ -183,7 +183,9 @@ internal sealed class CheckCommand : Command<CheckSettings>
 
     private static void CheckReadme(string root, Report report)
     {
-        var readme = Directory.EnumerateFiles(root, "README*", SearchOption.TopDirectoryOnly)
+        // Listed, then filtered — not globbed. A search pattern is matched case-sensitively on
+        // Linux and macOS, so "README*" quietly misses the readme.md half the world writes.
+        var readme = Directory.EnumerateFiles(root, "*", SearchOption.TopDirectoryOnly)
             .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f).Equals("README", StringComparison.OrdinalIgnoreCase));
 
         if (readme is null)

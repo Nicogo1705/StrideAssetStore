@@ -208,7 +208,10 @@ internal sealed class AppStartCommand : AsyncCommand<AppSettings>
             var start = OperatingSystem.IsWindows()
                 // ShellExecute hands the launch to the OS: no inherited handles, no console.
                 ? new ProcessStartInfo(exe) { UseShellExecute = true, WorkingDirectory = directory }
-                : new ProcessStartInfo("/bin/sh", $"-c \"nohup '{exe}' >/dev/null 2>&1 &\"")
+                // The path is single-quoted for sh, so any single quote of its own has to be
+                // escaped — a home folder called /Users/o'brien otherwise ends the quoting and
+                // hands the rest of the path to the shell as commands.
+                : new ProcessStartInfo("/bin/sh", $"-c \"nohup '{exe.Replace("'", "'\\''")}' >/dev/null 2>&1 &\"")
                 {
                     UseShellExecute = false,
                     WorkingDirectory = directory,
