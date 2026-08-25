@@ -27,7 +27,7 @@ internal sealed class GroupedHelpProvider(ICommandAppSettings settings) : HelpPr
     private static readonly (string Title, string[] Commands)[] Groups =
     [
         ("USING ASSETS", ["search", "info", "add", "forks", "list", "update", "remove"]),
-        ("AUTHORING AN ASSET", ["new", "check"]),
+        ("AUTHORING AN ASSET", ["new", "check", "tag"]),
         ("PUBLISHING TO THE REGISTRY", ["publish", "certify", "deprecate", "unpublish"]),
         ("THIS TOOL AND THE DESKTOP APP", ["app", "upgrade", "alias", "uninstall"]),
         ("REGISTRY MAINTENANCE", ["validate", "build-index", "generate-pages"]),

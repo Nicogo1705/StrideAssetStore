@@ -6,7 +6,7 @@ using System.Text.Json;
 using StrideAssetStore.Core.Local.Install;
 using StrideAssetStore.Core.Models;
 
-namespace StrideAssetStore.Desktop.Services;
+namespace StrideAssetStore.Core.Local.Authoring;
 
 /// <summary>A tracked local asset repository (the author's working copy) and its git state.</summary>
 public sealed record AuthorRepo(
@@ -27,7 +27,8 @@ public sealed record AuthorRepo(
 /// The "My assets" authoring manager: tracks the user's own asset repos (local git working
 /// copies), reads their git state, and runs the publishing actions — commit &amp; push, tag
 /// push — locally via git. The tracked list persists in
-/// <c>%APPDATA%/StrideAssetStore/author-repos.json</c>, like <see cref="ProjectStore"/>.
+/// <c>%APPDATA%/StrideAssetStore/author-repos.json</c>, next to the rest of the store's state.
+/// Shared with the CLI, whose `tag` command runs the same checks before pushing a release tag.
 /// </summary>
 public sealed class AuthorRepoService
 {

@@ -192,6 +192,17 @@ store id, the thumbnail and media it declares actually there, a README to render
 a project under `AssetData/`, and no build output committed into the folder every user clones.
 `--strict` makes warnings fail too, for CI.
 
+Release a version — the store reads versions from git tags:
+
+```bash
+strideassetstore tag          # the next patch after your latest tag
+strideassetstore tag 1.2.0    # or the one you mean
+```
+
+`git tag` would do the mechanical half. This one refuses to tag a commit the world cannot fetch —
+uncommitted changes, unpushed commits, no upstream — because a tag on a commit only you have
+installs as nothing for everyone else, and nothing complains until someone tries.
+
 Then submit it, from the same folder:
 
 ```bash

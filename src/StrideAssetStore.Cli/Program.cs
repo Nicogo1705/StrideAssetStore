@@ -123,6 +123,11 @@ app.Configure(config =>
         .WithExample("check")
         .WithExample("check", "--strict");
 
+    config.AddCommand<TagCommand>("tag")
+        .WithDescription("Tag a release of your asset and push it — the version people will install.")
+        .WithExample("tag")
+        .WithExample("tag", "1.2.0");
+
     // ── Submitting to the registry: the app's Manage page, as commands ──
     config.AddCommand<PublishCommand>("publish")
         .WithDescription("Submit this asset repository to the store (opens a pull request on the registry).")

@@ -402,6 +402,15 @@ else
             new("--strict", "", "Fail on warnings too — for CI.", OptKind.Flag),
         ]);
 
+    private static readonly CmdSpec Tag = new("tag", "tag", "tag",
+        "Tag a release of your asset and push it — the version people will install. Refuses to tag a commit the world cannot fetch: uncommitted changes, unpushed commits, or no upstream.",
+        new("Version", "e.g. 1.2.0. Defaults to the next patch after your latest tag.", "1.2.0", Required: false),
+        [
+            new("--repo-path", "Repository", "The asset repository. Defaults to the folder the command runs from.",
+                Placeholder: @"C:\path\to\StrideCoolThing"),
+            new("--yes", "", "Skip the confirmation — for scripts.", OptKind.Flag, Advanced: true),
+        ]);
+
     private static readonly CmdOpt[] RegistryOptions =
     [
         new("--registry", "Registry repository", "Where to submit. Defaults to the official one.",
@@ -451,7 +460,7 @@ else
     private static readonly CmdGroup[] Groups =
     [
         new("Assets", [Search, Info, Add, Forks, ListAssets, Update, Remove]),
-        new("Authoring", [NewAsset, Check]),
+        new("Authoring", [NewAsset, Check, Tag]),
         new("Registry", [Publish, Certify, Deprecate, Unpublish]),
         new("This app",
         [
