@@ -239,12 +239,15 @@ else
                 }
                 else
                 {
+                    @* Browsing online: nothing here can reach a program on your machine, so the
+                       two honest offers are the tool's command — which the Command line tab has,
+                       with this asset's id already in it — and the app itself. *@
                     <div class="install-cta plain">
-                        <button type="button" class="btn primary" @onclick="OpenInDesktopAsync">⤓ Install in the desktop app</button>
+                        <button type="button" class="btn primary" @onclick='() => _view = "cli"'>⌨ Show the command</button>
+                        <a class="btn" href="download">⬇ Get the desktop app</a>
                         <span class="install-hint">
-                            Opens the desktop app if it's installed — otherwise you'll land on the
-                            <a href="download">download page</a>. Or add it by hand via the
-                            <strong>Source</strong>@(m.Nuget is not null ? " / NuGet" : "") tab.
+                            <span class="mono">strideassetstore add @Asset.Id</span> installs it from a terminal.
+                            Or wire it by hand from the <strong>Git &amp; ProjectReference</strong>@(m.Nuget is not null ? " / NuGet" : "") tab.
                         </span>
                     </div>
                 }
@@ -772,19 +775,6 @@ else
     private async Task CopyBadgeAsync()
     {
         _badgeCopied = await Env.CopyAsync(BadgeMarkdown);
-    }
-
-    /// <summary>Web → desktop bridge: try stride-assetstore://install?…; the JS helper falls back
-    /// to the download page when no desktop app handles the protocol.</summary>
-    private async Task OpenInDesktopAsync()
-    {
-        if (Asset is null)
-        {
-            return;
-        }
-
-        var protocol = $"stride-assetstore://install?id={Uri.EscapeDataString(Asset.Id)}&mode={DefaultImport}&ref={Uri.EscapeDataString(ActiveRef)}";
-        await JS.InvokeVoidAsync("assetStoreEnv.tryProtocol", protocol, $"{Nav.BaseUri}download");
     }
 
     /// <summary>Copies the static OG snapshot URL (a/&lt;id&gt;/) — unlike the SPA route, that link

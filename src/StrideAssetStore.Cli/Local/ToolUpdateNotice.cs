@@ -104,7 +104,11 @@ internal static class ToolUpdateNotice
     /// `upgrade` would offer to replace a build made on purpose with the last release.
     /// </summary>
     internal static Version? Current() =>
-        typeof(ToolUpdateNotice).Assembly.GetName().Version is { Major: not 99 and not 0 } v ? v : null;
+        typeof(ToolUpdateNotice).Assembly.GetName().Version is { } v
+        && v is not { Major: 0, Minor: 0, Build: 0 }   // 0.0.0.0 — a Debug build
+        && v.Major != 99                                // 99.0.0.0 — a local Release build
+            ? v
+            : null;
 
     internal static bool IsNewer(string latest, Version current) =>
         Version.TryParse(latest.Split('-')[0], out var parsed) && parsed > current;

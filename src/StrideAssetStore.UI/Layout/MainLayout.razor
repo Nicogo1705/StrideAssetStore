@@ -7,7 +7,6 @@
 @inject RegistryOptions Registry
 @inject ICliPublisher Cli
 @inject IJSRuntime JS
-@inject NavigationManager Nav
 @inject HttpClient Http
 @inject AttentionState Attention
 @using StrideAssetStore.App.Services
@@ -49,34 +48,18 @@
             }
             @if (Env.Initialized && !Env.IsLocal)
             {
-                @* One button: open the app when it's running and current, otherwise the download page
-                   (protocol launch with a download fallback when we don't know it's running). *@
-                @if (_localApp is { Running: true } && !_localAppOutdated)
+                @* A browser can open a page; it cannot start a process. So the site offers exactly
+                   two things: the address of an app that is already answering, and the way to get
+                   one that isn't. Starting, stopping, updating and controlling it all belong to the
+                   tool, which behaves the same on the three platforms — unlike the protocol handler
+                   this used to lean on, which only ever registered itself on Windows. *@
+                @if (_localApp is { Running: true })
                 {
                     <a class="btn-dl" href="http://localhost:5111" target="_blank" rel="noopener">▶ Open app</a>
                 }
-                else if (_localApp is { Running: true })
-                {
-                    <a class="btn-dl" href="download" title="Your desktop app is behind the latest release — download the update">⬆ Update app</a>
-                }
                 else
                 {
-                    @* The stride-assetstore:// scheme only registers itself on Windows, so on Linux
-                       and macOS this button can never find an installed app — it always ends on the
-                       download page. That page now leads with the tool, which is the answer there:
-                       `strideassetstore app start` does what the protocol does, on every platform. *@
-                    <button type="button" class="btn-dl" title="Opens the desktop app if it's installed, otherwise takes you to the download page — where `strideassetstore app start` works on any platform"
-                            @onclick="OpenOrDownloadAsync">⬇ Open / download app</button>
-                }
-
-                @if (_localApp is { Running: true })
-                {
-                    @* The app's own top bar carries these — but a broken local UI is exactly when
-                       you need them, so the storefront drives the running app from here too. *@
-                    <button type="button" class="theme-toggle" aria-label="Toggle the console window" title="Hide / show the console window of the app running on this machine"
-                            @onclick="ToggleRemoteConsoleAsync">🖥</button>
-                    <button type="button" class="theme-toggle" aria-label="Quit the app" title="Quit the app running on this machine"
-                            @onclick="QuitLocalAppAsync">⏻</button>
+                    <a class="btn-dl" href="download">⬇ Get the app</a>
                 }
             }
             @if (Env.Initialized)
@@ -203,48 +186,8 @@
         }
     }
 
-    // Storefront → running desktop app. Older apps (≤ v1.5.1) don't accept these cross-origin,
-    // so a failure is expected there and gets an actionable message rather than silence.
+    /// <summary>Where the update buttons report back — the banner's own line.</summary>
     private string? _remoteControlNotice;
-
-    private const string RemoteControlFailed =
-        "<strong>Couldn't reach the desktop app</strong> — it's running but doesn't accept remote controls "
-        + "(app older than v1.5.2). Use its own window, or update it.";
-
-    private async Task ToggleRemoteConsoleAsync()
-    {
-        _remoteControlNotice = await AppCommandAsync("console/toggle") ? null : RemoteControlFailed;
-    }
-
-    private async Task QuitLocalAppAsync()
-    {
-        if (!await JS.InvokeAsync<bool>("confirm", "Quit the Community Stride Asset Store app running on this machine?"))
-        {
-            return;
-        }
-
-        if (await AppCommandAsync("app/quit"))
-        {
-            _remoteControlNotice = "<strong>The desktop app is stopping.</strong>";
-            _localApp = new LocalAppStatus(false, null); // header flips back to open/download
-        }
-        else
-        {
-            _remoteControlNotice = RemoteControlFailed;
-        }
-    }
-
-    private async Task<bool> AppCommandAsync(string path)
-    {
-        try
-        {
-            return await JS.InvokeAsync<bool>("assetStoreEnv.appCommand", path);
-        }
-        catch
-        {
-            return false;
-        }
-    }
 
     private async Task QuitAppAsync()
     {
@@ -281,10 +224,11 @@
     private CliStatus? _cliStatus;
     private string _theme = "dark";
 
-    // Local desktop-app presence, detected from the online site via a localhost ping.
+    // Local desktop-app presence, detected from the online site via a localhost ping. Only the
+    // running flag is used now: whether it is also up to date is the app's own business, and it
+    // says so in its own banner rather than through a version comparison made from a web page.
     private sealed record LocalAppStatus(bool Running, string? Version);
     private LocalAppStatus? _localApp;
-    private bool _localAppOutdated;
 
     // The version the user dismissed the update banner for — it reappears for the NEXT release.
     private string? _dismissedUpdate;
@@ -383,22 +327,10 @@
         try
         {
             _localApp = await JS.InvokeAsync<LocalAppStatus>("assetStoreEnv.detectApp");
-            if (_localApp.Running)
-            {
-                await Updater.CheckAsync();
-                // No readable version (pre-1.4 app without /api/ping) counts as outdated.
-                _localAppOutdated = !Version.TryParse(_localApp.Version, out var running)
-                    || (Version.TryParse(Updater.LatestVersion, out var latest) && running < latest);
-            }
         }
         catch
         {
-            // Detection is cosmetic — keep the open/download button on any failure.
+            // Detection is cosmetic — the "Get the app" link is the right answer either way.
         }
     }
-
-    /// <summary>Tries the stride-assetstore:// protocol (starts the installed app); if nothing
-    /// handles it within the grace period, the JS helper navigates to the download page.</summary>
-    private async Task OpenOrDownloadAsync() =>
-        await JS.InvokeVoidAsync("assetStoreEnv.tryProtocol", "stride-assetstore://open", $"{Nav.BaseUri}download");
 }

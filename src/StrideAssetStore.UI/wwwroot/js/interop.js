@@ -23,16 +23,9 @@ window.assetStoreEnv = {
             return Promise.resolve(false);
         }
     },
-    // Web → desktop bridge: try a custom-protocol URL (stride-assetstore://…). If nothing
-    // handles it the page keeps focus, and after a grace period we fall back (download page).
-    tryProtocol: function (url, fallback) {
-        var timer = setTimeout(function () { location.href = fallback; }, 1500);
-        var cancel = function () { clearTimeout(timer); window.removeEventListener('blur', cancel); };
-        window.addEventListener('blur', cancel); // the protocol dialog/app stole focus — it worked
-        location.href = url;
-    },
-    // Desktop-app presence for the online header. /api/ping is CORS-readable (v1.4+); older
-    // apps still answer the opaque no-cors probe, so they read as running with unknown version.
+    // Desktop-app presence for the online header: it decides between "Open app" and "Get the app",
+    // and nothing else. /api/ping is CORS-readable (v1.4+); older apps still answer the opaque
+    // no-cors probe, so they read as running with an unknown version, which is enough.
     detectApp: function () {
         return fetch('http://localhost:5111/api/ping', { cache: 'no-store' })
             .then(function (r) { return r.json(); })
@@ -42,14 +35,6 @@ window.assetStoreEnv = {
                     .then(function () { return { running: true, version: null }; })
                     .catch(function () { return { running: false, version: null }; });
             });
-    },
-    // Drives the running desktop app from the online storefront (console toggle, quit). The app's
-    // own UI is the normal place for these, but it's exactly what can be unusable — this page is
-    // then the only way left. Only this origin is accepted by the app; false = couldn't reach it.
-    appCommand: function (path) {
-        return fetch('http://localhost:5111/' + path, { method: 'POST', cache: 'no-store' })
-            .then(function (r) { return r.ok; })
-            .catch(function () { return false; });
     },
     // Small persisted UI preferences (dismissed banners…) — same store as the theme.
     getPref: function (key) {
