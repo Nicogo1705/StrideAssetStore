@@ -98,6 +98,11 @@ builder.Services.AddScoped<StrideAssetStore.Desktop.Services.GhCliPublisher>();
 builder.Services.AddScoped<StrideAssetStore.App.Services.ICliPublisher>(sp =>
     sp.GetRequiredService<StrideAssetStore.Desktop.Services.GhCliPublisher>());
 
+// And it can run a built strideassetstore command in a terminal — the command builder on the
+// setup page. Overrides the browser's copy-only NullCliRunner.
+builder.Services.AddScoped<StrideAssetStore.App.Services.ICliRunner,
+    StrideAssetStore.Desktop.Services.CliTerminalRunner>();
+
 var app = builder.Build();
 
 // A page that fails to render (bad server response, unexpected data) must never leave the user
@@ -203,36 +208,6 @@ app.MapGet("/api/attention", async (
         return Results.Json(new { projects = 0, assets = 0 });
     }
 });
-// Opens a terminal running the update. The app deliberately cannot update itself — but it can hand
-// the job to the tool that can, which saves the user copying a command by hand. Reports whether a
-// terminal actually opened, so the UI can fall back to showing the command rather than lying.
-app.MapPost("/app/update", (HttpContext ctx) =>
-{
-    // Same guard as the other controls: this one stops the app and reinstalls its binary, so a
-    // website must not be able to trigger it either.
-    if (!AllowControlOrigin(ctx, storefrontOrigin))
-    {
-        return Results.StatusCode(StatusCodes.Status403Forbidden);
-    }
-
-    const string tool = "strideassetstore";
-    const string command = $"{tool} app update";
-
-    // Opening a terminal on a command that isn't installed would just print "not recognized" and
-    // look like the button is broken. Say what's missing instead.
-    if (!StrideAssetStore.Core.Local.Shell.DesktopShell.CommandExists(tool))
-    {
-        return Results.Json(new { opened = false, command, toolMissing = true });
-    }
-
-    return Results.Json(new
-    {
-        opened = StrideAssetStore.Core.Local.Shell.DesktopShell.OpenTerminal(command),
-        command,
-        toolMissing = false,
-    });
-});
-
 app.MapMethods("/app/quit", ["GET", "POST", "OPTIONS"], (HttpContext ctx, IHostApplicationLifetime lifetime) =>
 {
     if (!AllowControlOrigin(ctx, storefrontOrigin))

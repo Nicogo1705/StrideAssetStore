@@ -1,0 +1,310 @@
+@* Copyright (c) 2026 Nicogo1705 - MIT license *@
+@page "/status"
+@inject AppEnvironment Env
+@inject AppInfo AppFacts
+@inject UpdateService Updater
+@inject ToolVersionService Tool
+@inject ICliPublisher Cli
+@inject CatalogState Catalog
+@using StrideAssetStore.App.Services
+
+<PageTitle>App status — Community Stride Asset Store</PageTitle>
+
+<a class="back" href="">← Back to catalog</a>
+<h1 style="margin:.2rem 0 .3rem">App status</h1>
+<p class="lead">
+    What's installed on this machine, what it's running, and what has an update waiting.
+    @* The update banner can be dismissed, and then there was nowhere left to see any of this. *@
+</p>
+
+<section class="panel">
+    <h2>@(Env.IsLocal ? "Desktop app" : "Storefront")</h2>
+    <div class="kv">
+        <div>Running</div>
+        <div>
+            <span class="mono">v@(Updater.CurrentVersion)</span>
+            @if (Updater.IsDevBuild)
+            {
+                <span class="install-hint" style="margin:0"> — a build with no version stamped, so update offers stay off</span>
+            }
+        </div>
+
+        @if (Env.IsLocal)
+        {
+            <div>Installed by</div>
+            <div>
+                @(Env.ToolManaged
+                    ? "the strideassetstore tool — it can update this copy in place"
+                    : "an unpacked archive — updates replace the folder you extracted")
+            </div>
+        }
+
+        <div>Latest release</div>
+        <div>
+            @if (Updater.LatestVersion is { } latest)
+            {
+                <span class="mono">v@latest</span>
+                @if (Updater.LatestPublishedAt is { } published)
+                {
+                    <span class="install-hint" style="margin:0"> · published @published.ToLocalTime().ToString("yyyy-MM-dd")</span>
+                }
+                <span> · <a href="@(Updater.ReleaseUrl ?? GitLinks.ReleasesLatest(AppFacts.Repo))" target="_blank" rel="noopener">release notes ↗</a></span>
+            }
+            else if (!Updater.Checked)
+            {
+                <span class="install-hint" style="margin:0">checking…</span>
+            }
+            else
+            {
+                <span class="bad">unknown — GitHub didn't answer (offline, or rate-limited)</span>
+            }
+        </div>
+
+        <div>Status</div>
+        <div>@((MarkupString)AppStatusLine)</div>
+    </div>
+
+    <div class="cmd-actions" style="margin-top:.9rem">
+        <button type="button" class="btn" disabled="@_checking" @onclick="RecheckAsync">
+            @(_checking ? "Checking…" : "Re-check")
+        </button>
+
+        @if (Updater.UpdateAvailable && !Updater.IsDevBuild)
+        {
+            <UpdateActions Status="_status" OnNotice="n => _notice = n" />
+        }
+
+        @if (Env.IsLocal && _status is { ToolInstalled: false })
+        {
+            <span class="install-hint" style="margin:0">
+                Install the tool for one-command updates: <span class="mono">dotnet tool install -g StrideAssetStore</span>
+            </span>
+        }
+    </div>
+
+    @if (_notice is not null)
+    {
+        <p class="install-hint">@((MarkupString)_notice)</p>
+    }
+</section>
+
+@if (Cli.Supported)
+{
+    <section class="panel">
+        <h2>Command-line tool</h2>
+        <div class="kv">
+            <div><span class="mono">strideassetstore</span></div>
+            <div>
+                @if (_status is null)
+                {
+                    <span class="install-hint" style="margin:0">checking…</span>
+                }
+                else if (_status.ToolInstalled)
+                {
+                    <span style="color:var(--ok)">✓ @_status.ToolVersion</span>
+                }
+                else
+                {
+                    <span class="bad">✗ not on PATH</span>
+                }
+            </div>
+
+            <div>Latest on NuGet</div>
+            <div>
+                @if (Tool.Latest is { } published)
+                {
+                    <span class="mono">v@published</span>
+                    @if (Tool.IsOutdated(_status?.ToolVersion))
+                    {
+                        <span style="color:var(--warn)"> — yours is behind</span>
+                    }
+                    else if (_status is { ToolInstalled: true })
+                    {
+                        <span style="color:var(--ok)"> — up to date</span>
+                    }
+                }
+                else if (!Tool.Checked)
+                {
+                    <span class="install-hint" style="margin:0">checking…</span>
+                }
+                else
+                {
+                    <span class="install-hint" style="margin:0">unknown — nuget.org didn't answer</span>
+                }
+                <span> · <a href="https://www.nuget.org/packages/StrideAssetStore" target="_blank" rel="noopener">package ↗</a></span>
+            </div>
+
+            <div>@(_status is { ToolInstalled: true } ? "Update it with" : "Install it with")</div>
+            <div>
+                @* Copy, not run: dotnet installs a tool by replacing its files, which is exactly
+                   what it cannot do while this app is the process holding them. *@
+                <span class="mono">@ToolCommand</span>
+                <button type="button" class="btn" style="margin-left:.5rem" @onclick="CopyToolCommandAsync">
+                    @(_toolCopied ? "✓ Copied" : "Copy")
+                </button>
+            </div>
+        </div>
+        <p class="install-hint">
+            What it can do, and a builder for its commands, live on <a href="setup">Prerequisites</a>.
+        </p>
+    </section>
+
+    <section class="panel">
+        <h2>Machine tools</h2>
+        <div class="kv">
+            <div><span class="mono">git</span></div>
+            <div>
+                @if (_status is null)
+                {
+                    <span class="install-hint" style="margin:0">checking…</span>
+                }
+                else if (_status.GitInstalled)
+                {
+                    <span style="color:var(--ok)">✓ @_status.GitVersion</span>
+                }
+                else
+                {
+                    <span class="bad">✗ not on PATH — it is what installs assets</span>
+                }
+            </div>
+
+            <div><span class="mono">gh</span> (GitHub CLI)</div>
+            <div>
+                @if (_status is null)
+                {
+                    <span class="install-hint" style="margin:0">checking…</span>
+                }
+                else if (!_status.GhInstalled)
+                {
+                    <span class="bad">✗ not on PATH — it is what opens pull requests</span>
+                }
+                else if (_status.GhAuthenticated)
+                {
+                    <span style="color:var(--ok)">✓ @_status.GhVersion@(_status.GhAccount is { } account ? $" — signed in as {account}" : "")</span>
+                }
+                else
+                {
+                    <span class="bad">✓ installed, but not signed in</span>
+                }
+            </div>
+        </div>
+        <p class="install-hint">Set them up on <a href="setup">Prerequisites</a>.</p>
+    </section>
+}
+
+<section class="panel">
+    <h2>Catalog</h2>
+    <div class="kv">
+        <div>Assets</div>
+        <div>@(Catalog.Catalog is { } loaded ? $"{loaded.Assets.Count}" : "loading…")</div>
+        <div>Index generated</div>
+        <div>
+            @(Catalog.Catalog?.GeneratedAt ?? "—")
+            @if (Catalog.FromCache)
+            {
+                <span style="color:var(--warn)"> · from this machine's cached copy</span>
+            }
+        </div>
+    </div>
+</section>
+
+<style>
+    .bad { color: var(--warn); }
+    .cmd-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+    .kv .mono { font-size: .85rem; }
+</style>
+
+@code {
+    private CliStatus? _status;
+    private bool _checking;
+    private bool _toolCopied;
+    private string? _notice;
+
+    private string ToolCommand =>
+        _status is { ToolInstalled: true }
+            ? "dotnet tool update -g StrideAssetStore"
+            : "dotnet tool install -g StrideAssetStore";
+
+    /// <summary>The one line that answers "should I do something about this?".</summary>
+    private string AppStatusLine
+    {
+        get
+        {
+            if (Updater.IsDevBuild)
+            {
+                return Updater.LatestVersion is { } latest
+                    ? $"<span style=\"color:var(--muted)\">development build</span> — the latest release is v{latest}"
+                    : "<span style=\"color:var(--muted)\">development build</span>";
+            }
+
+            if (!Updater.Checked || _checking)
+            {
+                return "<span style=\"color:var(--muted)\">checking…</span>";
+            }
+
+            if (Updater.CheckFailed)
+            {
+                return "<span style=\"color:var(--warn)\">couldn't check</span> — GitHub was unreachable or rate-limited";
+            }
+
+            if (Updater.Publishing)
+            {
+                return $"<span style=\"color:var(--warn)\">⏳ v{Updater.LatestVersion} is being published</span> — its builds are still uploading";
+            }
+
+            if (Updater.NoBuildForThisPlatform)
+            {
+                return $"<span style=\"color:var(--warn)\">📦 v{Updater.LatestVersion} ships no build for this machine</span> — get it from the release page";
+            }
+
+            return Updater.UpdateAvailable
+                ? $"<span style=\"color:var(--warn)\">⬆ update available</span> — v{Updater.LatestVersion}"
+                : "<span style=\"color:var(--ok)\">✓ up to date</span>";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Catalog.EnsureLoadedAsync();
+        await Updater.CheckAsync();
+        _ = Tool.CheckAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        // After the first render, not before it: on the desktop host these shell out to git and gh,
+        // and the page should be on screen while that happens rather than after.
+        await Env.InitializeAsync();
+        if (Cli.Supported)
+        {
+            _status = await Cli.CheckAsync();
+        }
+
+        await Tool.CheckAsync();
+        StateHasChanged();
+    }
+
+    private async Task RecheckAsync()
+    {
+        _checking = true;
+        _notice = null;
+        _status = null;
+        StateHasChanged();
+
+        await Updater.CheckAsync(force: true);
+        await Tool.CheckAsync(force: true);
+        if (Cli.Supported)
+        {
+            _status = await Cli.CheckAsync();
+        }
+
+        _checking = false;
+    }
+
+    private async Task CopyToolCommandAsync() => _toolCopied = await Env.CopyAsync(ToolCommand);
+}

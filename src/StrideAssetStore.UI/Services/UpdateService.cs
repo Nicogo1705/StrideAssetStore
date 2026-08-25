@@ -30,6 +30,14 @@ public sealed class UpdateService(GitHubAuth auth, AppInfo app)
 
     public string CurrentVersion { get; } = CurrentAssemblyVersion();
 
+    /// <summary>
+    /// True for a build that carries no version — running from source, or an unstamped local build.
+    /// Every published release is newer than 0.0.0, so such a build would otherwise announce an
+    /// update on every start, offering to replace a developer's own binary with the last release.
+    /// The status page still reports what the latest release is; the banners stay away.
+    /// </summary>
+    public bool IsDevBuild => CurrentVersion is "0.0.0";
+
     public string? LatestVersion { get; private set; }
 
     /// <summary>Web URL of the latest release (release notes), when known.</summary>
@@ -41,16 +49,30 @@ public sealed class UpdateService(GitHubAuth auth, AppInfo app)
     /// <summary>Size in bytes of that build's release asset, when known.</summary>
     public long? DownloadSize { get; private set; }
 
+    /// <summary>When the latest release was published, when known.</summary>
+    public DateTimeOffset? LatestPublishedAt { get; private set; }
+
+    /// <summary>Whether the last check reached GitHub at all — "no update" and "no answer" differ.</summary>
+    public bool CheckFailed { get; private set; }
+
     /// <summary>Queries the latest release once. Safe to call repeatedly (no-ops after the first).</summary>
-    public async Task CheckAsync(CancellationToken ct = default)
+    /// <param name="force">
+    /// Ask again even though this session already did — the status page's Re-check button, which
+    /// exists precisely for the case where the first attempt was offline or rate-limited.
+    /// </param>
+    /// <param name="ct">Cancels the request.</param>
+    public async Task CheckAsync(bool force = false, CancellationToken ct = default)
     {
-        if (Checked)
+        if (Checked && !force)
         {
             return;
         }
 
         Checked = true;
         Publishing = false;
+        NoBuildForThisPlatform = false;
+        UpdateAvailable = false;
+        CheckFailed = true; // cleared once GitHub answers; every early return below is a failure
 
         try
         {
@@ -68,10 +90,14 @@ public sealed class UpdateService(GitHubAuth auth, AppInfo app)
                 return; // no releases yet, rate-limited, or offline — silently skip
             }
 
+            CheckFailed = false;
+
             using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
             var tag = doc.RootElement.TryGetProperty("tag_name", out var t) ? t.GetString() : null;
             ReleaseUrl = doc.RootElement.TryGetProperty("html_url", out var h) ? h.GetString() : GitLinks.ReleasesLatest(app.Repo);
             LatestVersion = tag?.TrimStart('v', 'V');
+            LatestPublishedAt = doc.RootElement.TryGetProperty("published_at", out var released)
+                && released.TryGetDateTimeOffset(out var releasedAt) ? releasedAt : null;
 
             if (Version.TryParse(CurrentVersion, out var current)
                 && Version.TryParse(LatestVersion, out var latest)
@@ -104,10 +130,8 @@ public sealed class UpdateService(GitHubAuth auth, AppInfo app)
                         // else entirely: this release carries nothing for this machine — an
                         // unsupported platform, or archives renamed since this build was made.
                         // Saying "still uploading" then is a lie that never resolves.
-                        var publishedAt = doc.RootElement.TryGetProperty("published_at", out var p)
-                            && p.TryGetDateTimeOffset(out var when) ? when : (DateTimeOffset?)null;
-                        var justPublished = publishedAt is null
-                            || DateTimeOffset.UtcNow - publishedAt.Value < TimeSpan.FromHours(2);
+                        var justPublished = LatestPublishedAt is null
+                            || DateTimeOffset.UtcNow - LatestPublishedAt.Value < TimeSpan.FromHours(2);
 
                         Publishing = justPublished;
                         NoBuildForThisPlatform = !justPublished;

@@ -50,9 +50,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped(sp =>
             new UpdateService(sp.GetRequiredService<GitHubAuth>(), sp.GetRequiredService<AppInfo>()));
 
+        // The command-line tool's own releases, read from nuget.org for the status page.
+        services.AddScoped<ToolVersionService>();
+
         // Command-line publishing: browser fallback (no local tools). The desktop host overrides this
         // registration with a gh-based implementation after calling AddStrideAssetStoreUi.
         services.AddScoped<ICliPublisher, NullCliPublisher>();
+
+        // Same split for running commands: the browser can only ever offer them to copy.
+        services.AddScoped<ICliRunner, NullCliRunner>();
 
         return services;
     }

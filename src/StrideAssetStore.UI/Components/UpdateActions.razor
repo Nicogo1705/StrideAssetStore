@@ -1,0 +1,97 @@
+@* Copyright (c) 2026 Nicogo1705 - MIT license *@
+@inject AppEnvironment Env
+@inject UpdateService Updater
+@inject ICliRunner Runner
+@using StrideAssetStore.App.Services
+
+@* The buttons that act on an available update, in the one place that decides between them: with
+   the tool on PATH a click updates in place, without it nothing here can replace the running files
+   and the archive is the honest offer. Shared by the banner and the status page — they used to
+   carry two copies of this decision, and only one of them knew about the tool. *@
+@if (ToolCanUpdate)
+{
+    <span class="mono">@UpdateCommand</span>
+    <button type="button" class="btn primary" disabled="@_running" @onclick="RunAsync"
+            title="@(Env.ToolManaged
+                ? "Open a terminal and run it — this app stops, updates and starts again"
+                : "Open a terminal and run it — it installs the copy the tool manages and starts that one; the folder you unpacked stays where it is")">
+        ▶ Run it
+    </button>
+
+    @* Kept next to it on purpose: no terminal opens on some Linux desktops, and a command you can
+       paste is never the wrong answer. *@
+    <button type="button" class="btn" title="Copy the command to the clipboard"
+            @onclick="CopyAsync">@(_copied ? "✓ Copied" : "Copy")</button>
+}
+else if (Updater.DownloadUrl is { } download)
+{
+    <a class="btn primary" href="@download"
+       title="@(Status is { ToolInstalled: false }
+           ? "No strideassetstore on PATH — download the build and replace this one"
+           : "Download the build for this machine")">⬇ Download manually</a>
+}
+
+@if (Updater.ReleaseUrl is { } notes)
+{
+    <a class="btn" href="@notes" target="_blank" rel="noopener">Release notes</a>
+}
+
+@code {
+    /// <summary>The command that updates the app. Only the tool can: this one holds its own files open.</summary>
+    public const string UpdateCommand = "strideassetstore app update";
+
+    /// <summary>
+    /// The machine's tool status, already fetched by the host page — this component never runs the
+    /// check itself, so a banner and a page showing it side by side can't disagree or shell out twice.
+    /// </summary>
+    [Parameter]
+    public CliStatus? Status { get; set; }
+
+    /// <summary>Raised with the sentence to show the user, or null to clear it.</summary>
+    [Parameter]
+    public EventCallback<string?> OnNotice { get; set; }
+
+    private bool _running;
+    private bool _copied;
+
+    /// <summary>
+    /// Whether the one-command update is on the table: a host that can run processes, with the tool
+    /// installed. Not the same as "this copy was installed by the tool" — the tool updates its own
+    /// copy either way, and having it on PATH is what decides whether the command exists to run.
+    /// </summary>
+    private bool ToolCanUpdate => Runner.CanRun && Status is { ToolInstalled: true };
+
+    private async Task CopyAsync()
+    {
+        _copied = await Env.CopyAsync(UpdateCommand);
+        if (!_copied)
+        {
+            await OnNotice.InvokeAsync($"<strong>Couldn't reach the clipboard.</strong> Run <code>{UpdateCommand}</code> yourself.");
+        }
+    }
+
+    /// <summary>
+    /// Hands the update to the tool in a terminal. The app can't replace its own running files —
+    /// the tool stops it first, so that window is where the story continues.
+    /// </summary>
+    private async Task RunAsync()
+    {
+        _running = true;
+        await OnNotice.InvokeAsync(null);
+        try
+        {
+            var result = await Runner.RunAsync("app update");
+            await OnNotice.InvokeAsync(result switch
+            {
+                { Opened: true } => "<strong>Updating in the terminal.</strong> This app stops, updates and starts again.",
+                { ToolMissing: true } =>
+                    "<strong>The tool isn't installed.</strong> Run <code>dotnet tool install -g StrideAssetStore</code> first.",
+                _ => $"<strong>Couldn't open a terminal.</strong> Run <code>{UpdateCommand}</code> yourself.",
+            });
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+}

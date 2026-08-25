@@ -77,10 +77,12 @@
             }
             @if (Env.Initialized)
             {
-                <span class="env @(Env.IsLocal ? "local" : "online")"
-                      title="@(Env.IsLocal ? "Running the local desktop app — you can install assets into a project" : "Browsing online — install assets with the desktop app")">
-                    ● @(Env.IsLocal ? "Desktop app" : "Online")
-                </span>
+                @* A link, not a label: the update banner can be dismissed, and this is then the only
+                   way back to what version anything on this machine is running. *@
+                <a class="env @(Env.IsLocal ? "local" : "online")" href="status"
+                   title="@(Env.IsLocal ? "Running the local desktop app — click for versions and updates" : "Browsing online — click for versions and updates")">
+                    ● @(Env.IsLocal ? "Desktop app" : "Online")@(Updater.UpdateAvailable && !Updater.IsDevBuild ? _dot($"v{Updater.LatestVersion} is available") : null)
+                </a>
             }
         </nav>
     </header>
@@ -88,7 +90,7 @@
     @* A newer release exists but carries nothing this machine can run — an unsupported platform,
        or archive names that changed since this build. Distinct from "still uploading": that one
        resolves by itself in minutes, this one never does. *@
-    @if (Env.InstallAvailable && Updater.NoBuildForThisPlatform && _dismissedUpdate != Updater.LatestVersion)
+    @if (Env.InstallAvailable && !Updater.IsDevBuild && Updater.NoBuildForThisPlatform && _dismissedUpdate != Updater.LatestVersion)
     {
         <div class="update-banner">
             <span>📦 <strong>v@(Updater.LatestVersion) is out</strong> — but it ships no build for this machine. Get it from the release page.</span>
@@ -102,7 +104,7 @@
         </div>
     }
 
-    @if (Env.InstallAvailable && Updater.Publishing && _dismissedUpdate != Updater.LatestVersion)
+    @if (Env.InstallAvailable && !Updater.IsDevBuild && Updater.Publishing && _dismissedUpdate != Updater.LatestVersion)
     {
         <div class="update-banner">
             <span>⏳ <strong>v@(Updater.LatestVersion) is being published</strong> — the release workflow is still uploading the builds. Try again in a few minutes.</span>
@@ -116,41 +118,19 @@
         </div>
     }
 
-    @if (Env.InstallAvailable && Updater.UpdateAvailable && _dismissedUpdate != Updater.LatestVersion)
+    @if (Env.InstallAvailable && !Updater.IsDevBuild && Updater.UpdateAvailable && _dismissedUpdate != Updater.LatestVersion)
     {
         <div class="update-banner">
             @* Updating is a terminal job on purpose: it must keep working when this UI doesn't,
                and it was precisely the in-app path that stayed broken for a month. *@
             <span>
                 ⬆ <strong>Update available</strong> — v@(Updater.LatestVersion) is out (you're on
-                v@(Updater.CurrentVersion))@(Updater.DownloadSize is { } dl ? $" · 📦 {FormatSize(dl)}" : "")@(Env.ToolManaged ? " — run:" : ".")
+                v@(Updater.CurrentVersion))@(Updater.DownloadSize is { } dl ? $" · 📦 {FormatSize(dl)}" : "").
             </span>
             <span class="update-actions">
-                @* The command only updates the copy the CLI installed. Offering it for an unpacked
-                   archive would install a second app elsewhere and start that one, leaving this
-                   folder behind — so that case gets the download instead. *@
-                @if (Env.ToolManaged)
-                {
-                    <span class="mono">@UpdateCommand</span>
-                    @if (Env.IsLocal)
-                    {
-                        <button type="button" class="btn primary" title="Open a terminal and run it — this app will stop, update and come back"
-                                @onclick="RunUpdateAsync">▶ Run it</button>
-                    }
-
-                    @* Kept next to it on purpose: no terminal opens on some Linux desktops, and a
-                       command you can paste is never the wrong answer. *@
-                    <button type="button" class="btn" title="Copy the command to the clipboard"
-                            @onclick="CopyUpdateCommandAsync">@(_commandCopied ? "✓ Copied" : "Copy")</button>
-                }
-                @if (Updater.DownloadUrl is not null)
-                {
-                    <a class="btn" href="@Updater.DownloadUrl">⬇ Download update</a>
-                }
-                @if (Updater.ReleaseUrl is not null)
-                {
-                    <a class="btn" href="@Updater.ReleaseUrl" target="_blank" rel="noopener">Release notes</a>
-                }
+                <UpdateActions Status="_cliStatus" OnNotice="SetUpdateNotice" />
+                @* Dismissing hides the banner until the next release — the status page keeps all of it. *@
+                <a class="btn" href="status" title="Versions, updates and the tools this app uses">Details</a>
                 <button type="button" class="banner-close" aria-label="Dismiss" title="Hide until the next release" @onclick="DismissUpdateAsync">✕</button>
             </span>
         </div>
@@ -189,41 +169,8 @@
 @code {
     private static RenderFragment _dot(string title) => @<span class="nav-dot" title="@title">●</span>;
 
-    private const string UpdateCommand = "strideassetstore app update";
-
-    private bool _commandCopied;
-
-    private async Task CopyUpdateCommandAsync() => _commandCopied = await Env.CopyAsync(UpdateCommand);
-
-    /// <summary>
-    /// Hands the update to a terminal. The app can't update itself — the tool can, and it stops this
-    /// app first, so the window you get is where the story continues. When no terminal opens (Linux
-    /// has no standard one), say so instead of leaving a button that did nothing.
-    /// </summary>
-    private async Task RunUpdateAsync()
-    {
-        try
-        {
-            var response = await Http.PostAsync("app/update", null);
-            var launch = response.IsSuccessStatusCode
-                ? await response.Content.ReadFromJsonAsync<TerminalLaunch>()
-                : null;
-
-            _remoteControlNotice = launch switch
-            {
-                { Opened: true } => "<strong>Updating in the terminal.</strong> This app stops, updates and starts again.",
-                { ToolMissing: true } =>
-                    "<strong>The tool isn't installed.</strong> Run <code>dotnet tool install -g StrideAssetStore</code> first.",
-                _ => $"<strong>Couldn't open a terminal.</strong> Run <code>{UpdateCommand}</code> yourself.",
-            };
-        }
-        catch
-        {
-            _remoteControlNotice = $"<strong>Couldn't reach the app.</strong> Run <code>{UpdateCommand}</code> yourself.";
-        }
-    }
-
-    private sealed record TerminalLaunch(bool Opened, string Command, bool ToolMissing);
+    /// <summary>The update buttons report back here — same notice line as the remote controls.</summary>
+    private void SetUpdateNotice(string? notice) => _remoteControlNotice = notice;
 
     private void OnAttentionChanged() => InvokeAsync(StateHasChanged);
 

@@ -2,6 +2,7 @@
 @page "/setup"
 @inject ICliPublisher Cli
 @inject AppEnvironment Env
+@inject ICliRunner Runner
 @using StrideAssetStore.App.Services
 
 <PageTitle>Prerequisites — Community Stride Asset Store</PageTitle>
@@ -101,40 +102,113 @@ else
 <section class="panel">
     <h2>The command-line tool</h2>
     <p class="install-hint" style="margin-top:0">
-        <span class="mono">strideassetstore</span> installs assets into a project from a terminal, without
-        this app. Optional. Requires the
+        <span class="mono">strideassetstore</span> does from a terminal what this app does: find assets,
+        install them into a project, update them — and it is what installs and updates this app itself.
+        Requires the
         <a href="https://dotnet.microsoft.com/download" target="_blank" rel="noopener">.NET SDK</a>.
         <a href="https://www.nuget.org/packages/StrideAssetStore" target="_blank" rel="noopener">Package on NuGet ↗</a>
     </p>
 
-    <h3 style="margin:1rem 0 .3rem;font-size:.95rem">What it can do</h3>
-    <p class="install-hint" style="margin:0 0 .5rem">Run these from your solution folder.</p>
-    <dl class="cmd-list">
-        <dt><span class="mono">search grass</span></dt>
-        <dd>Find assets in the catalog.</dd>
+    @* A builder rather than a list of commands to copy: the options are the part people get wrong —
+       which ones a command takes, which need a value, that a multi-project solution needs --project.
+       Picking them can't produce an invalid command; retyping one from a list can. *@
+    <div class="cmd-pick">
+        @foreach (var group in Groups)
+        {
+            <span class="cmd-group-label">@group.Label</span>
+            <span class="cmd-pills">
+                @foreach (var spec in group.Commands)
+                {
+                    <button type="button" class="pill @(spec.Key == _command.Key ? "on" : "")"
+                            @onclick="() => Select(spec)">@spec.Display</button>
+                }
+            </span>
+        }
+    </div>
 
-        <dt><span class="mono">add grass</span></dt>
-        <dd>Install an asset into this project. <span class="mono">--version 1.1.0</span> pins a version,
-            <span class="mono">--fork owner/repo</span> takes someone's copy instead of the official one.</dd>
+    <p class="cmd-summary">@_command.Summary</p>
 
-        <dt><span class="mono">forks grass</span></dt>
-        <dd>List an asset's forks — the names <span class="mono">add --fork</span> accepts.</dd>
+    <div class="form cmd-form">
+        @if (_command.Arg is { } arg)
+        {
+            <label class="wide">
+                @arg.Label @(arg.Required ? "" : "(optional)")
+                <input class="ipt" @bind="_argument" @bind:event="oninput" @bind:after="Reset"
+                       placeholder="@arg.Placeholder" />
+                <span class="opt-hint">@arg.Hint</span>
+            </label>
+        }
 
-        <dt><span class="mono">list</span></dt>
-        <dd>What this project references. <span class="mono">--cached</span> shows everything downloaded on
-            this machine instead.</dd>
+        @foreach (var option in _command.Options.Where(o => _advanced || !o.Advanced))
+        {
+            @if (option.Kind == OptKind.Flag)
+            {
+                <label class="flag" title="@option.Hint">
+                    <input type="checkbox" checked="@IsSet(option)"
+                           @onchange="e => SetFlag(option, (bool?)e.Value == true)" />
+                    <span><span class="mono">@option.Flag</span> — @option.Hint</span>
+                </label>
+            }
+            else if (option.Kind == OptKind.Target && Runner.KnownProjects.Count > 0)
+            {
+                <label>
+                    @option.Label
+                    <select class="ipt" @onchange="e => Set(option, e.Value)">
+                        <option value="" selected="@(Value(option).Length == 0)">— the folder the command runs from —</option>
+                        @foreach (var project in Runner.KnownProjects)
+                        {
+                            <option value="@project.Path" selected="@(Value(option) == project.Path)">@project.Name</option>
+                        }
+                    </select>
+                    <span class="opt-hint">@option.Hint</span>
+                </label>
+            }
+            else
+            {
+                <label>
+                    @option.Label
+                    <input class="ipt" type="@(option.Kind == OptKind.Number ? "number" : "text")"
+                           value="@Value(option)" @oninput="e => Set(option, e.Value)"
+                           placeholder="@option.Placeholder" />
+                    <span class="opt-hint">@option.Hint</span>
+                </label>
+            }
+        }
+    </div>
 
-        <dt><span class="mono">update</span></dt>
-        <dd>Update every installed asset. <span class="mono">update grass --version 1.1.0</span> moves one
-            onto a chosen version.</dd>
+    <button type="button" class="linkish" @onclick="() => _advanced = !_advanced">
+        @(_advanced ? "− Fewer options" : "+ More options")
+    </button>
 
-        <dt><span class="mono">remove grass</span></dt>
-        <dd>Drop the reference. <span class="mono">--delete-clone</span> also deletes the downloaded copy.</dd>
+    <div class="cmd-out">
+        <code class="mono">@Command</code>
+    </div>
 
-        <dt><span class="mono">app install</span> · <span class="mono">update</span> · <span class="mono">status</span> · <span class="mono">start</span> · <span class="mono">stop</span></dt>
-        <dd>Manage this desktop app itself.</dd>
-    </dl>
-    <p class="install-hint" style="margin:.6rem 0 0">
+    @if (Missing is { } missing)
+    {
+        <p class="install-hint" style="color:var(--warn)">@missing</p>
+    }
+
+    <div class="cmd-actions">
+        <button type="button" class="btn" disabled="@(Missing is not null)" @onclick="CopyAsync">
+            @(_copied ? "✓ Copied" : "Copy")
+        </button>
+        @if (Runner.CanRun)
+        {
+            @* A terminal, not captured output: `add` clones repositories and prints progress for
+               minutes, and the window stays open afterwards so the result is still readable. *@
+            <button type="button" class="btn primary" disabled="@(Missing is not null || _running)"
+                    @onclick="RunAsync">▶ Run it</button>
+        }
+        <span class="install-hint" style="margin:0">@RunHint</span>
+    </div>
+
+    @if (_runNotice is not null)
+    {
+        <p class="install-hint">@((MarkupString)_runNotice)</p>
+    }
+
+    <p class="install-hint" style="margin-top:.8rem">
         A solution with several projects needs <span class="mono">--project &lt;name&gt;</span> or
         <span class="mono">--all-projects</span>; without one, the command stops and lists them.
         <span class="mono">--help</span> works on every command.
@@ -146,18 +220,362 @@ else
     .tool-row:last-of-type { border-bottom:0; }
     .tool-name { min-width:11rem; font-weight:600; }
     .bad { color: var(--warn); }
-    .cmd-list { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: .3rem .9rem; align-items: baseline; }
-    .cmd-list dt { white-space: nowrap; }
-    .cmd-list dd { margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.45; }
+    /* Command builder */
+    .cmd-pick { display: grid; grid-template-columns: auto 1fr; gap: .4rem .8rem; align-items: center; margin: .9rem 0 .2rem; }
+    .cmd-group-label { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
+    .cmd-pills { display: flex; flex-wrap: wrap; gap: .35rem; }
+    .pill {
+        background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+        border-radius: 999px; padding: .3rem .75rem; cursor: pointer;
+        font-family: 'Cascadia Code', Consolas, monospace; font-size: .78rem;
+    }
+    .pill:hover { border-color: var(--accent); }
+    .pill.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .cmd-summary { color: var(--muted); font-size: .85rem; margin: .8rem 0 .7rem; }
+    .cmd-form { align-items: start; }
+    .cmd-form label.flag { flex-direction: row; align-items: flex-start; gap: .45rem; line-height: 1.35; }
+    .cmd-form label.flag input { margin-top: .15rem; flex: none; }
+    .opt-hint { color: var(--muted); font-size: .72rem; line-height: 1.35; }
+    .linkish { background: none; border: 0; color: var(--accent); cursor: pointer; padding: .4rem 0; font-size: .8rem; }
+    .linkish:hover { text-decoration: underline; }
+    .cmd-out {
+        background: var(--bg); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+        border-radius: 6px; padding: .6rem .7rem; margin: .5rem 0 .6rem; overflow-x: auto;
+    }
+    .cmd-out code { white-space: pre; }
+    .cmd-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
     @@media (max-width: 640px) {
-        .cmd-list { grid-template-columns: 1fr; gap: .1rem; }
-        .cmd-list dd { margin-bottom: .45rem; }
+        .cmd-pick { grid-template-columns: 1fr; gap: .2rem; }
+        .cmd-form { grid-template-columns: 1fr; }
     }
 </style>
 
 @code {
     private CliStatus? _status;
     private bool _checking;
+
+    // -- Command builder ---------------------------------------------------------------------
+    private enum OptKind { Flag, Text, Number, Target }
+
+    /// <summary>
+    /// One option of a command. <c>Advanced</c> hides it behind "More options": correct to pass,
+    /// but rarely what someone wants — and a form of twenty fields is a form nobody reads.
+    /// <c>Conflicts</c> lists the options it cannot share a command line with: the CLI does not
+    /// reject those pairs, it silently picks one — <c>add --nuget --source</c> installs the package
+    /// and ignores --source — so letting both be ticked would build a command that does something
+    /// other than it reads. Declared on one side only; the check looks both ways.
+    /// </summary>
+    private sealed record CmdOpt(
+        string Flag, string Label, string Hint,
+        OptKind Kind = OptKind.Text, string? Placeholder = null, bool Advanced = false,
+        string[]? Conflicts = null);
+
+    private sealed record CmdArg(string Label, string Hint, string Placeholder, bool Required);
+
+    /// <summary>A command as the builder knows it. <c>Verb</c> is what follows the executable
+    /// name, which is two words for the <c>app</c> branch.</summary>
+    private sealed record CmdSpec(string Key, string Display, string Verb, string Summary,
+        CmdArg? Arg, IReadOnlyList<CmdOpt> Options);
+
+    private sealed record CmdGroup(string Label, IReadOnlyList<CmdSpec> Commands);
+
+    // Options every catalog-reading command shares, then the project ones on top. Declared once and
+    // concatenated per command, so the page and the CLI cannot drift apart one command at a time.
+    private static readonly CmdOpt[] CatalogOptions =
+    [
+        new("--index", "Catalog index URL", "Read another registry's index.lock.json.",
+            Placeholder: "https://.../index.lock.json", Advanced: true),
+        new("--offline", "", "Use the catalog cached on this machine instead of fetching it.",
+            OptKind.Flag, Advanced: true),
+    ];
+
+    private static readonly CmdOpt TargetOption =
+        new("--target", "Solution or project",
+            "Which solution to act on. Defaults to the nearest one from the folder the command runs in.",
+            OptKind.Target, Placeholder: @"C:\path\to\Game.sln");
+
+    private static readonly CmdOpt[] ProjectOptions =
+    [
+        new("--project", "Project inside the solution", "Needed when the solution has more than one project.",
+            Placeholder: "Game.Windows", Conflicts: ["--all-projects"]),
+        new("--all-projects", "", "Act on every project of the solution.", OptKind.Flag),
+        new("--yes", "", "Answer yes to confirmations (scripts and CI).", OptKind.Flag, Advanced: true),
+    ];
+
+    private static CmdOpt[] With(params IEnumerable<CmdOpt>[] parts) => parts.SelectMany(p => p).ToArray();
+
+    private static readonly CmdSpec Search = new("search", "search", "search",
+        "Find assets in the store catalog — the step before add, since ids are long.",
+        new("Query", "Words matched against names, ids, tags and descriptions. Omit to list everything.",
+            "grass", Required: false),
+        With(new CmdOpt[]
+        {
+            new("--category", "Category", "Only assets in this category.", Placeholder: "rendering"),
+            new("--stride", "Stride version", "Only assets compatible with this Stride version.", Placeholder: "4.4.0-beta5"),
+            new("--certified", "", "Only assets that have a certified version.", OptKind.Flag),
+            new("--take", "How many results", "Defaults to 20.", OptKind.Number, Placeholder: "20"),
+        }, CatalogOptions));
+
+    private static readonly CmdSpec Add = new("add", "add", "add",
+        "Install an asset into a project: download it, then reference it.",
+        new("Asset", "Asset id, or enough of it to be unambiguous.", "com.nicogo.grass", Required: true),
+        With(new CmdOpt[]
+        {
+            new("--version", "Version", "Install a released version instead of the followed branch.",
+                Placeholder: "1.1.0", Conflicts: ["--ref"]),
+            new("--fork", "Fork", "Install someone's fork instead of the author's repository — no certification.",
+                Placeholder: "owner/repo"),
+            // A fork is source code: asking for the NuGet package too is refused by the CLI outright.
+            new("--nuget", "", "Add the published NuGet package instead of cloning the source.",
+                OptKind.Flag, Conflicts: ["--source", "--fork"]),
+            new("--source", "", "Clone the source even when the asset suggests its NuGet package.", OptKind.Flag),
+            new("--stride", "Rewrite Stride version", "Retarget the installed asset's Stride references to this version.",
+                Placeholder: "4.4.0-beta5"),
+            new("--ref", "Git ref", "Install a raw branch, tag or commit. Advanced — --version is usually what you want.",
+                Placeholder: "main", Advanced: true),
+        }, [TargetOption], ProjectOptions, CatalogOptions));
+
+    private static readonly CmdSpec Info = new("info", "info", "info",
+        "Everything the catalog knows about one asset — its published versions, what add would install, its dependencies.",
+        new("Asset", "Asset id, or enough of it to be unambiguous.", "com.nicogo.grass", Required: true),
+        With(new CmdOpt[]
+        {
+            new("--versions", "", "Print only the version numbers, one per line — for scripts.", OptKind.Flag),
+        }, CatalogOptions));
+
+    private static readonly CmdSpec Forks = new("forks", "forks", "forks",
+        "List an asset's forks — the names add --fork accepts.",
+        new("Asset", "Asset id, or enough of it to be unambiguous.", "com.nicogo.grass", Required: true),
+        With(CatalogOptions));
+
+    private static readonly CmdSpec ListAssets = new("list", "list", "list",
+        "Show what a project references, or everything downloaded on this machine.",
+        null,
+        With(new CmdOpt[]
+        {
+            new("--cached", "", "List the shared per-machine cache instead of what the project references.", OptKind.Flag),
+        }, [TargetOption], CatalogOptions));
+
+    private static readonly CmdSpec Update = new("update", "update", "update",
+        "Update installed assets, or move one onto another version.",
+        new("Asset", "Which asset to update. Omit to update every outdated one.", "com.nicogo.grass", Required: false),
+        With(new CmdOpt[]
+        {
+            new("--version", "Version", "Switch to a published version instead of following the current ref.",
+                Placeholder: "1.1.0", Conflicts: ["--ref"]),
+            new("--ref", "Git ref", "Switch to a raw branch, tag or commit.", Placeholder: "main", Advanced: true),
+        }, [TargetOption], ProjectOptions, CatalogOptions));
+
+    private static readonly CmdSpec Remove = new("remove", "remove", "remove",
+        "Drop an asset's reference from a project.",
+        new("Asset", "Which asset to remove.", "com.nicogo.grass", Required: true),
+        With(new CmdOpt[]
+        {
+            new("--delete-clone", "", "Also delete the downloaded copy. Other projects following it will break.", OptKind.Flag),
+        }, [TargetOption], ProjectOptions, CatalogOptions));
+
+    private static readonly CmdOpt RepoOption =
+        new("--repo", "Release repository", "Take releases from another repository.",
+            Placeholder: "https://github.com/Nicogo1705/StrideAssetStore", Advanced: true);
+
+    private static readonly CmdGroup[] Groups =
+    [
+        new("Assets", [Search, Info, Add, Forks, ListAssets, Update, Remove]),
+        new("This app",
+        [
+            new("app install", "app install", "app install", "Install this desktop app for this machine.", null,
+            [
+                new("--force", "", "Reinstall even when the newest version is already installed.", OptKind.Flag),
+                new("--start", "", "Start the app once it is installed.", OptKind.Flag),
+                new("--no-stop", "", "Don't stop a running app first — the install fails if its files are locked.",
+                    OptKind.Flag, Advanced: true),
+                RepoOption,
+            ]),
+            new("app update", "app update", "app update",
+                "Update the installed desktop app. This is how the app updates itself.", null,
+            [
+                new("--force", "", "Reinstall even when the newest version is already installed.", OptKind.Flag),
+                new("--start", "", "Start the app once it is updated.", OptKind.Flag),
+                RepoOption,
+            ]),
+            new("app status", "app status", "app status",
+                "Show what is installed, what is running, and the latest release.", null, [RepoOption]),
+            new("app start", "app start", "app start", "Start the installed desktop app.", null, [RepoOption]),
+            new("app stop", "app stop", "app stop", "Stop the desktop app running on this machine.", null, [RepoOption]),
+            new("app open", "app open", "app open",
+                "Open the store — the local app if it is running, the online storefront otherwise.", null, [RepoOption]),
+
+            // Deliberately last, and deliberately not defaulted to --yes: the builder can produce
+            // a command that deletes the asset cache, and that one should be read before it runs.
+            new("uninstall", "uninstall", "uninstall",
+                "Remove what the tool installed here. With no option: the app, the downloaded assets and the settings. It stops the app first, asks before deleting, and prints the last step — removing the tool itself, which it cannot do while it runs.",
+                null,
+                [
+                    new("--app", "", "Only the desktop app installed by the tool.", OptKind.Flag),
+                    new("--cache", "", "Only the downloaded assets and the offline catalog snapshot. Projects referencing them stop building until they are installed again.", OptKind.Flag),
+                    new("--yes", "", "Skip the confirmation — for scripts. Deletes immediately.", OptKind.Flag, Advanced: true),
+                ]),
+        ]),
+    ];
+
+    private CmdSpec _command = Search;
+    private string _argument = "";
+    private bool _advanced;
+    private bool _copied;
+    private bool _running;
+    private string? _runNotice;
+
+    // Values live per flag rather than per command, so a target or a version picked for `add`
+    // survives switching to `update` — which is the order people actually do these in.
+    private readonly Dictionary<string, string> _values = [];
+
+    private string Value(CmdOpt option) => _values.TryGetValue(option.Flag, out var v) ? v : "";
+
+    private bool IsSet(CmdOpt option) => Value(option).Length > 0;
+
+    /// <summary>Records an option's value. Empty means "not on the command line at all".</summary>
+    private void Set(CmdOpt option, object? value)
+    {
+        var text = value?.ToString() ?? "";
+        _values[option.Flag] = text;
+
+        // Turning one on turns its opposites off, rather than building a command whose second half
+        // the CLI would ignore. Only on the way in: clearing a field frees the others by itself.
+        if (text.Length > 0)
+        {
+            foreach (var other in _command.Options.Where(o => Excludes(option, o)))
+            {
+                _values[other.Flag] = "";
+            }
+        }
+
+        Reset();
+    }
+
+    private static bool Excludes(CmdOpt option, CmdOpt other) =>
+        other.Flag != option.Flag
+        && ((option.Conflicts?.Contains(other.Flag) ?? false) || (other.Conflicts?.Contains(option.Flag) ?? false));
+
+    private void SetFlag(CmdOpt option, bool on) => Set(option, on ? "true" : "");
+
+    private void Select(CmdSpec spec)
+    {
+        if (spec.Key == _command.Key)
+        {
+            return;
+        }
+
+        _command = spec;
+        // The argument is the one value that is never the same across commands: a search query is
+        // not an asset id, and carrying it over builds a command that looks right and isn't.
+        _argument = "";
+        Reset();
+    }
+
+    /// <summary>Clears the transient feedback — it belongs to the command that was built, not this one.</summary>
+    private void Reset()
+    {
+        _copied = false;
+        _runNotice = null;
+    }
+
+    /// <summary>The command as text, ready to copy: the same string the Run button executes.</summary>
+    private string Command
+    {
+        get
+        {
+            var parts = new List<string> { "strideassetstore", _command.Verb };
+            if (_command.Arg is { } arg)
+            {
+                var value = _argument.Trim();
+                // A required argument left empty shows its placeholder rather than vanishing: the
+                // preview then reads like the command it will become, and Copy/Run stay disabled.
+                parts.Add(value.Length > 0 ? Quote(value) : arg.Required ? $"<{arg.Label.ToUpperInvariant()}>" : "");
+            }
+
+            foreach (var option in _command.Options)
+            {
+                var value = Value(option).Trim();
+                if (value.Length == 0)
+                {
+                    continue;
+                }
+
+                parts.Add(option.Kind == OptKind.Flag ? option.Flag : $"{option.Flag} {Quote(value)}");
+            }
+
+            return string.Join(' ', parts.Where(p => p.Length > 0));
+        }
+    }
+
+    /// <summary>What still has to be filled in, or null when the command is ready to run.</summary>
+    private string? Missing =>
+        _command.Arg is { Required: true } arg && _argument.Trim().Length == 0
+            ? $"{arg.Label} is required — {char.ToLowerInvariant(arg.Hint[0])}{arg.Hint[1..]}"
+            : null;
+
+    /// <summary>
+    /// Where the terminal opens: the chosen solution's folder when there is one. These commands
+    /// resolve their solution from the current directory, so where the window opens is part of
+    /// what they do — and a folder is also what makes a copied command work as-is.
+    /// </summary>
+    private string? WorkingDirectory
+    {
+        get
+        {
+            var target = Value(TargetOption).Trim();
+            if (target.Length == 0 || !_command.Options.Contains(TargetOption))
+            {
+                return null;
+            }
+
+            try
+            {
+                return Path.GetDirectoryName(target) is { Length: > 0 } folder ? folder : null;
+            }
+            catch
+            {
+                return null; // half-typed path — the command still copies fine
+            }
+        }
+    }
+
+    private string RunHint => Runner.CanRun
+        ? WorkingDirectory is { } folder ? $"Opens a terminal in {folder}." : "Opens a terminal window."
+        : "Paste it into a terminal opened in your solution folder.";
+
+    /// <summary>Quotes a value a shell would otherwise split. cmd and POSIX both take double quotes.</summary>
+    private static string Quote(string value) =>
+        value.Any(char.IsWhiteSpace) && !value.StartsWith('"') ? $"\"{value}\"" : value;
+
+    private async Task CopyAsync()
+    {
+        _copied = await Env.CopyAsync(Command);
+        _runNotice = _copied ? null : "Couldn't reach the clipboard — select the command above and copy it by hand.";
+    }
+
+    private async Task RunAsync()
+    {
+        _running = true;
+        _runNotice = null;
+        try
+        {
+            // Everything after the executable name: the runner supplies that part itself, so the
+            // page can never point it at another program.
+            var arguments = Command["strideassetstore ".Length..];
+            var result = await Runner.RunAsync(arguments, WorkingDirectory);
+            _runNotice = result switch
+            {
+                { Opened: true } => "<strong>Running in the terminal.</strong> Its window stays open once the command finishes.",
+                { ToolMissing: true } => "<strong>The tool isn't installed.</strong> Run <code>dotnet tool install -g StrideAssetStore</code> first, then re-check above.",
+                _ => "<strong>Couldn't open a terminal.</strong> Copy the command and run it yourself.",
+            };
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
