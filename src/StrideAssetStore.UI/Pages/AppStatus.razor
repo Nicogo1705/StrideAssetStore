@@ -43,7 +43,7 @@
         <div>
             @if (Updater.LatestVersion is { } latest)
             {
-                <span class="mono">v@latest</span>
+                <span class="mono">v@(latest)</span>
                 @if (Updater.LatestPublishedAt is { } published)
                 {
                     <span class="install-hint" style="margin:0"> · published @published.ToLocalTime().ToString("yyyy-MM-dd")</span>
@@ -101,7 +101,7 @@
                 }
                 else if (_status.ToolInstalled)
                 {
-                    <span style="color:var(--ok)">✓ @_status.ToolVersion</span>
+                    <span style="color:var(--ok)" title="@_status.ToolVersion">✓ @(ToolVersionService.Clean(_status.ToolVersion) ?? _status.ToolVersion)</span>
                 }
                 else
                 {
@@ -113,7 +113,7 @@
             <div>
                 @if (Tool.Latest is { } published)
                 {
-                    <span class="mono">v@published</span>
+                    <span class="mono">v@(published)</span>
                     @if (Tool.IsOutdated(_status?.ToolVersion))
                     {
                         <span style="color:var(--warn)"> — yours is behind</span>
