@@ -98,6 +98,17 @@ app.Configure(config =>
         .WithDescription("Remove an asset from the project.")
         .WithExample("remove", "grass");
 
+    // ── Authoring an asset: the desktop app's wizard and its pre-flight checks, as commands ──
+    config.AddCommand<NewAssetCommand>("new")
+        .WithDescription("Create a new asset repository from the store's template (needs the GitHub CLI).")
+        .WithExample("new", "StrideCoolThing")
+        .WithExample("new", "StrideCoolThing", "--category", "Shaders", "--id", "com.you.cool-thing");
+
+    config.AddCommand<CheckCommand>("check")
+        .WithDescription("Check an asset repository before publishing it: manifest, media, README, project layout.")
+        .WithExample("check")
+        .WithExample("check", "--strict");
+
     // ── The desktop app itself ──
     config.AddBranch<AppSettings>("app", app =>
     {

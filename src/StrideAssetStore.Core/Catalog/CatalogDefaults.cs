@@ -13,4 +13,11 @@ public static class CatalogDefaults
     /// <summary>The registry's generated <c>index.lock.json</c>, refreshed daily by its CI.</summary>
     public const string IndexUrl =
         "https://raw.githubusercontent.com/Nicogo1705/AssetContainer/main/index.lock.json";
+
+    /// <summary>
+    /// The GitHub template a new asset is created from. Here rather than next to the scaffolder
+    /// that uses it: the browser half of the app names it too, and it cannot reference the half
+    /// that touches the filesystem.
+    /// </summary>
+    public const string TemplateRepo = "Nicogo1705/StrideAssetTemplate";
 }

@@ -175,6 +175,26 @@ dotnet tool uninstall -g StrideAssetStore
 command returns a non-zero exit code on failure. Colours are dropped automatically when output is
 redirected. Set `GITHUB_TOKEN` to lift the anonymous GitHub API rate limit.
 
+## Publishing an asset of your own
+
+```bash
+strideassetstore new StrideCoolThing     # a repo from the store's template, renamed and pushed
+strideassetstore check                   # read it the way the store will, before anyone else does
+```
+
+`new` is the desktop app's "New asset" wizard as a command: it instantiates the template on your
+GitHub account with `gh`, clones it, applies every rename, writes the manifest and pushes. The
+display name and the id are derived from the repository name and your GitHub login unless you pass
+`--name` and `--id`.
+
+`check` runs where you are, on the repository you are in: manifest present and complete, a valid
+store id, the thumbnail and media it declares actually there, a README to render on the asset page,
+a project under `AssetData/`, and no build output committed into the folder every user clones.
+`--strict` makes warnings fail too, for CI.
+
+Submitting the entry to the registry is still the app's job (**Manage store assets**) — that part
+wants a form and a pull request.
+
 ## Registry maintenance
 
 The same tool carries the commands behind the registry itself — `validate`, `build-index` and

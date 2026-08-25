@@ -3,9 +3,8 @@
 
 using StrideAssetStore.Core.Local.Shell;
 using System.Text.Json;
-using StrideAssetStore.App.Services;
 
-namespace StrideAssetStore.Desktop.Services;
+namespace StrideAssetStore.Core.Local.Authoring;
 
 public sealed record ScaffoldRequest(
     string RepoName,
@@ -26,13 +25,17 @@ public sealed record ScaffoldResult(
     string? SlnPath);
 
 /// <summary>
-/// The "New asset" wizard: instantiates the store's GitHub asset template
-/// (<see cref="RegistryOptions.TemplateRepo"/>) into the user's account with <c>gh</c>, clones
-/// it, applies every rename step of PUBLISHING.md (project/sln/scene/manifest), fills the
-/// manifest from the form, removes the template's own instruction files, and pushes. The
+/// The "New asset" wizard: instantiates the store's GitHub asset template into the user's account
+/// with <c>gh</c>, clones it, applies every rename step of PUBLISHING.md (project/sln/scene/
+/// manifest), fills the manifest in, removes the template's own instruction files, and pushes. The
 /// result is a ready-to-build asset repo one Publish tab away from the store.
 /// </summary>
-public sealed class AssetScaffolder(RegistryOptions registry)
+/// <param name="templateRepo">
+/// The template to instantiate, as <c>owner/repo</c>. A string rather than the app's registry
+/// options: this lives here so the desktop wizard and <c>strideassetstore new</c> run the same
+/// steps, and the CLI has no notion of those options.
+/// </param>
+public sealed class AssetScaffolder(string templateRepo)
 {
     private const string TemplateName = "StrideAssetTemplate";
 
@@ -79,10 +82,10 @@ public sealed class AssetScaffolder(RegistryOptions registry)
             }
 
             // 1 · Instantiate the template on GitHub and clone it.
-            messages.Add($"Creating {owner}/{request.RepoName} from {registry.TemplateRepo}…");
+            messages.Add($"Creating {owner}/{request.RepoName} from {templateRepo}…");
             var create = await RunAsync("gh",
                 ["repo", "create", $"{owner}/{request.RepoName}",
-                 "--template", registry.TemplateRepo,
+                 "--template", templateRepo,
                  request.Private ? "--private" : "--public", "--clone"],
                 request.ParentDir, ct);
             if (!create.Ok(out _))

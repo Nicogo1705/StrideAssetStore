@@ -1,6 +1,6 @@
 @* Copyright (c) 2026 Nicogo1705 - MIT license *@
 @page "/manage/new-asset"
-@inject AssetScaffolder Scaffolder
+@inject StrideAssetStore.Core.Local.Authoring.AssetScaffolder Scaffolder
 @inject CatalogState State
 @inject AppEnvironment Env
 @inject HttpClient Http
@@ -106,7 +106,7 @@
     private bool _busy;
     private bool _browsing;
     private List<string> _messages = [];
-    private ScaffoldResult? _result;
+    private StrideAssetStore.Core.Local.Authoring.ScaffoldResult? _result;
 
     // The FULL allowed sets from the registry catalog files shipped by the shared UI library — a
     // select built from the indexed assets would only offer the categories already in use.
@@ -218,7 +218,7 @@
         StateHasChanged();
         try
         {
-            _result = await Scaffolder.CreateAsync(new ScaffoldRequest(
+            _result = await Scaffolder.CreateAsync(new StrideAssetStore.Core.Local.Authoring.ScaffoldRequest(
                 _repoName.Trim(), _displayName.Trim(), _id.Trim(), _category, _license,
                 _description.Trim(), _tags, _parentDir.Trim(), _private));
             _messages = [.. _result.Messages];

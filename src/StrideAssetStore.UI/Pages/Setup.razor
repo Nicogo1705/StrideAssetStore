@@ -378,9 +378,34 @@ else
         new("--repo", "Release repository", "Take releases from another repository.",
             Placeholder: "https://github.com/Nicogo1705/StrideAssetStore", Advanced: true);
 
+    private static readonly CmdSpec NewAsset = new("new", "new", "new",
+        "Create a new asset repository from the store's template — the New asset wizard, as a command. Needs the GitHub CLI.",
+        new("Repository name", "Created on your GitHub account, and the name every template file is renamed to.",
+            "StrideCoolThing", Required: true),
+        [
+            new("--name", "Display name", "Shown in the store. Defaults to the repository name, spaced out.", Placeholder: "Cool Thing"),
+            new("--id", "Store id", "Defaults to com.<your-github-login>.<repo-name>.", Placeholder: "com.you.cool-thing"),
+            new("--category", "Category", "Store category.", Placeholder: "Shaders"),
+            new("--license", "License", "SPDX identifier.", Placeholder: "MIT"),
+            new("--description", "Description", "One line describing what it does.", Placeholder: "GPU-driven grass for Stride."),
+            new("--tags", "Tags", "Comma-separated.", Placeholder: "grass, foliage"),
+            new("--dir", "Clone into", "Defaults to the folder the command runs from.", Placeholder: @"C:\path\to\repos"),
+            new("--private", "", "Create it private. The store can only list public repositories.", OptKind.Flag, Advanced: true),
+            new("--template", "Template repository", "Defaults to the store's own.", Placeholder: "Nicogo1705/StrideAssetTemplate", Advanced: true),
+        ]);
+
+    private static readonly CmdSpec Check = new("check", "check", "check",
+        "Read an asset repository the way the store will: manifest, media, README, project layout, committed build output.",
+        new("Path", "The repository to check. Defaults to the folder the command runs from.",
+            @"C:\path\to\StrideCoolThing", Required: false),
+        [
+            new("--strict", "", "Fail on warnings too — for CI.", OptKind.Flag),
+        ]);
+
     private static readonly CmdGroup[] Groups =
     [
         new("Assets", [Search, Info, Add, Forks, ListAssets, Update, Remove]),
+        new("Authoring", [NewAsset, Check]),
         new("This app",
         [
             new("app install", "app install", "app install", "Install this desktop app for this machine.", null,

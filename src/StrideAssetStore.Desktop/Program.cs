@@ -90,7 +90,8 @@ builder.Services.AddScoped<StrideAssetStore.Core.Local.Install.AssetInstaller>()
 builder.Services.AddSingleton<StrideAssetStore.Core.Local.Git.ForkLister>();
 builder.Services.AddSingleton<StrideAssetStore.Desktop.Services.ProjectStore>();
 builder.Services.AddSingleton<StrideAssetStore.Desktop.Services.AuthorRepoService>();
-builder.Services.AddScoped<StrideAssetStore.Desktop.Services.AssetScaffolder>();
+builder.Services.AddScoped(sp => new StrideAssetStore.Core.Local.Authoring.AssetScaffolder(
+    sp.GetRequiredService<StrideAssetStore.App.Services.RegistryOptions>().TemplateRepo));
 
 // Desktop can open registry PRs with the local git + GitHub CLI (no pasted token). Overrides the
 // browser's no-op ICliPublisher registered by AddStrideAssetStoreUi.
