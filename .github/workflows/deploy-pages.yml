@@ -1,6 +1,8 @@
 name: "Publish the storefront to GitHub Pages"
 
-# Publishes the Blazor WASM store to GitHub Pages on every push to main.
+# Publishes the Blazor WASM store to GitHub Pages on every push to main, and once more after every
+# release: release.yml dispatches this workflow when the tag is out, so the site picks up the new
+# version (which it reads from the newest v* tag) without waiting for the next push to src/.
 # Requires Pages to be enabled with "GitHub Actions" as the source (repo Settings → Pages).
 # Note: GitHub Pages on a private repo needs a paid plan; otherwise make the repo public.
 

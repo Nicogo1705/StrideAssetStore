@@ -222,6 +222,23 @@ jobs:
           # Doing it here also means a half-finished release is never the "latest" one.
           gh release edit "$TAG" --draft=false --latest --repo "${{ github.repository }}"
 
+  # The storefront reads its own version from the newest v* tag, and its workflow only triggers on
+  # pushes to main — so after a tag it kept showing the previous version until something else
+  # happened to touch src/. Asking for it here is what makes "release" mean the app, the package
+  # AND the site. After checksums, so the site never advertises a version whose release is still a
+  # draft; `--ref main` because Pages publishes from main, not from the tag.
+  refresh-storefront:
+    needs: [build, checksums]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Publish the storefront with the new version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-pages.yml --ref main --repo "${{ github.repository }}"
+
   # A release that never became visible is the failure mode worth shouting about: the tag is pushed,
   # the Releases tab looks empty, and releases/latest/download keeps serving the previous version.
   # It depends on every job that can leave it that way — depending on `build` alone missed the most
