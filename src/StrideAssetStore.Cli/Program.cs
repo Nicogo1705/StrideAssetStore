@@ -49,6 +49,10 @@ app.Configure(config =>
 {
     config.SetApplicationName("strideassetstore");
 
+    // Fifteen commands in one list read as fifteen equally likely things to type. Grouped, they
+    // read as four situations, and a reader is only ever in one of them.
+    config.SetHelpProvider(new StrideAssetStore.Cli.Local.GroupedHelpProvider(config.Settings));
+
     // Expected failures travel as exceptions here — an ambiguous asset id, no solution in sight, a
     // version nobody published. Without this they reach the user as a stack trace and exit -1 (255
     // in a shell), burying messages that were written to be read.
