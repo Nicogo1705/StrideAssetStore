@@ -220,7 +220,13 @@ a.theme-toggle:hover { text-decoration: none; }
 .mono { font-family: 'Cascadia Code', Consolas, monospace; font-size: .82rem; }
 .back { display: inline-block; margin-bottom: 1rem; color: var(--muted); }
 /* Import-mode tabs */
-.modes { display: flex; gap: .3rem; border-bottom: 1px solid var(--border); margin-bottom: .8rem; }
+.modes { display: flex; gap: .3rem; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: 0; }
+/* The selected tab's content, framed: without a box the panel had no visible start or end, and
+   only the Install tab looked like anything because its call-out carried its own border. */
+.mode-panel { border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--radius) var(--radius);
+    padding: .9rem 1rem; margin-bottom: 1rem; background: var(--surface); }
+.mode-panel > :first-child { margin-top: 0; }
+.mode-panel > :last-child { margin-bottom: 0; }
 .mode {
     background: none; border: none; border-bottom: 2px solid transparent;
     color: var(--muted); padding: .5rem .9rem; cursor: pointer; font-size: .9rem; font-weight: 600;
@@ -234,7 +240,9 @@ a.theme-toggle:hover { text-decoration: none; }
 .field { display: flex; align-items: center; gap: .5rem; color: var(--muted); font-size: .85rem; }
 .install-cta { display: flex; align-items: center; gap: .7rem; margin-bottom: 1rem; padding: .7rem .8rem;
     background: color-mix(in srgb, var(--accent) 10%, var(--surface-2)); border: 1px solid var(--accent);
-    border-radius: var(--radius); }
+    border-radius: var(--radius); flex-wrap: wrap; }
+/* Inside a tab panel the call-out is already framed by it; a second border reads as a nested box. */
+.mode-panel .install-cta.plain { background: none; border: none; padding: 0; margin-bottom: 0; }
 
 /* Screenshot gallery + lightbox */
 .gallery { display: flex; flex-wrap: wrap; gap: .5rem; margin: .2rem 0 1rem; }

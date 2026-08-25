@@ -204,11 +204,18 @@ else
                 }
             </p>
 
-            <div class="modes">
-                <button class="mode @(_view == "install" ? "active" : "")" @onclick='() => _view = "install"'>⤓ Install</button>
-                <button class="mode @(_view == "source" ? "active" : "")" @onclick='() => _view = "source"'>Source &amp; ProjectReference</button>
-                <button class="mode @(_view == "cli" ? "active" : "")" @onclick='() => _view = "cli"'>⌨ Command line</button>
+            @* Ordered by how much of the work is done for you: the app installs it, the tool does
+               the same from a terminal, git leaves you to wire the reference yourself, and the
+               package is only there for assets that publish one. *@
+            <div class="modes" role="tablist">
+                <button class="mode @(_view == "install" ? "active" : "")" role="tab" aria-selected="@(_view == "install")"
+                        @onclick='() => _view = "install"'>⤓ Install with the app</button>
+                <button class="mode @(_view == "cli" ? "active" : "")" role="tab" aria-selected="@(_view == "cli")"
+                        @onclick='() => _view = "cli"'>⌨ Command line</button>
+                <button class="mode @(_view == "source" ? "active" : "")" role="tab" aria-selected="@(_view == "source")"
+                        @onclick='() => _view = "source"'>Git &amp; ProjectReference</button>
                 <button class="mode @(_view == "nuget" ? "active" : "") @(m.Nuget is null ? "disabled" : "")"
+                        role="tab" aria-selected="@(_view == "nuget")"
                         disabled="@(m.Nuget is null)"
                         title="@(m.Nuget is null ? "This asset is not published on NuGet" : "")"
                         @onclick='() => { if (m.Nuget is not null) _view = "nuget"; }'>
@@ -216,11 +223,15 @@ else
                 </button>
             </div>
 
+            @* One box for every tab, so the panel has a visible beginning and end whichever one is
+               selected — the tabs alone left the content floating against the page. *@
+            <div class="mode-panel">
+
             @if (_view == "install")
             {
                 @if (Env.InstallAvailable)
                 {
-                    <div class="install-cta">
+                    <div class="install-cta plain">
                         <a class="btn primary" href="@($"projects/install?id={Uri.EscapeDataString(Asset.Id)}&mode={DefaultImport}&ref={Uri.EscapeDataString(ActiveRef)}")">⤓ Install…</a>
                         <span class="install-hint">Download it for this machine, or add it to a project as
                             <code>&lt;ProjectReference&gt;</code>@(m.Nuget is not null ? " or a NuGet package" : "") — chosen on the next screen.</span>
@@ -228,7 +239,7 @@ else
                 }
                 else
                 {
-                    <div class="install-cta">
+                    <div class="install-cta plain">
                         <button type="button" class="btn primary" @onclick="OpenInDesktopAsync">⤓ Install in the desktop app</button>
                         <span class="install-hint">
                             Opens the desktop app if it's installed — otherwise you'll land on the
@@ -287,8 +298,8 @@ else
                 }
 
                 <p class="install-hint" style="margin-top:.6rem">
-                    <span class="mono">strideassetstore info @Asset.Id</span> lists every published version;
-                    <span class="mono">strideassetstore remove @Asset.Id</span> takes it back out.
+                    <span class="mono">strideassetstore info @ShellArg.Quote(Asset.Id)</span> lists every published version;
+                    <span class="mono">strideassetstore remove @ShellArg.Quote(Asset.Id)</span> takes it back out.
                 </p>
             }
             else if (_view == "nuget" && m.Nuget is not null)
@@ -315,7 +326,7 @@ else
                     </div>
                 </div>
             }
-
+            </div>
         </section>
 
         <section>
@@ -628,12 +639,15 @@ else
     {
         get
         {
-            var command = $"strideassetstore add {Asset!.Id}";
+            // Escaped, not trusted: the id is validated by the registry, but a version label is
+            // whatever an author named a git tag — and this string is handed to a shell. A tag
+            // called `1.0 & something` would otherwise run `something` as a second command.
+            var command = $"strideassetstore add {ShellArg.Quote(Asset!.Id)}";
             if (!OnLatest)
             {
                 var tag = _versionRef!;
                 var version = Asset.Versions.FirstOrDefault(v => v.Tag == tag)?.Version ?? tag;
-                command += $" --version {version}";
+                command += $" --version {ShellArg.Quote(version)}";
             }
 
             // Only when the asset would be cloned by default and can also be a package: the tab is
