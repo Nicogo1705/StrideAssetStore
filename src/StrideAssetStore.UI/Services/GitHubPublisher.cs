@@ -11,12 +11,6 @@ using StrideAssetStore.Core.Serialization;
 
 namespace StrideAssetStore.App.Services;
 
-/// <summary>Outcome of a publish attempt.</summary>
-/// <param name="Success">Whether the PR was opened.</param>
-/// <param name="PullRequestUrl">The PR URL on success.</param>
-/// <param name="Error">A human-readable error on failure.</param>
-public sealed record PublishResult(bool Success, string? PullRequestUrl, string? Error);
-
 /// <summary>
 /// Submits a registry entry to the AssetContainer repository via the GitHub REST API:
 /// fork (if needed) → branch → commit registry/&lt;id&gt;.json → open a pull request.

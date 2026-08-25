@@ -123,6 +123,24 @@ app.Configure(config =>
         .WithExample("check")
         .WithExample("check", "--strict");
 
+    // ── Submitting to the registry: the app's Manage page, as commands ──
+    config.AddCommand<PublishCommand>("publish")
+        .WithDescription("Submit this asset repository to the store (opens a pull request on the registry).")
+        .WithExample("publish")
+        .WithExample("publish", "--ref", "main");
+
+    config.AddCommand<CertifyCommand>("certify")
+        .WithDescription("Certify a version: pin a reviewed commit as immutable.")
+        .WithExample("certify", "com.you.cool-thing", "--version", "1.0.0", "--commit", "<sha>");
+
+    config.AddCommand<DeprecateCommand>("deprecate")
+        .WithDescription("Mark an asset deprecated — still installable, no longer recommended.")
+        .WithExample("deprecate", "com.you.cool-thing", "--reason", "Superseded", "--successor", "com.you.better-thing");
+
+    config.AddCommand<UnpublishCommand>("unpublish")
+        .WithDescription("Take an asset out of the registry entirely (breaks `add` for everyone using it).")
+        .WithExample("unpublish", "com.you.cool-thing");
+
     // ── The desktop app itself ──
     config.AddBranch<AppSettings>("app", app =>
     {

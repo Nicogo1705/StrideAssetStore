@@ -28,6 +28,7 @@ internal sealed class GroupedHelpProvider(ICommandAppSettings settings) : HelpPr
     [
         ("USING ASSETS", ["search", "info", "add", "forks", "list", "update", "remove"]),
         ("AUTHORING AN ASSET", ["new", "check"]),
+        ("PUBLISHING TO THE REGISTRY", ["publish", "certify", "deprecate", "unpublish"]),
         ("THIS TOOL AND THE DESKTOP APP", ["app", "upgrade", "alias", "uninstall"]),
         ("REGISTRY MAINTENANCE", ["validate", "build-index", "generate-pages"]),
     ];

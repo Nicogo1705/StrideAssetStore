@@ -402,10 +402,57 @@ else
             new("--strict", "", "Fail on warnings too — for CI.", OptKind.Flag),
         ]);
 
+    private static readonly CmdOpt[] RegistryOptions =
+    [
+        new("--registry", "Registry repository", "Where to submit. Defaults to the official one.",
+            Placeholder: "Nicogo1705/AssetContainer", Advanced: true),
+        new("--branch", "Target branch", "Branch the pull request targets.", Placeholder: "main", Advanced: true),
+    ];
+
+    private static readonly CmdSpec Publish = new("publish", "publish", "publish",
+        "Submit an asset repository to the store. Reads the id, the repository and the followed branch from the checkout, runs check first, then opens a pull request on the registry.",
+        new("Path", "The asset repository to submit. Defaults to the folder the command runs from.",
+            @"C:\path\to\StrideCoolThing", Required: false),
+        With(new CmdOpt[]
+        {
+            new("--ref", "Followed branch", "What the store should track. Defaults to the repository's current branch.", Placeholder: "main"),
+            new("--repo", "Repository URL", "Defaults to the checkout's origin remote.", Placeholder: "https://github.com/you/StrideCoolThing"),
+            new("--force", "", "Submit even when check finds problems.", OptKind.Flag, Advanced: true),
+        }, RegistryOptions));
+
+    private static readonly CmdSpec Certify = new("certify", "certify", "certify",
+        "Certify a version: pin a reviewed commit as immutable. The commit is stated rather than derived from the tag, because a tag can be moved afterwards.",
+        new("Asset", "Asset id to certify a version of.", "com.you.cool-thing", Required: true),
+        With(new CmdOpt[]
+        {
+            new("--version", "Version", "The label people will install, e.g. 1.0.0.", Placeholder: "1.0.0"),
+            new("--commit", "Commit", "The full 40-character sha being certified.", Placeholder: "a62f424…"),
+            new("--tag", "Tag", "The tag that commit was released as, when there is one.", Placeholder: "v1.0.0"),
+        }, RegistryOptions));
+
+    private static readonly CmdSpec Deprecate = new("deprecate", "deprecate", "deprecate",
+        "Mark an asset deprecated — still installable, no longer recommended. This is what you want instead of removing it in almost every case.",
+        new("Asset", "Asset id to mark deprecated.", "com.you.cool-thing", Required: true),
+        With(new CmdOpt[]
+        {
+            new("--reason", "Reason", "Shown on the asset page. Without one, the page says it is deprecated without saying why.",
+                Placeholder: "Superseded by …"),
+            new("--successor", "Successor", "The asset id to use instead.", Placeholder: "com.you.better-thing"),
+        }, RegistryOptions));
+
+    private static readonly CmdSpec Unpublish = new("unpublish", "unpublish", "unpublish",
+        "Take an asset out of the registry entirely. It breaks add and update for everyone using it, so it asks before submitting.",
+        new("Asset", "Asset id to remove from the registry.", "com.you.cool-thing", Required: true),
+        With(new CmdOpt[]
+        {
+            new("--yes", "", "Skip the confirmation — for scripts.", OptKind.Flag, Advanced: true),
+        }, RegistryOptions));
+
     private static readonly CmdGroup[] Groups =
     [
         new("Assets", [Search, Info, Add, Forks, ListAssets, Update, Remove]),
         new("Authoring", [NewAsset, Check]),
+        new("Registry", [Publish, Certify, Deprecate, Unpublish]),
         new("This app",
         [
             new("app install", "app install", "app install", "Install this desktop app for this machine.", null,

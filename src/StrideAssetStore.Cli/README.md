@@ -192,8 +192,29 @@ store id, the thumbnail and media it declares actually there, a README to render
 a project under `AssetData/`, and no build output committed into the folder every user clones.
 `--strict` makes warnings fail too, for CI.
 
-Submitting the entry to the registry is still the app's job (**Manage store assets**) — that part
-wants a form and a pull request.
+Then submit it, from the same folder:
+
+```bash
+strideassetstore publish
+```
+
+It reads the id from your manifest, the repository from the `origin` remote and the followed branch
+from HEAD, runs `check` first (a pull request pointing at a broken repository only wastes a
+maintainer's time), and opens the pull request on the registry through `gh` — fork, branch, entry
+file, PR. `--ref` follows a different branch, `--force` submits anyway.
+
+Once it is published, the same three commands the app's **Manage store assets** page offers:
+
+```bash
+strideassetstore certify com.you.cool-thing --version 1.0.0 --commit <40-char-sha>
+strideassetstore deprecate com.you.cool-thing --reason "Superseded" --successor com.you.better-thing
+strideassetstore unpublish com.you.cool-thing
+```
+
+`certify` pins a reviewed commit as immutable — the sha is stated, never derived from the tag,
+because a tag can be moved afterwards. `deprecate` leaves the asset installable and tells readers
+to look elsewhere. `unpublish` deletes the entry, which breaks `add` for everyone using it, so it
+asks first and points you at `deprecate`. All three open a pull request; a maintainer merges it.
 
 ## Registry maintenance
 

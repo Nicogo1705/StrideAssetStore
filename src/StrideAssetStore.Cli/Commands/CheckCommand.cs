@@ -50,14 +50,24 @@ internal sealed class CheckCommand : Command<CheckSettings>
         AnsiConsole.MarkupLineInterpolated($"[grey]Checking[/] {root}");
         AnsiConsole.WriteLine();
 
-        var report = new Report();
+        var report = Run(root, quiet: false);
+        AnsiConsole.WriteLine();
+        return report.Conclude(settings.Strict);
+    }
+
+    /// <summary>
+    /// Runs every check and hands back what it found. <paramref name="quiet"/> keeps the passes and
+    /// warnings to itself and prints only what is wrong — which is what `publish` wants: it calls
+    /// this to decide whether a pull request is worth opening, not to produce a report.
+    /// </summary>
+    internal static Report Run(string root, bool quiet)
+    {
+        var report = new Report(quiet);
         var manifest = CheckManifest(root, report);
         CheckMedia(root, manifest, report);
         CheckReadme(root, report);
         CheckProject(root, report);
-
-        AnsiConsole.WriteLine();
-        return report.Conclude(settings.Strict);
+        return report;
     }
 
     /// <summary>The manifest is the file everything else is judged against, so it is read first.</summary>
@@ -281,19 +291,33 @@ internal sealed class CheckCommand : Command<CheckSettings>
     }
 
     /// <summary>Collects the findings so the exit code can be decided from all of them at once.</summary>
-    private sealed class Report
+    internal sealed class Report(bool quiet = false)
     {
         private int _failures;
         private int _warnings;
 
-        public void Pass(string message) => AnsiConsole.MarkupLineInterpolated($"[green]✓[/] {message}");
+        /// <summary>How many things are wrong — the number `publish` refuses to submit over.</summary>
+        public int Failures => _failures;
+
+        public void Pass(string message)
+        {
+            if (!quiet)
+            {
+                AnsiConsole.MarkupLineInterpolated($"[green]✓[/] {message}");
+            }
+        }
 
         public void Warn(string message)
         {
             _warnings++;
-            AnsiConsole.MarkupLineInterpolated($"[yellow]⚠[/] {message}");
+            if (!quiet)
+            {
+                AnsiConsole.MarkupLineInterpolated($"[yellow]⚠[/] {message}");
+            }
         }
 
+        // Always printed, quiet or not: a caller that suppressed the running commentary still has
+        // to be told why nothing happened.
         public void Fail(string message)
         {
             _failures++;
