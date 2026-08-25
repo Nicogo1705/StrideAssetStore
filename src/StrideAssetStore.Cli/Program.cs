@@ -49,6 +49,13 @@ app.Configure(config =>
 {
     config.SetApplicationName("strideassetstore");
 
+    // The tool is written StrideAssetStore everywhere it is talked about — the package id, the
+    // repository, the announcement people copy from — so that is how they type it, and `Add Grass`
+    // answering "Unknown command 'Add'" reads as a broken tool rather than a capital letter. The
+    // executable name is already case-insensitive on Windows; this makes the rest of the line
+    // behave the same way. Asset ids have always been matched case-insensitively.
+    config.CaseSensitivity(CaseSensitivity.None);
+
     // Fifteen commands in one list read as fifteen equally likely things to type. Grouped, they
     // read as four situations, and a reader is only ever in one of them.
     config.SetHelpProvider(new StrideAssetStore.Cli.Local.GroupedHelpProvider(config.Settings));
