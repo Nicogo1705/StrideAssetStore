@@ -11,10 +11,15 @@ name: "Install an asset and run a Stride game (Win/Linux/macOS)"
 # game's own folder (--into) makes the asset compiler see the package twice and is not what the
 # default install does, so testing it would measure a path nobody takes.
 #
-# What a green run does NOT prove: that the asset's Stride CONTENT compiles. The default asset is
-# a code asset with no .sdpkg, so the asset compiler runs and legitimately produces nothing. Point
-# the `asset` input at a texture pack to exercise content — those declare RootAssets and produce a
-# real bundle.
+# The game puts a cube on screen wearing a texture FROM the asset, and saves the frame as a PNG
+# uploaded on every run. That is the difference between "the content compiled" and "the content
+# loads": the old test rendered an empty blue screen, so an asset whose textures were unusable at
+# runtime passed it without a word. Now the game dies at Content.Load if they are, and when it
+# doesn't, there is a picture a human can look at — one per operating system.
+#
+# The default asset is therefore a texture pack (real .sdpkg, RootAssets, a content bundle). Point
+# `asset` at a code-only asset and leave `texture` empty: the cube renders plain, and the run still
+# proves install → restore → compile → run on that asset.
 #
 # Known limits, deliberately not hidden:
 #  - GitHub runners have no GPU. Linux renders through Mesa's software rasteriser under Xvfb.
@@ -36,7 +41,10 @@ on:
     inputs:
       asset:
         description: "Asset to install (id or unambiguous fragment)"
-        default: "grass"
+        default: "placeholder"
+      texture:
+        description: "Content URL of a texture in that asset, drawn on the cube. 'none' = plain cube."
+        default: "/StridePlaceholderTextures/UVGrid"
       stride:
         description: "Stride version the test game uses (must exist on nuget.org)"
         default: "4.4.0-beta5"
@@ -45,8 +53,14 @@ permissions:
   contents: read
 
 env:
-  ASSET: ${{ github.event.inputs.asset || 'grass' }}
+  ASSET: ${{ github.event.inputs.asset || 'placeholder' }}
   STRIDE: ${{ github.event.inputs.stride || '4.4.0-beta5' }}
+  # Read by the test game at runtime rather than baked into its source: the heredoc below is
+  # quoted so C# interpolation survives, which also means nothing in it can be substituted.
+  # A plain `||` fallback, not a comparison with '': on a push or a cron there is no inputs object
+  # at all, and `null == ''` is TRUE in a GitHub expression — which would have quietly dropped the
+  # texture on precisely the runs nobody triggers by hand. Say 'none' to mean "no texture".
+  E2E_TEXTURE: ${{ github.event.inputs.texture || '/StridePlaceholderTextures/UVGrid' }}
 
 jobs:
   e2e:
@@ -145,29 +159,80 @@ jobs:
           using Stride.Core.Mathematics;
           using Stride.Engine;
           using Stride.Games;
+          using Stride.Graphics;
+          using Stride.Rendering;
           using Stride.Rendering.Compositing;
+          using Stride.Rendering.Lights;
+          using Stride.Rendering.Materials;
+          using Stride.Rendering.Materials.ComputeColors;
+          using Stride.Rendering.ProceduralModels;
 
           using var game = new E2EGame();
           game.Run();
 
           sealed class E2EGame : Game
           {
+              // Assets of a referenced package are addressed as /<package>/<asset> — the leading
+              // slash included, which the engine is strict about. "none" (or nothing) means the
+              // asset has no texture to draw, and the cube renders plain rather than the run being
+              // skipped: install, restore, compile and run are still worth proving for it.
+              private static readonly string? TextureUrl =
+                  Environment.GetEnvironmentVariable("E2E_TEXTURE") is { Length: > 0 } url
+                  && !url.Equals("none", StringComparison.OrdinalIgnoreCase) ? url : null;
+
               private int _frames;
 
-              protected override void Initialize()
+              // Built in LoadContent, not Initialize: a Texture deserialises straight into a GPU
+              // resource, and asking for one before the graphics device is up dies inside
+              // Texture.ConvertToNativeDescription2D with a null reference that explains nothing.
+              protected override async Task LoadContent()
               {
-                  base.Initialize();
+                  await base.LoadContent();
 
                   // A bare Game has no GameSettings and no GraphicsCompositor, so nothing is ever
                   // drawn: the window opens black and Draw is never reached. Build the minimum.
                   SceneSystem.GraphicsCompositor = GraphicsCompositorHelper.CreateDefault(true, clearColor: Color.CornflowerBlue);
                   var scene = new Scene();
+
                   var camera = new Entity("Camera")
                   {
                       new CameraComponent { Slot = SceneSystem.GraphicsCompositor.Cameras[0].ToSlotId() },
                   };
-                  camera.Transform.Position = new Vector3(0, 0, 5);
+                  camera.Transform.Position = new Vector3(0, 0, 3);
                   scene.Entities.Add(camera);
+
+                  var light = new Entity("Light") { new LightComponent { Intensity = 1.5f, Type = new LightDirectional() } };
+                  light.Transform.Rotation = Quaternion.RotationYawPitchRoll(
+                      MathUtil.DegreesToRadians(-30), MathUtil.DegreesToRadians(-45), 0);
+                  scene.Entities.Add(light);
+
+                  // Ambient as well as directional: with one light half the cube is black, and a
+                  // face nobody can see is a face the picture cannot vouch for.
+                  scene.Entities.Add(new Entity("Ambient")
+                  {
+                      new LightComponent { Intensity = 0.35f, Type = new LightAmbient() },
+                  });
+
+                  var attributes = new MaterialAttributes { DiffuseModel = new MaterialDiffuseLambertModelFeature() };
+                  if (TextureUrl is not null)
+                  {
+                      // The line the whole test exists for: this texture is only addressable because
+                      // the store installed the asset and its content was compiled into the game.
+                      var texture = Content.Load<Texture>(TextureUrl);
+                      attributes.Diffuse = new MaterialDiffuseMapFeature(new ComputeTextureColor(texture));
+                  }
+                  else
+                  {
+                      attributes.Diffuse = new MaterialDiffuseMapFeature(new ComputeColor(Color.Orange));
+                  }
+
+                  var model = new CubeProceduralModel { Size = new Vector3(1.2f) }.Generate(Services);
+                  model.Materials.Add(Material.New(GraphicsDevice, new MaterialDescriptor { Attributes = attributes }));
+
+                  var cube = new Entity("Cube") { new ModelComponent(model) };
+                  cube.Transform.Rotation = Quaternion.RotationYawPitchRoll(0.6f, 0.4f, 0);
+                  scene.Entities.Add(cube);
+
                   SceneSystem.SceneInstance = new SceneInstance(Services, scene);
               }
 
@@ -175,14 +240,24 @@ jobs:
               {
                   base.Draw(gameTime);
 
-                  // A file, not a console line: a Stride game's stdout isn't reliably captured, and
-                  // this sentinel is the entire verdict of the test. Reaching it means the engine
-                  // initialised, the asset build produced usable content, and frames are rendering.
-                  if (++_frames == 30)
+                  // A few frames before the shot: the first ones can land before the swap chain has
+                  // anything in it, and a black PNG would pass a test whose whole job is to be seen.
+                  if (++_frames != 30)
                   {
-                      File.WriteAllText("rendered.ok", $"{_frames} frames");
-                      Exit();
+                      return;
                   }
+
+                  using (var image = GraphicsDevice.Presenter.BackBuffer.GetDataAsImage(GraphicsContext.CommandList))
+                  using (var stream = File.OpenWrite("screenshot.png"))
+                  {
+                      image.Save(stream, ImageFileType.Png);
+                  }
+
+                  // A file, not a console line: a Stride game's stdout isn't reliably captured, and
+                  // this sentinel is the verdict. Reaching it means the engine initialised, the
+                  // asset build produced usable content, and a frame with that content is on disk.
+                  File.WriteAllText("rendered.ok", $"{_frames} frames, texture {TextureUrl ?? "(none)"}");
+                  Exit();
               }
           }
           EOF
@@ -211,7 +286,7 @@ jobs:
           # No `timeout` here: macOS doesn't ship it, and on Windows the name collides with a
           # System32 command that does something else entirely. Poll and kill instead, which
           # behaves the same on all three runners.
-          rm -f rendered.ok
+          rm -f rendered.ok screenshot.png
           if [ "${{ runner.os }}" = "Linux" ]; then
             xvfb-run -a --server-args="-screen 0 1280x720x24" dotnet run -c Release --no-build > run.log 2>&1 &
           else
@@ -236,11 +311,27 @@ jobs:
             || { echo "::error::the game never rendered a frame on ${{ matrix.os }}"; exit 1; }
           echo "rendered OK on ${{ matrix.os }} ($(cat rendered.ok))"
 
-      - name: Keep the log when something broke
-        if: failure()
+      - name: The frame was captured, and has something in it
+        working-directory: ${{ runner.temp }}/game
+        run: |
+          [ -f screenshot.png ] \
+            || { echo "::error::no screenshot.png on ${{ matrix.os }} — the frame rendered but could not be read back"; exit 1; }
+
+          # Size, not existence: a capture that fails halfway leaves a small valid PNG, and an empty
+          # file would otherwise pass a check whose entire purpose is that there is an image to see.
+          BYTES=$(wc -c < screenshot.png | tr -d ' ')
+          echo "screenshot.png is $BYTES bytes"
+          [ "$BYTES" -ge 5000 ] \
+            || { echo "::error::screenshot.png is $BYTES bytes on ${{ matrix.os }} — too small to be a rendered frame"; exit 1; }
+
+      # Always, not just on failure: the picture is the point of the run, and a green run's
+      # screenshots are what let you compare D3D11, llvmpipe and MoltenVK side by side.
+      - name: Keep the screenshot and the log
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: e2e-${{ matrix.os }}
           path: |
+            ${{ runner.temp }}/game/screenshot.png
             ${{ runner.temp }}/game/run.log
           if-no-files-found: ignore
