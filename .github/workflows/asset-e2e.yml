@@ -334,6 +334,17 @@ jobs:
           [ "$BYTES" -ge 5000 ] \
             || { echo "::error::screenshot.png is $BYTES bytes on ${{ matrix.os }} — too small to be a rendered frame"; exit 1; }
 
+      # The three jobs write the same file names, and merging artifacts merges paths: three
+      # screenshot.png at the same path collapse into one, which is how a single broken picture
+      # came out of a green run. The platform goes in the name before anything is uploaded.
+      - name: Label the picture with its platform
+        if: always()
+        working-directory: ${{ runner.temp }}/game
+        run: |
+          [ -f screenshot.png ] && mv screenshot.png "screenshot-${{ matrix.os }}.png"
+          [ -f run.log ] && mv run.log "run-${{ matrix.os }}.log"
+          ls -l screenshot-* run-* 2>/dev/null || true
+
       # Always, not just on failure: the picture is the point of the run, and a green run's
       # screenshots are what let you compare D3D11, llvmpipe and MoltenVK side by side.
       - name: Keep the screenshot and the log
@@ -342,8 +353,8 @@ jobs:
         with:
           name: e2e-${{ matrix.os }}
           path: |
-            ${{ runner.temp }}/game/screenshot.png
-            ${{ runner.temp }}/game/run.log
+            ${{ runner.temp }}/game/screenshot-${{ matrix.os }}.png
+            ${{ runner.temp }}/game/run-${{ matrix.os }}.log
           if-no-files-found: ignore
 
   # One zip instead of three: upload-artifact v4 gives every job its own artifact and cannot append

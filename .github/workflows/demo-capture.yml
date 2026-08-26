@@ -217,6 +217,16 @@ jobs:
           [ "$BYTES" -ge 5000 ] \
             || { echo "::error::demo.png is $BYTES bytes on ${{ matrix.os }} — too small to be a rendered frame"; exit 1; }
 
+      # The three jobs write the same file names, and merging artifacts merges paths: three
+      # demo.png at the same path collapse into one. The platform goes in the name first.
+      - name: Label the picture with its platform
+        if: always()
+        working-directory: asset/Demo.Capture
+        run: |
+          [ -f demo.png ] && mv demo.png "demo-${{ matrix.os }}.png"
+          [ -f run.log ] && mv run.log "run-${{ matrix.os }}.log"
+          ls -l demo-* run-* 2>/dev/null || true
+
       # Always: the picture is the point, and a failed run's log is how the author finds out why.
       - name: Keep the picture and the log
         if: always()
@@ -224,8 +234,8 @@ jobs:
         with:
           name: demo-${{ matrix.os }}
           path: |
-            asset/Demo.Capture/demo.png
-            asset/Demo.Capture/run.log
+            asset/Demo.Capture/demo-${{ matrix.os }}.png
+            asset/Demo.Capture/run-${{ matrix.os }}.log
           if-no-files-found: ignore
 
   # One zip instead of three: upload-artifact v4 gives every job its own artifact and cannot append
