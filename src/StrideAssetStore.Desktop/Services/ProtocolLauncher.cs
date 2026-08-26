@@ -6,8 +6,11 @@ using System.Diagnostics;
 namespace StrideAssetStore.Desktop.Services;
 
 /// <summary>
-/// <c>stride-assetstore://</c> protocol support — the bridge between the web storefront and the
-/// desktop app: the web Install button opens <c>stride-assetstore://install?id=…</c>, which lands
+/// <c>stride-assetstore://</c> protocol support. It was the bridge between the web storefront and
+/// the desktop app, and nothing in the store produces such a link any more: the scheme only ever
+/// registered itself on Windows, so the storefront's buttons could never work on Linux or macOS,
+/// and they now point at the tool instead. What remains handles a link someone saved, and the
+/// double-launch case. A protocol invocation opens <c>stride-assetstore://install?id=…</c>, which lands
 /// here. Windows-only registration for now (HKCU, no admin); other platforms still work by opening
 /// the app manually.
 /// </summary>

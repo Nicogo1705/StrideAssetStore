@@ -1,9 +1,10 @@
 # Discord announcement — copy/paste
 
-Post this once **v1.0.0 is tagged and GitHub Pages has redeployed** (the site's base path changed
-with the repository rename, so an earlier post would link to a broken page).
+The long-form announcement, kept here so it can be reused and kept true. The store was first
+announced during 0.9.x; this text is the one to adapt for a 1.0 post.
 
-Check first: <https://nicogo1705.github.io/StrideAssetStore/> loads and lists 8 assets.
+Check first: <https://nicogo1705.github.io/StrideAssetStore/> loads and lists the catalogue, and the
+version in its footer is the one you mean to announce.
 
 ---
 
@@ -46,7 +47,15 @@ catalogue currently targets `Stride.Engine 4.4.0-beta5`
 • `--stride <version>` retargets an asset to whatever build your game is on
 
 **Publishing is a pull request adding one JSON file.** You keep your repo, your license and your
-release cadence: <https://github.com/Nicogo1705/AssetContainer/blob/main/CONTRIBUTING.md>
+release cadence — and the whole path is in the tool:
+```
+strideassetstore new StrideCoolThing   # repo from the template, renamed and pushed
+strideassetstore check                 # manifest, media, README, layout
+strideassetstore tag 1.0.0             # the version people install
+strideassetstore publish               # opens the registry pull request
+```
+The desktop app does the same through a form. Details:
+<https://github.com/Nicogo1705/AssetContainer/blob/main/CONTRIBUTING.md>
 
 There are 8 assets in there right now, all mine — grass, procedural sky, marching cubes, Avalonia UI
 in Stride, dependency injection, and a few texture packs. It would be much more interesting with

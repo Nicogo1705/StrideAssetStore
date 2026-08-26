@@ -17,8 +17,8 @@ public sealed record AppPing(bool Running, string? Version);
 /// </summary>
 public static class RunningApp
 {
-    /// <summary>The port the desktop app serves on. Fixed, because the protocol handler and the
-    /// storefront's detection both hard-code it.</summary>
+    /// <summary>The port the desktop app serves on. Fixed, because the storefront's detection and
+    /// the tool's own start/stop/status both hard-code it.</summary>
     public const int Port = 5111;
 
     /// <summary>The <c>app</c> field /api/ping answers with — how a caller knows it reached us.</summary>

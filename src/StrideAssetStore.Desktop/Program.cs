@@ -9,7 +9,7 @@ using StrideAssetStore.Desktop.Components;
 
 const string Url = "http://localhost:5111";
 
-// stride-assetstore:// launch (from the web storefront's Install/Start buttons): if an instance is
+// stride-assetstore:// launch (a saved link — the storefront stopped producing them): if an instance is
 // already serving, just open the requested page in it and exit instead of failing to bind. This
 // applies to ANY protocol launch (including plain stride-assetstore://open with no mapped path).
 var launchPath = StrideAssetStore.Desktop.Services.ProtocolLauncher.ParseLaunchPath(args);

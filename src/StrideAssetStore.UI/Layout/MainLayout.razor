@@ -123,12 +123,14 @@
         </div>
     }
 
-    @if (_remoteControlNotice is not null)
+    @* What came of pressing an update button: the terminal opened, the tool is missing, nothing
+       could be started. It outlives the click, so it is a banner rather than a flash of text. *@
+    @if (_updateNotice is not null)
     {
         <div class="update-banner">
-            <span>🖥 @((MarkupString)_remoteControlNotice)</span>
+            <span>⬆ @((MarkupString)_updateNotice)</span>
             <span class="update-actions">
-                <button type="button" class="banner-close" aria-label="Dismiss" title="Hide" @onclick="() => _remoteControlNotice = null">✕</button>
+                <button type="button" class="banner-close" aria-label="Dismiss" title="Hide" @onclick="() => _updateNotice = null">✕</button>
             </span>
         </div>
     }
@@ -156,8 +158,8 @@
 @code {
     private static RenderFragment _dot(string title) => @<span class="nav-dot" title="@title">●</span>;
 
-    /// <summary>The update buttons report back here — same notice line as the remote controls.</summary>
-    private void SetUpdateNotice(string? notice) => _remoteControlNotice = notice;
+    /// <summary>Where the update buttons report back — the banner's own line.</summary>
+    private void SetUpdateNotice(string? notice) => _updateNotice = notice;
 
     private void OnAttentionChanged() => InvokeAsync(StateHasChanged);
 
@@ -186,8 +188,8 @@
         }
     }
 
-    /// <summary>Where the update buttons report back — the banner's own line.</summary>
-    private string? _remoteControlNotice;
+    /// <summary>Where the update buttons report back — the banner above renders it.</summary>
+    private string? _updateNotice;
 
     private async Task QuitAppAsync()
     {

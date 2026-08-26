@@ -51,8 +51,8 @@ strideassetstore app stop
 ### 3. The storefront in your browser
 
 [nicogo1705.github.io/StrideAssetStore](https://nicogo1705.github.io/StrideAssetStore/) — browse,
-search, filter and read asset pages. It can't touch your filesystem, so its Install button hands
-over to the desktop app through the `stride-assetstore://` protocol.
+search, filter and read asset pages. A web page can't touch your filesystem, so every asset page
+carries a **Command line** tab with the `strideassetstore add …` line for that asset, ready to copy.
 
 ### Stride versions
 
@@ -80,8 +80,17 @@ Publishing is a **pull request adding one JSON file** to the registry. You keep 
 your license and your release cadence; the store only records where it is and which commit it
 trusts. See the registry's
 [contributing guide](https://github.com/Nicogo1705/AssetContainer/blob/main/CONTRIBUTING.md) for the
-full walkthrough, or use the desktop app's **New asset** wizard, which creates the repository and fills
-the manifest — the **Manage** page then opens the registry pull request.
+full walkthrough — or do the whole thing from a terminal:
+
+```bash
+strideassetstore new StrideCoolThing   # repository from the store's template, renamed and pushed
+strideassetstore check                 # manifest, media, README, project layout
+strideassetstore tag 1.0.0             # the version people will install
+strideassetstore publish               # opens the registry pull request
+```
+
+The desktop app's **New asset** wizard and **Manage** page do exactly the same things through a
+form; both run the same code.
 
 To contribute to the tools in this repository instead, see [CONTRIBUTING.md](CONTRIBUTING.md).
 

@@ -96,18 +96,16 @@ It reports both versions, updates the app here (with its progress bar), and hand
 a terminal that opens once the command exits — a global tool cannot replace its own files while it
 runs. `update` remains the one for assets; these are the two programs, not the content.
 
-### Keeping the tool itself up to date
+Only the tool, without touching the app:
 
 ```bash
 dotnet tool update -g StrideAssetStore
 ```
 
 The tool checks nuget.org for a newer version at most once a day, in the background, and mentions it
-after the command's output. Set `STRIDEASSETSTORE_NO_UPDATE_CHECK=1` (or `NO_COLOR`) to turn that
-off; it is skipped automatically when output is redirected.
-
-Retargeting rewrites the asset's own project files in the shared cache, so it applies to every
-project that references that clone — not just this one.
+after the command's output — and every time you run `strideassetstore` with no arguments at all, which
+is someone looking it over rather than using it. Set `STRIDEASSETSTORE_NO_UPDATE_CHECK=1` (or
+`NO_COLOR`) to turn that off; it is skipped automatically when output is redirected.
 
 ### Solutions with more than one project
 
@@ -130,6 +128,9 @@ strideassetstore add grass --stride 4.4.0-beta5
 
 Without this, your project restores two Stride versions at once — or fails outright if the author's
 version isn't on your feeds.
+
+Retargeting rewrites the asset's own project files in the shared cache, so it applies to every
+project that references that clone — not just this one.
 
 ### The desktop app
 
@@ -232,12 +233,6 @@ asks first and points you at `deprecate`. All three open a pull request; a maint
 The same tool carries the commands behind the registry itself — `validate`, `build-index` and
 `generate-pages`. They need a checkout of the
 [AssetContainer](https://github.com/Nicogo1705/AssetContainer) repository and are documented there.
-
-## Publishing an asset
-
-Publishing is a pull request adding one JSON entry to the registry. The desktop app has a wizard for
-it; the store's [Publish page](https://nicogo1705.github.io/StrideAssetStore/publish) explains the
-manual route.
 
 ## License
 

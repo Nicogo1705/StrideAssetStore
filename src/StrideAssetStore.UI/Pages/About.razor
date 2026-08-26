@@ -39,7 +39,7 @@
         <li>The store <strong>hosts no assets</strong>. Each asset lives in <strong>its author's own public Git repo</strong>.</li>
         <li>A single public repo (<span class="mono">AssetContainer</span>) holds a <strong>registry</strong> of pointers and a CI-generated <strong>index</strong> (<span class="mono">index.lock.json</span>).</li>
         <li>The storefront is a <strong>static Blazor WebAssembly</strong> site on GitHub Pages — <strong>no backend server</strong>.</li>
-        <li><strong>Local-first</strong>: browsing and publishing run entirely in your browser; installing runs on a small <strong>local</strong> desktop app. No accounts, no telemetry, no server-side state.</li>
+        <li><strong>Local-first</strong>: browsing runs entirely in your browser; installing and publishing run on your machine — the <span class="mono">strideassetstore</span> CLI, or the small <strong>local</strong> desktop app, which is the same code with a UI. No accounts, no telemetry, no server-side state.</li>
         <li>Publishing = a <strong>pull request</strong> adding one JSON entry. Installing = clone + <span class="mono">&lt;ProjectReference&gt;</span>.</li>
         <li>Integrity comes from <strong>Git</strong> itself: every version is pinned to a <strong>commit SHA</strong>, plus a deterministic <strong>SHA-256</strong> of the asset folder.</li>
     </ul>
@@ -90,7 +90,7 @@
     <ul class="bullets">
         <li><strong>Author repos</strong> — the assets. The store never writes to them.</li>
         <li><strong>AssetContainer</strong> — the registry: PR-submitted entries, JSON schemas, catalog (categories/licenses), CI, and the generated <span class="mono">index.lock.json</span>.</li>
-        <li><strong>StrideAssetStore</strong> — the C# code: a pure Core library reused by a CLI, the WASM storefront, a shared Razor UI, and the desktop app. The same Razor UI runs in two hosts — WebAssembly (online storefront) and Blazor Server (the local desktop app) — so browsing and publishing work the same way in both; installing into a project is the desktop app's job.</li>
+        <li><strong>StrideAssetStore</strong> — the C# code: a pure Core library reused by a CLI, the WASM storefront, a shared Razor UI, and the desktop app. The same Razor UI runs in two hosts — WebAssembly (online storefront) and Blazor Server (the local desktop app) — so browsing and publishing work the same way in both. Anything that touches your machine (installing, tagging, submitting to the registry) needs the CLI or the desktop app, which share that code rather than each carrying their own.</li>
         <li><strong>Core vs Core.Local</strong> — Core holds only what a browser can run (models, catalog, search); everything needing a real machine (git, hashing, project files, the installer) lives in Core.Local, used by the desktop app and the CLI. The storefront's build fails if it ever gains a reference to it.</li>
         <li><strong>Without any app</strong> — <span class="mono">dotnet tool install -g StrideAssetStore</span> gives you <span class="mono">strideassetstore add/list/update/remove</span>, driving the same installer as the desktop app.</li>
     </ul>
@@ -115,7 +115,7 @@
     </ul>
     <p><strong>Publishing (in-browser).</strong></p>
     <ul class="bullets">
-        <li>A guided <strong>publish form</strong> and a <strong>manifest generator</strong> that build <span class="mono">manifest.json</span> and the registry entry, validate them live, and open the <strong>pull request</strong> for you — no local tooling required.</li>
+        <li>A guided <strong>publish form</strong> and a <strong>manifest generator</strong> that build <span class="mono">manifest.json</span> and the registry entry, validate them live, and open the <strong>pull request</strong> for you — no local tooling required. The CLI opens the same pull request with <span class="mono">strideassetstore publish</span>, through the same code.</li>
     </ul>
     <p><strong>Desktop app (local).</strong> Installing into a project and managing what is installed — see §12.</p>
 </section>
