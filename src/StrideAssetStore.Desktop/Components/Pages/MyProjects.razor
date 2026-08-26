@@ -979,6 +979,11 @@
     {
         "up-to-date" => @<span class="badge certified">up to date</span>,
         "outdated" => @<span class="badge" style="color:var(--warn);border-color:var(--warn)">outdated</span>,
+        // Ahead, not behind: this clone followed its branch past the last index build. There is
+        // nothing to update — the catalogue catches up on its next rebuild, and saying "outdated"
+        // here sends people to a button that makes the badge redder.
+        "ahead" => @<span class="badge" style="color:var(--accent);border-color:var(--accent)"
+                          title="This clone is newer than the catalogue — it followed its branch past the last index build. Nothing to do.">ahead of the catalogue</span>,
         "broken" => @<span class="badge" style="color:#fca5a5;border-color:rgba(239,68,68,.5)">⛔ incomplete</span>,
         "missing" => @<span class="badge" style="color:var(--accent);border-color:rgba(91,141,239,.5)">⇩ not downloaded</span>,
         _ => @<span class="badge">not in catalog</span>,

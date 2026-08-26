@@ -46,6 +46,9 @@ internal static class CliOutput
     {
         "up-to-date" => "[green]up-to-date[/]",
         "outdated" => "[yellow]outdated[/]",
+        // Ahead, not behind: this clone followed its branch past the last index build. Nothing to
+        // fix — the catalogue catches up on its next rebuild.
+        "ahead" => "[blue]ahead of the catalogue[/]",
         "missing" => "[yellow]missing[/]",
         "broken" => "[red]broken[/]",
         _ => $"[grey]{Markup.Escape(status)}[/]",

@@ -6,6 +6,7 @@ using StrideAssetStore.Core.Local.Git;
 using StrideAssetStore.Core.Local.Hashing;
 using StrideAssetStore.Core.Models;
 using StrideAssetStore.Core.Local.Projects;
+using System.Globalization;
 
 namespace StrideAssetStore.Core.Local.Install;
 
@@ -569,7 +570,7 @@ public sealed class AssetInstaller(GitClient? git = null)
                 ? ExpectedCommitFor(entry, followedRef)
                 : _git.ResolveRemoteCommit(ForkRepoUrl(fork), followedRef ?? "HEAD");
             assets.Add(new ProjectAsset(
-                manifest.Id, manifest.Name, StatusOf(installed, expected),
+                manifest.Id, manifest.Name, StatusOf(installed, expected, cloneRoot, entry),
                 installed, expected, "local", cloneRoot, referenced, null, include, followedRef ?? "",
                 // What the INSTALLED clone actually targets (its csproj), not the index's opinion.
                 SafeDetectStrideVersion(referenced) ?? entry?.Latest.DetectedStrideVersion, fork));
@@ -812,10 +813,52 @@ public sealed class AssetInstaller(GitClient? git = null)
         Directory.Delete(path, recursive: true);
     }
 
-    private static string StatusOf(string installedCommit, string? latestCommit) =>
-        latestCommit is null ? "unknown"
-        : string.Equals(latestCommit, installedCommit, StringComparison.OrdinalIgnoreCase) ? "up-to-date"
-        : "outdated";
+    /// <summary>
+    /// How a clone stands against the catalogue: up to date, behind it, or in front of it.
+    /// </summary>
+    /// <remarks>
+    /// "Different from the index" used to mean "outdated", which is wrong half the time and
+    /// alarming the other half: a clone that followed a branch past the last index build is ahead,
+    /// not behind, and telling someone to update it makes the badge redder rather than green. The
+    /// two are told apart by commit dates — the index records when its commit was authored, and
+    /// the clone knows its own — because a shallow clone does not have the other commit in its
+    /// history to compare ancestry with.
+    /// </remarks>
+    private string StatusOf(string installedCommit, string? latestCommit, string cloneRoot, IndexedAsset? entry)
+    {
+        if (latestCommit is null)
+        {
+            return "unknown";
+        }
+
+        if (string.Equals(latestCommit, installedCommit, StringComparison.OrdinalIgnoreCase))
+        {
+            return "up-to-date";
+        }
+
+        return IsAheadOfIndex(cloneRoot, installedCommit, entry) ? "ahead" : "outdated";
+    }
+
+    /// <summary>
+    /// Whether the clone sits on a commit made after the one the index describes — the shape of a
+    /// clone fetched between two index builds. False whenever it cannot be established, so the
+    /// answer defaults to the cautious one.
+    /// </summary>
+    private bool IsAheadOfIndex(string cloneRoot, string installedCommit, IndexedAsset? entry)
+    {
+        if (entry?.Latest.CommittedAt is not { Length: > 0 } indexedAt
+            || !DateTimeOffset.TryParse(indexedAt, CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind, out var indexedDate))
+        {
+            return false;
+        }
+
+        var cloneDate = _git.GetCommitDate(cloneRoot, installedCommit);
+        return cloneDate is { Length: > 0 }
+            && DateTimeOffset.TryParse(cloneDate, CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind, out var parsed)
+            && parsed > indexedDate;
+    }
 
     private static string ResolveInclude(string csprojPath, string include)
     {
@@ -980,7 +1023,8 @@ public sealed class AssetInstaller(GitClient? git = null)
             }
 
             var status = manifest is null ? "broken"
-                : StatusOf(installed, ExpectedCommitFor(entry, string.IsNullOrEmpty(refName) ? null : refName));
+                : StatusOf(installed, ExpectedCommitFor(entry, string.IsNullOrEmpty(refName) ? null : refName),
+                    cloneRoot, entry);
             result.Add(new CachedAsset(
                 manifest?.Id ?? "", manifest?.Name ?? Path.GetFileName(cloneRoot), refName, cloneRoot,
                 installed, status, DirectorySize(cloneRoot)));
