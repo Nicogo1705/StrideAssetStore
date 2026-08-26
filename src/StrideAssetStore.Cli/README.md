@@ -46,6 +46,17 @@ shared cache, unpacks the demo from that same clone, builds it and starts it. Th
 project that runs on Windows, Linux and macOS — Stride picks its graphics API from the machine it
 is built on.
 
+To fetch an asset without installing it anywhere — filling the cache before a flight, or looking at
+the source before deciding:
+
+```bash
+strideassetstore download grass          # into the shared cache, no project touched
+strideassetstore download grass --demo   # and unpack its demo, ready to build
+```
+
+It is the same clone `add` uses, in the same place, so installing it later finds it already there.
+`list --cached` shows everything downloaded.
+
 It asks first, and says whose repository the code comes from. Installing an asset puts source in a
 project you then choose to compile; this compiles and runs somebody else's code on the spot, which
 is a different thing and deserves the question. `--no-run` stops after the build.

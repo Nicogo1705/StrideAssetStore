@@ -89,6 +89,11 @@ app.Configure(config =>
         .WithExample("info", "grass")
         .WithExample("info", "grass", "--versions");
 
+    config.AddCommand<DownloadCommand>("download")
+        .WithDescription("Download an asset into the shared cache, without touching a project.")
+        .WithExample("download", "grass")
+        .WithExample("download", "grass", "--demo");
+
     config.AddCommand<DemoCommand>("demo")
         .WithDescription("Download, build and run an asset's demo — one command, any platform.")
         .WithExample("demo", "grass");
