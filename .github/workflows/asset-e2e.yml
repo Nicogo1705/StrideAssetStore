@@ -44,8 +44,8 @@ on:
         description: "Asset to install (id or unambiguous fragment)"
         default: "placeholder"
       texture:
-        description: "Content URL of a texture in that asset, drawn on the cube. 'none' = plain cube."
-        default: "/StridePlaceholderTextures/UVGrid"
+        description: "Content URL of a texture in that asset, drawn on the cube (no leading slash). 'none' = plain cube."
+        default: "StridePlaceholderTextures/UVGrid"
       stride:
         description: "Stride version the test game uses (must exist on nuget.org)"
         default: "4.4.0-beta5"
@@ -61,7 +61,12 @@ env:
   # A plain `||` fallback, not a comparison with '': on a push or a cron there is no inputs object
   # at all, and `null == ''` is TRUE in a GitHub expression — which would have quietly dropped the
   # texture on precisely the runs nobody triggers by hand. Say 'none' to mean "no texture".
-  E2E_TEXTURE: ${{ github.event.inputs.texture || '/StridePlaceholderTextures/UVGrid' }}
+  #
+  # And no leading slash, though the engine wants one: these steps run under Git Bash on Windows,
+  # whose MSYS layer rewrites anything that looks like an absolute POSIX path before handing it to
+  # a native process — "/StridePlaceholderTextures/UVGrid" reached the game as
+  # "C:/Program Files/Git/StridePlaceholderTextures/UVGrid". The game puts the slash back.
+  E2E_TEXTURE: ${{ github.event.inputs.texture || 'StridePlaceholderTextures/UVGrid' }}
 
 jobs:
   e2e:
@@ -173,13 +178,17 @@ jobs:
 
           sealed class E2EGame : Game
           {
-              // Assets of a referenced package are addressed as /<package>/<asset> — the leading
-              // slash included, which the engine is strict about. "none" (or nothing) means the
-              // asset has no texture to draw, and the cube renders plain rather than the run being
+              // Assets of a referenced package are addressed as /<package>/<asset>, leading slash
+              // included, which the engine is strict about — but the variable arrives without it,
+              // because Git Bash would rewrite an absolute POSIX path into a Windows one on its
+              // way to a native process. So it is added here. "none" (or nothing) means the asset
+              // has no texture to draw, and the cube renders plain rather than the run being
               // skipped: install, restore, compile and run are still worth proving for it.
               private static readonly string? TextureUrl =
                   Environment.GetEnvironmentVariable("E2E_TEXTURE") is { Length: > 0 } url
-                  && !url.Equals("none", StringComparison.OrdinalIgnoreCase) ? url : null;
+                  && !url.Equals("none", StringComparison.OrdinalIgnoreCase)
+                      ? "/" + url.TrimStart('/')
+                      : null;
 
               private int _frames;
 
