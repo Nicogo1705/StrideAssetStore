@@ -10,6 +10,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject ICliRunner Runner
+@inject IDemoRunner Demos
 
 @if (State.Loading)
 {
@@ -207,6 +208,38 @@ else
             @* Ordered by how much of the work is done for you: the app installs it, the tool does
                the same from a terminal, git leaves you to wire the reference yourself, and the
                package is only there for assets that publish one. *@
+            @* Above the tabs, not inside one: the demo is not another way to install the asset,
+               it is the thing that tells you whether you want it at all. *@
+            @if (Asset.Latest.DemoProject is not null)
+            {
+                <div class="install-cta demo-cta">
+                    @if (Demos.CanRun)
+                    {
+                        <button type="button" class="btn primary" disabled="@(_demo is { Stage: DemoStage.Downloading or DemoStage.Building })"
+                                @onclick="RunDemoAsync">▶ Run the demo</button>
+                        <span class="install-hint">
+                            @if (_demo is { } state && state.Stage != DemoStage.Idle)
+                            {
+                                @state.Message
+                            }
+                            else
+                            {
+                                @* Said before the click, not after: this compiles and runs code from
+                                   somebody else's repository on this machine. *@
+                                <text>Builds and runs code from <span class="mono">@Asset.Repo</span> on your machine — a few minutes the first time.</text>
+                            }
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="install-hint" style="margin:0">
+                            ▶ <strong>This asset has a demo.</strong> Run it with
+                            <span class="mono">strideassetstore demo @Asset.Id</span>, or from the desktop app.
+                        </span>
+                    }
+                </div>
+            }
+
             <div class="modes" role="tablist">
                 <button class="mode @(_view == "install" ? "active" : "")" role="tab" aria-selected="@(_view == "install")"
                         @onclick='() => _view = "install"'>⤓ Install with the app</button>
@@ -690,6 +723,24 @@ else
             : Asset!.Versions.FirstOrDefault(v => v.Tag == _versionRef)?.Version ?? Asset.Manifest.Nuget?.PackageVersion;
 
     private string NugetCommand => GitLinks.AddPackageCommand(Asset!.Manifest.Nuget!.PackageId, NugetVersion);
+
+    private DemoProgress? _demo;
+
+    /// <summary>
+    /// Fetches, builds and starts the asset's demo, reporting each stage. Nothing is confirmed
+    /// twice: the hint under the button says what the click does before it is clicked.
+    /// </summary>
+    private async Task RunDemoAsync()
+    {
+        var progress = new Progress<DemoProgress>(p => InvokeAsync(() =>
+        {
+            _demo = p;
+            StateHasChanged();
+        }));
+
+        _demo = new DemoProgress(DemoStage.Downloading, "Starting…");
+        _demo = await Demos.RunAsync(Asset!, progress);
+    }
 
     private async Task RunCliAddAsync()
     {

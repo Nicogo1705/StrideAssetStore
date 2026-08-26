@@ -89,6 +89,10 @@ app.Configure(config =>
         .WithExample("info", "grass")
         .WithExample("info", "grass", "--versions");
 
+    config.AddCommand<DemoCommand>("demo")
+        .WithDescription("Download, build and run an asset's demo — one command, any platform.")
+        .WithExample("demo", "grass");
+
     config.AddCommand<AddCommand>("add")
         .WithDescription("Install an asset into the project you are in.")
         .WithExample("add", "com.nicogo.grass")

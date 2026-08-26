@@ -1,0 +1,228 @@
+name: "Run an asset's demo and photograph it (Win/Linux/macOS)"
+
+# The strongest thing the store can say about an asset is "we ran its demo, on three operating
+# systems, and here is the frame". This does that: clone the asset, build the demo the way a user
+# would, start it through a generated entry point that waits for the scene, saves the back buffer
+# and exits — then upload the picture.
+#
+# The demo is the author's code, and it runs here. That is deliberate but not free, so the rules
+# are written down rather than remembered:
+#   - contents: read, and no secret is referenced. A token that can only read a public repository
+#     is worth nothing to steal.
+#   - no actions/cache. A cache poisoned by somebody's demo would cross into workflows that are
+#     not sandboxed like this one.
+#   - triggered by hand or by a push to this repository — never by an event a stranger controls.
+#     Running a demo from a submission pull request is the shape of every Actions vulnerability
+#     worth the name.
+#
+# Nothing gates on this workflow: no job in the repository lists it in `needs`, and it never runs
+# on a tag. A red run here says something about an asset, not about a release.
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "Asset repository (owner/name)"
+        default: "Nicogo1705/StrideGrassSystem"
+      ref:
+        description: "Branch or tag to check out"
+        default: ""
+      settle:
+        description: "Seconds to let the demo settle once its scene exists"
+        default: "6"
+
+permissions:
+  contents: read
+
+env:
+  ASSET_REPO: ${{ github.event.inputs.repo || 'Nicogo1705/StrideGrassSystem' }}
+  ASSET_REF: ${{ github.event.inputs.ref || '' }}
+  DEMO_SETTLE_SECONDS: ${{ github.event.inputs.settle || '6' }}
+
+jobs:
+  demo:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # Same three platform quirks as asset-e2e: Ubuntu's trust store rejects NuGet's signatures,
+      # macOS has no Vulkan without MoltenVK, and a headless Linux runner has no GPU at all.
+      - name: Linux — NuGet signature verification off
+        if: runner.os == 'Linux'
+        run: echo "DOTNET_NUGET_SIGNATURE_VERIFICATION=false" >> "$GITHUB_ENV"
+
+      - name: Vulkan on macOS (MoltenVK)
+        if: runner.os == 'macOS'
+        run: |
+          brew install --quiet molten-vk
+          PREFIX="$(brew --prefix molten-vk)"
+          {
+            echo "DYLD_LIBRARY_PATH=$PREFIX/lib"
+            echo "VK_ICD_FILENAMES=$PREFIX/share/vulkan/icd.d/MoltenVK_icd.json"
+          } >> "$GITHUB_ENV"
+
+      - name: Graphics stack for a headless Linux runner
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb mesa-utils libgl1 libglx-mesa0 libvulkan1 mesa-vulkan-drivers libsdl2-2.0-0 libopenal1
+
+      - name: Clone the asset
+        run: |
+          if [ -n "$ASSET_REF" ]; then
+            git clone --depth 1 --branch "$ASSET_REF" "https://github.com/$ASSET_REPO" asset
+          else
+            git clone --depth 1 "https://github.com/$ASSET_REPO" asset
+          fi
+          [ -f asset/Demo/Demo.csproj ] \
+            || { echo "::error::$ASSET_REPO has no Demo/Demo.csproj — nothing to run"; exit 1; }
+
+      # The demo stays a plain `new Game(); game.Run();` — the thing a user runs. The frame counter,
+      # the capture and the exit are ours, in a project generated beside it, so no author carries
+      # test code and what runs here is still their scene, their scripts, their settings.
+      - name: Generate the capture head
+        run: |
+          mkdir -p asset/Demo.Capture
+          cat > asset/Demo.Capture/Demo.Capture.csproj <<'EOF'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net10.0</TargetFramework>
+              <ImplicitUsings>enable</ImplicitUsings>
+              <Nullable>enable</Nullable>
+              <StrideProjectType>Executable</StrideProjectType>
+              <StrideCurrentPackagePath>$(MSBuildThisFileDirectory)..\Demo\Demo.sdpkg</StrideCurrentPackagePath>
+              <StridePlatform Condition="$([MSBuild]::IsOSPlatform('Windows'))">Windows</StridePlatform>
+              <StridePlatform Condition="$([MSBuild]::IsOSPlatform('Linux'))">Linux</StridePlatform>
+              <StridePlatform Condition="$([MSBuild]::IsOSPlatform('OSX'))">macOS</StridePlatform>
+            </PropertyGroup>
+            <ItemGroup>
+              <ProjectReference Include="..\Demo\Demo.csproj" />
+            </ItemGroup>
+          </Project>
+          EOF
+
+          cat > asset/Demo.Capture/Program.cs <<'EOF'
+          using Stride.Engine;
+          using Stride.Games;
+          using Stride.Graphics;
+
+          using var game = new CaptureGame();
+          game.Run();
+
+          sealed class CaptureGame : Game
+          {
+              // Seconds to let the demo settle once its scene exists: shaders compile on first use,
+              // and a capture taken the instant the scene appears shows a half-built frame.
+              private static readonly float SettleSeconds =
+                  float.TryParse(Environment.GetEnvironmentVariable("DEMO_SETTLE_SECONDS"), out var s) ? s : 6f;
+
+              // A ceiling, so a demo that never loads fails as a timeout instead of hanging the job.
+              private static readonly float DeadlineSeconds =
+                  float.TryParse(Environment.GetEnvironmentVariable("DEMO_DEADLINE_SECONDS"), out var d) ? d : 120f;
+
+              private float _sceneAppearedAt = -1f;
+
+              protected override void Draw(GameTime gameTime)
+              {
+                  base.Draw(gameTime);
+                  var now = (float)gameTime.Total.TotalSeconds;
+
+                  // Waiting on the scene rather than on a frame count: in a release build Stride
+                  // shows its splash while the scene loads, and "capture at frame 240" landed
+                  // squarely on the logo — the one thing the picture must not be.
+                  if (_sceneAppearedAt < 0f)
+                  {
+                      if (SceneSystem.SceneInstance?.RootScene is { } root && root.Entities.Count > 0)
+                      {
+                          _sceneAppearedAt = now;
+                          Console.WriteLine($"scene up at {now:F1}s with {root.Entities.Count} entities");
+                      }
+                      else if (now > DeadlineSeconds)
+                      {
+                          Console.WriteLine($"no scene after {now:F1}s — giving up");
+                          Exit();
+                      }
+
+                      return;
+                  }
+
+                  if (now - _sceneAppearedAt < SettleSeconds)
+                  {
+                      return;
+                  }
+
+                  using (var image = GraphicsDevice.Presenter.BackBuffer.GetDataAsImage(GraphicsContext.CommandList))
+                  using (var stream = File.OpenWrite("demo.png"))
+                  {
+                      image.Save(stream, ImageFileType.Png);
+                  }
+
+                  File.WriteAllText("demo.ok", $"captured at {now:F1}s");
+                  Console.WriteLine($"captured at {now:F1}s");
+                  Exit();
+              }
+          }
+          EOF
+
+      - name: Build the demo
+        working-directory: asset/Demo.Capture
+        run: dotnet build -c Release --nologo
+
+      - name: Run it and take the picture
+        working-directory: asset/Demo.Capture
+        run: |
+          rm -f demo.png demo.ok
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            xvfb-run -a --server-args="-screen 0 1280x720x24" dotnet run -c Release --no-build > run.log 2>&1 &
+          else
+            dotnet run -c Release --no-build > run.log 2>&1 &
+          fi
+          PID=$!
+
+          # Poll and kill rather than `timeout`: macOS doesn't ship it and on Windows the name
+          # collides with a System32 command that does something else entirely.
+          for _ in $(seq 1 150); do
+            [ -f demo.ok ] && break
+            kill -0 "$PID" 2>/dev/null || break
+            sleep 2
+          done
+
+          kill "$PID" 2>/dev/null || true
+          wait "$PID" 2>/dev/null || true
+          cat run.log || true
+
+      - name: The demo rendered, and the picture has something in it
+        working-directory: asset/Demo.Capture
+        run: |
+          [ -f demo.ok ] \
+            || { echo "::error::the demo never reached a rendered scene on ${{ matrix.os }}"; exit 1; }
+          [ -f demo.png ] \
+            || { echo "::error::no demo.png on ${{ matrix.os }} — it rendered but could not be read back"; exit 1; }
+
+          BYTES=$(wc -c < demo.png | tr -d ' ')
+          echo "demo.png is $BYTES bytes ($(cat demo.ok))"
+          [ "$BYTES" -ge 5000 ] \
+            || { echo "::error::demo.png is $BYTES bytes on ${{ matrix.os }} — too small to be a rendered frame"; exit 1; }
+
+      # Always: the picture is the point, and a failed run's log is how the author finds out why.
+      - name: Keep the picture and the log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: demo-${{ matrix.os }}
+          path: |
+            asset/Demo.Capture/demo.png
+            asset/Demo.Capture/run.log
+          if-no-files-found: ignore

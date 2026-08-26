@@ -241,6 +241,10 @@ a.theme-toggle:hover { text-decoration: none; }
 .install-cta { display: flex; align-items: center; gap: .7rem; margin-bottom: 1rem; padding: .7rem .8rem;
     background: color-mix(in srgb, var(--accent) 10%, var(--surface-2)); border: 1px solid var(--accent);
     border-radius: var(--radius); flex-wrap: wrap; }
+/* The demo sits above the install tabs and keeps its frame: it is the loudest thing on the page,
+   which is the point — trying an asset beats reading about it. */
+.demo-cta { margin-top: 1rem; }
+
 /* Inside a tab panel the call-out is already framed by it; a second border reads as a nested box. */
 .mode-panel .install-cta.plain { background: none; border: none; padding: 0; margin-bottom: 0; }
 

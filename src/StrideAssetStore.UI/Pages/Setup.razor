@@ -316,6 +316,15 @@ else
             new("--take", "How many results", "Defaults to 20.", OptKind.Number, Placeholder: "20"),
         }, CatalogOptions));
 
+    private static readonly CmdSpec Demo = new("demo", "demo", "demo",
+        "Download, build and run an asset's demo. It asks first: this compiles and runs code from the author's repository on your machine.",
+        new("Asset", "Asset id, or enough of it to be unambiguous.", "com.nicogo.grass", Required: true),
+        With(new CmdOpt[]
+        {
+            new("--no-run", "", "Build it, but don't start it.", OptKind.Flag),
+            new("--yes", "", "Don't ask before building and running the author's code.", OptKind.Flag, Advanced: true),
+        }, CatalogOptions));
+
     private static readonly CmdSpec Add = new("add", "add", "add",
         "Install an asset into a project: download it, then reference it.",
         new("Asset", "Asset id, or enough of it to be unambiguous.", "com.nicogo.grass", Required: true),
@@ -459,7 +468,7 @@ else
 
     private static readonly CmdGroup[] Groups =
     [
-        new("Assets", [Search, Info, Add, Forks, ListAssets, Update, Remove]),
+        new("Assets", [Search, Info, Demo, Add, Forks, ListAssets, Update, Remove]),
         new("Authoring", [NewAsset, Check, Tag]),
         new("Registry", [Publish, Certify, Deprecate, Unpublish]),
         new("This app",

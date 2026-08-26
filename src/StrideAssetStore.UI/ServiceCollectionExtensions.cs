@@ -59,6 +59,7 @@ public static class ServiceCollectionExtensions
 
         // Same split for running commands: the browser can only ever offer them to copy.
         services.AddScoped<ICliRunner, NullCliRunner>();
+        services.AddScoped<IDemoRunner, NullDemoRunner>();
 
         return services;
     }

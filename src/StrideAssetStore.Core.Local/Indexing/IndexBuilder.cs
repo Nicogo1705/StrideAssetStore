@@ -157,6 +157,7 @@ public sealed class IndexBuilder(
                 ContentHash = hash.Hash,
                 DetectedStrideVersion = strideVersion,
                 TargetFramework = inspect.Tfm,
+                DemoProject = DemoProjectPath(checkout.RepositoryRoot),
                 ExternalDependencies = inspect.Packages,
                 DirectDependencies = directDeps.TryGetValue(entry.Id, out var direct) ? direct : [],
                 ResolvedDependencies = resolution.Dependencies,
@@ -215,6 +216,17 @@ public sealed class IndexBuilder(
             ValidationStatus = status,
         };
     }
+
+    /// <summary>
+    /// The asset's runnable demo, or null. One shape is recognised — <c>Demo/Demo.csproj</c>, what
+    /// the template generates — because "the demo" has to mean one thing for the store to offer to
+    /// build and run it, and a convention nobody can misspell beats a flexible one. Read from the
+    /// commit's tree, so a sparse checkout that never materialised the folder still finds it.
+    /// </summary>
+    private string? DemoProjectPath(string repositoryRoot) =>
+        _git.PathInTree(repositoryRoot, DemoProjectFile) ? DemoProjectFile : null;
+
+    private const string DemoProjectFile = "Demo/Demo.csproj";
 
     private static IReadOnlyList<IndexedCertifiedVersion> MapCertified(RegistryEntry entry) =>
         entry.Certified.Select(c => new IndexedCertifiedVersion
@@ -397,6 +409,7 @@ public sealed class IndexBuilder(
                     ContentHash = hash.Hash,
                     DetectedStrideVersion = strideVersion,
                     TargetFramework = inspect.Tfm,
+                    DemoProject = DemoProjectPath(checkout.RepositoryRoot),
                     ExternalDependencies = inspect.Packages,
                     DirectDependencies = direct,
                     ResolvedDependencies = direct, // replaced with transitive set by the caller

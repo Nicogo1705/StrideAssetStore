@@ -164,6 +164,22 @@ public sealed class GitClient(string gitExecutable = "git")
     }
 
     /// <summary>
+    /// Whether <paramref name="path"/> exists in the checked-out commit.
+    /// </summary>
+    /// <remarks>
+    /// Asked of the object tree, not of the working directory: the store's clones are sparse — only
+    /// <c>AssetData/</c> is materialised — so a folder can be perfectly present in the commit and
+    /// absent from disk. This is how the index learns that an asset ships a demo without cloning a
+    /// single extra byte.
+    /// </remarks>
+    public bool PathInTree(string repositoryPath, string path)
+    {
+        RejectOptionLike(path);
+        var (exitCode, output, _) = Run(repositoryPath, "ls-tree", "--name-only", "HEAD", "--", path);
+        return exitCode == 0 && !string.IsNullOrWhiteSpace(output);
+    }
+
+    /// <summary>
     /// Removes a sparse-checkout restriction from an existing clone and restores the full working
     /// tree. No-op when there is none.
     /// </summary>

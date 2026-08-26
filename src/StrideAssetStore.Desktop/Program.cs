@@ -104,6 +104,10 @@ builder.Services.AddScoped<StrideAssetStore.App.Services.ICliPublisher>(sp =>
 builder.Services.AddScoped<StrideAssetStore.App.Services.ICliRunner,
     StrideAssetStore.Desktop.Services.CliTerminalRunner>();
 
+// And it can build and run an asset's demo — the same steps the CLI's `demo` command runs.
+builder.Services.AddScoped<StrideAssetStore.App.Services.IDemoRunner,
+    StrideAssetStore.Desktop.Services.DesktopDemoRunner>();
+
 var app = builder.Build();
 
 // A page that fails to render (bad server response, unexpected data) must never leave the user

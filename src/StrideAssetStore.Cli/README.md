@@ -25,6 +25,7 @@ from the current directory, so there is usually nothing to configure.
 ```bash
 strideassetstore search grass              # find something
 strideassetstore info grass                # everything about it, including its published versions
+strideassetstore demo grass                # download, build and run its demo — any platform
 strideassetstore add grass                 # install it into this project
 strideassetstore list                      # what this project references, and its status
 strideassetstore update                    # bring every outdated asset up to date
@@ -33,6 +34,21 @@ strideassetstore remove grass              # take it back out
 
 An asset id is long, so any unambiguous fragment works: `add grass` resolves to
 `com.nicogo.grass`. When it is ambiguous the command says so instead of guessing.
+
+### Trying an asset before installing it
+
+```bash
+strideassetstore demo grass
+```
+
+Assets that ship a `Demo/Demo.csproj` can be run in one command: it downloads the asset into the
+shared cache, unpacks the demo from that same clone, builds it and starts it. The demo is one
+project that runs on Windows, Linux and macOS — Stride picks its graphics API from the machine it
+is built on.
+
+It asks first, and says whose repository the code comes from. Installing an asset puts source in a
+project you then choose to compile; this compiles and runs somebody else's code on the spot, which
+is a different thing and deserves the question. `--no-run` stops after the build.
 
 ### Versions
 

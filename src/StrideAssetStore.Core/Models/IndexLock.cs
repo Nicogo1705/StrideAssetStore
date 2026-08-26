@@ -74,6 +74,14 @@ public sealed record IndexedVersion
     /// <summary>Target framework(s) read from the .csproj (e.g. net10.0), or null.</summary>
     public string? TargetFramework { get; init; }
 
+    /// <summary>
+    /// Path of the asset's runnable demo project (<c>Demo/Demo.csproj</c>), or null when it has
+    /// none. Found in the repository rather than declared in the manifest: a flag an author sets by
+    /// hand can say "there is a demo" when there isn't, and stay false long after one appears —
+    /// and this is the value the store offers to build and run on somebody's machine.
+    /// </summary>
+    public string? DemoProject { get; init; }
+
     /// <summary>NuGet packages the project references (external dependencies, not store assets).</summary>
     public IReadOnlyList<IndexedPackage> ExternalDependencies { get; init; } = [];
 
