@@ -1,4 +1,5 @@
 name: "Build & test the solution"
+run-name: "Building and testing on Windows, Linux and macOS"
 
 # Build the whole solution and run the tests on every push to main and every PR. Release tags are
 # covered by release.yml's own test job, which gates the publish. This workflow deliberately does not

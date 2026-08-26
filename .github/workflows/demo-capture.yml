@@ -1,4 +1,5 @@
 name: "Run an asset's demo and photograph it (Win/Linux/macOS)"
+run-name: "Running the demo of ${{ github.event.inputs.repo || 'Nicogo1705/StrideGrassSystem' }} on three platforms"
 
 # The strongest thing the store can say about an asset is "we ran its demo, on three operating
 # systems, and here is the frame". This does that: clone the asset, build the demo the way a user

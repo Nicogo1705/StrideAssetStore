@@ -1,4 +1,5 @@
 name: "Publish the storefront to GitHub Pages"
+run-name: "Publishing the storefront to GitHub Pages"
 
 # Publishes the Blazor WASM store to GitHub Pages on every push to main, and once more after every
 # release: release.yml dispatches this workflow when the tag is out, so the site picks up the new
