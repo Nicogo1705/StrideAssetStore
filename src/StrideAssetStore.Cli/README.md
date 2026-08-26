@@ -29,6 +29,7 @@ strideassetstore demo grass                # download, build and run its demo â€
 strideassetstore add grass                 # install it into this project
 strideassetstore list                      # what this project references, and its status
 strideassetstore update                    # bring every outdated asset up to date
+strideassetstore update --cached           # refresh every clone in the cache, from anywhere
 strideassetstore remove grass              # take it back out
 ```
 

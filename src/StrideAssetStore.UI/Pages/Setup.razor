@@ -384,6 +384,8 @@ else
             new("--version", "Version", "Switch to a published version instead of following the current ref.",
                 Placeholder: "1.1.0", Conflicts: ["--ref"]),
             new("--ref", "Git ref", "Switch to a raw branch, tag or commit.", Placeholder: "main", Advanced: true),
+            new("--cached", "", "Update every clone in the shared cache instead of one project's assets. Needs no project, so it works from anywhere.",
+                OptKind.Flag, Conflicts: ["--version", "--ref"]),
         }, [TargetOption], ProjectOptions, CatalogOptions));
 
     private static readonly CmdSpec Remove = new("remove", "remove", "remove",

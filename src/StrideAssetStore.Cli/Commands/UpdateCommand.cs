@@ -23,6 +23,10 @@ internal sealed class UpdateSettings : ProjectScopedSettings
     [CommandOption("--ref <REF>")]
     [Description("Switch to a raw git ref (branch, tag or commit).")]
     public string? Ref { get; init; }
+
+    [CommandOption("--cached")]
+    [Description("Update every clone in the shared cache, whatever project uses it. Needs no project.")]
+    public bool Cached { get; init; }
 }
 
 /// <summary>
@@ -44,6 +48,21 @@ internal sealed class UpdateCommand : AsyncCommand<UpdateSettings>
 
         var catalog = CatalogAccess.ById(index);
         var installer = new AssetInstaller();
+
+        if (settings.Cached)
+        {
+            // Before the project is resolved: the point of --cached is to work from anywhere,
+            // including a directory that has no solution anywhere above it.
+            if (settings.Version is not null || settings.Ref is not null)
+            {
+                AnsiConsole.MarkupLine(
+                    "[red]--version and --ref change what a project references[/] — they need a project, so they don't combine with --cached.");
+                return 1;
+            }
+
+            return UpdateCache(installer, catalog, settings.Asset);
+        }
+
         var target = ProjectTarget.Resolve(settings.Target);
         var view = installer.Analyze(target, catalog);
 
@@ -83,8 +102,82 @@ internal sealed class UpdateCommand : AsyncCommand<UpdateSettings>
     }
 
     private static bool Matches(ProjectAsset asset, string query) =>
-        asset.Id.Contains(query, StringComparison.OrdinalIgnoreCase)
-        || asset.Name.Contains(query, StringComparison.OrdinalIgnoreCase);
+        Matches(asset.Id, asset.Name, query);
+
+    private static bool Matches(string id, string name, string query) =>
+        id.Contains(query, StringComparison.OrdinalIgnoreCase)
+        || name.Contains(query, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Updates the clones in the shared cache rather than one project's assets.
+    /// </summary>
+    /// <remarks>
+    /// The project-scoped path can only reach what the current solution happens to reference, so
+    /// someone with several solutions had to walk into each one to update the same clone. Clones are
+    /// shared: refreshing one here refreshes it for every project on the machine. This is what the
+    /// desktop app's "My assets" page does, and it uses the same two calls.
+    /// </remarks>
+    private static int UpdateCache(
+        AssetInstaller installer,
+        IReadOnlyDictionary<string, IndexedAsset> catalog,
+        string? filter)
+    {
+        var cached = installer.ListCachedAssets(catalog)
+            .Where(a => filter is null || Matches(a.Id, a.Name, filter))
+            .ToList();
+
+        if (cached.Count == 0)
+        {
+            AnsiConsole.MarkupLine(filter is null
+                ? "[grey]Nothing in the cache — install an asset with `add`, or fetch one with `download`.[/]"
+                : $"[red]'{filter}' is not in the cache.[/]");
+            return 1;
+        }
+
+        var changed = 0;
+        var failed = 0;
+        foreach (var asset in cached)
+        {
+            if (asset.Status == "up-to-date")
+            {
+                AnsiConsole.MarkupLineInterpolated($"[grey]• {asset.Name} is already up to date.[/]");
+                continue;
+            }
+
+            // Ahead of the catalogue: this clone followed its branch past the last index build.
+            // Fetching would not move it, and calling that an update would be a lie.
+            if (asset.Status == "ahead")
+            {
+                AnsiConsole.MarkupLineInterpolated(
+                    $"[blue]• {asset.Name} is ahead of the catalogue[/] — nothing to fetch.");
+                continue;
+            }
+
+            // A legacy clone records no ref in its path; the catalogue knows the one it follows.
+            var reference = string.IsNullOrEmpty(asset.Ref)
+                ? (catalog.TryGetValue(asset.Id, out var entry) ? entry.Latest.Ref : "main")
+                : asset.Ref;
+
+            var commit = installer.UpdateInstalled(asset.CloneRoot, reference);
+            if (commit is null)
+            {
+                AnsiConsole.MarkupLineInterpolated($"[red]✗ {asset.Name}: git couldn't update {reference}.[/]");
+                failed++;
+                continue;
+            }
+
+            changed++;
+            AnsiConsole.MarkupLineInterpolated(
+                $"[green]✓ {asset.Name}[/] → {commit[..Math.Min(7, commit.Length)]} ({reference})");
+        }
+
+        if (changed == 0 && failed == 0)
+        {
+            AnsiConsole.MarkupLine("[green]Every clone in the cache is up to date.[/]");
+        }
+
+        return failed > 0 ? 1 : 0;
+    }
 
     private static int UpdateAll(
         AssetInstaller installer,
