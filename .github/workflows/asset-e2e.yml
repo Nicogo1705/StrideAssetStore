@@ -345,3 +345,18 @@ jobs:
             ${{ runner.temp }}/game/screenshot.png
             ${{ runner.temp }}/game/run.log
           if-no-files-found: ignore
+
+  # One zip instead of three: upload-artifact v4 gives every job its own artifact and cannot append
+  # to a shared one, so the matrix is merged afterwards. `always()` because a red run's pictures are
+  # the ones worth looking at.
+  collect:
+    needs: e2e
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/upload-artifact/merge@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e2e-three-platforms
+          pattern: e2e-*
+          delete-merged: true
