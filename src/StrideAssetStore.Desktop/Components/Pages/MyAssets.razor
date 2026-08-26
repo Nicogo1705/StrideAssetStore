@@ -7,6 +7,7 @@
 @inject AssetInstaller Installer
 @inject AttentionState Attention
 @inject AuthorRepoService Authors
+@inject IDemoRunner Demos
 @inject RegistryOptions Registry
 @inject GhCliPublisher Publisher
 
@@ -199,6 +200,14 @@ else
                             <button class="btn" @onclick="() => Update(asset)" disabled="@_busy">Update</button>
                         }
                         <button class="btn" title="Open in Explorer" @onclick="() => OpenFolder(asset)">📂 Open</button>
+                        @* Already downloaded, so running its demo is a build away — this is the
+                           shortest path there is to seeing what an asset does. *@
+                        @if (State.Find(asset.Id)?.Latest.DemoProject is not null)
+                        {
+                            <button class="btn" title="Build and run this asset's demo"
+                                    @onclick="() => RunDemo(asset)" disabled="@_busy">▶ Demo</button>
+                        }
+
                         @* Retargeting existed only from My projects, where it aligns a clone with
                            the project you were looking at. Here there is no project to align to —
                            the point is the clone itself, which is what every project using it gets. *@
@@ -804,6 +813,44 @@ else
         }
         _ = Attention.RefreshAsync(); // update/delete funnel through here - keep the nav dots honest
         await RefreshAuthors(); // guarded internally
+    }
+
+    /// <summary>
+    /// Builds and starts a downloaded asset's demo, reporting progress in the same log the other
+    /// actions use. It is the author's code: the asset page says so before the first run, and this
+    /// row only exists for something already on the machine.
+    /// </summary>
+    private async Task RunDemo(CachedAsset cached)
+    {
+        if (State.Find(cached.Id) is not { } asset)
+        {
+            return;
+        }
+
+        _busy = true;
+        _messages = null;
+        try
+        {
+            var progress = new Progress<DemoProgress>(p => InvokeAsync(() =>
+            {
+                Say(p.Message);
+                StateHasChanged();
+            }));
+
+            var result = await Demos.RunAsync(asset, progress);
+            if (result.Stage == DemoStage.Failed)
+            {
+                _error = result.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"The demo failed: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     /// <summary>

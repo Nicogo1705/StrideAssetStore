@@ -69,9 +69,10 @@ internal sealed class DemoCommand : AsyncCommand<DemoSettings>
         var installer = new AssetInstaller();
         var catalog = index.Assets.ToDictionary(a => a.Id, StringComparer.Ordinal);
 
-        // The same download an install does, into the same shared cache: a demo you ran and an
-        // asset you installed are the same clone, not two copies of the same commit.
-        var download = installer.DownloadToCache(asset, catalog);
+        // The ref is passed on purpose: without it the clone lands in the cache's legacy flat root
+        // while `add` uses the versioned one, and the same asset would be downloaded twice into two
+        // folders. A demo you ran and an asset you installed are meant to be the same clone.
+        var download = installer.DownloadToCache(asset, catalog, refFolder: asset.Latest.Ref);
         foreach (var message in download.Messages)
         {
             AnsiConsole.MarkupLineInterpolated($"{message}");

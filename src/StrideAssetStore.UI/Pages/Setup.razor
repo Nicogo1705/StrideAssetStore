@@ -325,6 +325,17 @@ else
             new("--yes", "", "Don't ask before building and running the author's code.", OptKind.Flag, Advanced: true),
         }, CatalogOptions));
 
+    private static readonly CmdSpec Download = new("download", "download", "download",
+        "Download an asset into the shared cache without touching a project — before there is a project, or to look at the source first. The same clone add would use.",
+        new("Asset", "Asset id, or enough of it to be unambiguous.", "com.nicogo.grass", Required: true),
+        With(new CmdOpt[]
+        {
+            new("--version", "Version", "A released version instead of the followed branch.", Placeholder: "1.1.0", Conflicts: ["--ref"]),
+            new("--ref", "Git ref", "A raw branch, tag or commit.", Placeholder: "main", Advanced: true),
+            new("--fork", "Fork", "Someone's fork instead of the author's repository.", Placeholder: "owner/repo"),
+            new("--demo", "", "Unpack the demo too, ready to build.", OptKind.Flag),
+        }, CatalogOptions));
+
     private static readonly CmdSpec Add = new("add", "add", "add",
         "Install an asset into a project: download it, then reference it.",
         new("Asset", "Asset id, or enough of it to be unambiguous.", "com.nicogo.grass", Required: true),
@@ -468,7 +479,7 @@ else
 
     private static readonly CmdGroup[] Groups =
     [
-        new("Assets", [Search, Info, Demo, Add, Forks, ListAssets, Update, Remove]),
+        new("Assets", [Search, Info, Demo, Download, Add, Forks, ListAssets, Update, Remove]),
         new("Authoring", [NewAsset, Check, Tag]),
         new("Registry", [Publish, Certify, Deprecate, Unpublish]),
         new("This app",

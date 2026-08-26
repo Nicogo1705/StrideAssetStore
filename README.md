@@ -29,6 +29,7 @@ Three ways in, same catalogue, same result.
 dotnet tool install -g StrideAssetStore
 cd path/to/your/game
 strideassetstore search grass
+strideassetstore demo grass     # if it ships one: download, build and run it
 strideassetstore add grass
 ```
 

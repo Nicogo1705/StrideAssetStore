@@ -35,7 +35,9 @@ public sealed class DesktopDemoRunner(AssetInstaller installer, ICatalogSource c
         var byId = index.Assets.ToDictionary(a => a.Id, StringComparer.Ordinal);
 
         progress?.Report(new DemoProgress(DemoStage.Downloading, "Downloading the asset…"));
-        var download = await Task.Run(() => installer.DownloadToCache(asset, byId), ct);
+        // With the ref, so this lands where `add` puts it — the versioned layout — instead of the
+        // legacy flat root, which would download the same asset a second time.
+        var download = await Task.Run(() => installer.DownloadToCache(asset, byId, refFolder: asset.Latest.Ref), ct);
         if (!download.Success)
         {
             return Fail(progress, download.Messages.LastOrDefault() ?? "The download failed.");

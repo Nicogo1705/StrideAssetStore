@@ -107,6 +107,7 @@
     <p><strong>Asset detail page.</strong></p>
     <ul class="bullets">
         <li>The asset's <strong>README is rendered</strong> inline (Markdown; raw HTML disabled for safety), with a fallback to the short description.</li>
+            <li>An asset that ships a <strong>demo</strong> — a runnable <span class="mono">Demo/</span> project in its repository — can be <strong>built and started in one click</strong>, from its page in the desktop app or with <span class="mono">strideassetstore demo &lt;asset&gt;</span>. The demo is found by looking at the repository rather than declared in a manifest, and it is one project that runs on Windows, Linux and macOS. It builds and runs the author's code on your machine: that is said before the first click, and it is where the <strong>certified</strong> badge earns its keep.</li>
         <li>A <strong>repository viewer</strong>: a collapsible <strong>file tree</strong> of the asset's <span class="mono">AssetData/</span> — the folder installing brings in — with sizes.</li>
         <li>A <strong>media gallery</strong> (screenshots / short videos) with a lightbox.</li>
         <li>A <strong>version selector</strong>: rolling branch (<span class="mono">latest</span>) vs. pinned <strong>tags</strong>, with <strong>certified</strong> tags marked. The pinned commit, the clone command and the download follow the selection; the catalog records a content hash and size for <span class="mono">latest</span> only, and says so.</li>
