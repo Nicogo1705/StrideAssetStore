@@ -1,10 +1,12 @@
-// Copyright (c) 2026 Nicogo1705
+﻿// Copyright (c) 2026 Nicogo1705
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 
 using System.ComponentModel;
 using System.Text.Json;
 using Spectre.Console;
 using Spectre.Console.Cli;
+using StrideAssetStore.Cli.Local;
+using StrideAssetStore.Core.Local.Validation;
 using StrideAssetStore.Core.Models;
 using StrideAssetStore.Core.Serialization;
 
@@ -19,6 +21,20 @@ internal sealed class CheckSettings : CommandSettings
     [CommandOption("--strict")]
     [Description("Treat warnings as failures too (for CI).")]
     public bool Strict { get; init; }
+
+    [CommandOption("--registry <OWNER/REPO>")]
+    [Description("Registry to take the manifest schema and catalog from. Defaults to the official one.")]
+    [DefaultValue("Nicogo1705/AssetContainer")]
+    public string Registry { get; init; } = "Nicogo1705/AssetContainer";
+
+    [CommandOption("--branch <NAME>")]
+    [Description("Branch to read the schema and catalog from.")]
+    [DefaultValue("main")]
+    public string Branch { get; init; } = "main";
+
+    [CommandOption("--container <PATH>")]
+    [Description("An AssetContainer checkout to read the schema and catalog from, instead of the network.")]
+    public string? Container { get; init; }
 }
 
 /// <summary>
@@ -50,7 +66,9 @@ internal sealed class CheckCommand : Command<CheckSettings>
         AnsiConsole.MarkupLineInterpolated($"[grey]Checking[/] {root}");
         AnsiConsole.WriteLine();
 
-        var report = Run(root, quiet: false);
+        var rules = RegistrySchemaAccess.Load(settings.Container, settings.Registry, settings.Branch, out var rulesFailure);
+
+        var report = Run(root, quiet: false, rules, rulesFailure);
         AnsiConsole.WriteLine();
         return report.Conclude(settings.Strict);
     }
@@ -60,10 +78,11 @@ internal sealed class CheckCommand : Command<CheckSettings>
     /// warnings to itself and prints only what is wrong — which is what `publish` wants: it calls
     /// this to decide whether a pull request is worth opening, not to produce a report.
     /// </summary>
-    internal static Report Run(string root, bool quiet)
+    internal static Report Run(
+        string root, bool quiet, RegistrySchemaAccess.Rules? rules = null, string? rulesFailure = null)
     {
         var report = new Report(quiet);
-        var manifest = CheckManifest(root, report);
+        var manifest = CheckManifest(root, report, rules, rulesFailure);
         CheckMedia(root, manifest, report);
         CheckReadme(root, report);
         CheckProject(root, report);
@@ -71,7 +90,8 @@ internal sealed class CheckCommand : Command<CheckSettings>
     }
 
     /// <summary>The manifest is the file everything else is judged against, so it is read first.</summary>
-    private static AssetManifest? CheckManifest(string root, Report report)
+    private static AssetManifest? CheckManifest(
+        string root, Report report, RegistrySchemaAccess.Rules? rules, string? rulesFailure)
     {
         var path = Path.Combine(root, AssetData, "manifest.json");
         if (!File.Exists(path))
@@ -98,6 +118,8 @@ internal sealed class CheckCommand : Command<CheckSettings>
         }
 
         report.Pass($"{AssetData}/manifest.json reads as {manifest.Name}");
+
+        CheckAgainstRegistryRules(path, manifest, report, rules, rulesFailure);
 
         if (!AssetId.IsValid(manifest.Id))
         {
@@ -135,6 +157,54 @@ internal sealed class CheckCommand : Command<CheckSettings>
         }
 
         return manifest;
+    }
+
+    /// <summary>
+    /// Judges the manifest by the registry's own schema and catalog, which is what its CI will do.
+    /// The checks above are friendlier and catch placeholder ids and empty author lists the schema
+    /// says nothing about; this one catches everything else, and is the reason a manifest that
+    /// passes here passes there.
+    /// </summary>
+    private static void CheckAgainstRegistryRules(
+        string manifestPath, AssetManifest manifest, Report report,
+        RegistrySchemaAccess.Rules? rules, string? rulesFailure)
+    {
+        if (rules is null)
+        {
+            // Not a failure: an author offline for the first time should still get every other
+            // check. Saying it went unchecked is the point - a silent skip would read as a pass.
+            report.Warn($"manifest not checked against the registry's schema — {rulesFailure}");
+            return;
+        }
+
+        var validation = new ValidationReport();
+        rules.ManifestSchema.Validate(File.ReadAllText(manifestPath), validation, "manifest");
+
+        if (!string.IsNullOrWhiteSpace(manifest.Category) && !rules.Catalog.Categories.Contains(manifest.Category))
+        {
+            validation.Error("category.unknown", $"Category '{manifest.Category}' is not one the registry accepts.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(manifest.License) && !rules.Catalog.Licenses.Contains(manifest.License))
+        {
+            validation.Error("license.unknown", $"License '{manifest.License}' is not one the registry accepts.");
+        }
+
+        var problems = validation.Messages
+            .Where(m => m.Severity == ValidationSeverity.Error)
+            .ToList();
+
+        foreach (var problem in problems)
+        {
+            report.Fail($"{problem.Code}: {problem.Text}");
+        }
+
+        if (problems.Count == 0)
+        {
+            report.Pass(rules.FromCache
+                ? "manifest satisfies the registry's schema and catalog (cached copy)"
+                : "manifest satisfies the registry's schema and catalog");
+        }
     }
 
     /// <summary>
