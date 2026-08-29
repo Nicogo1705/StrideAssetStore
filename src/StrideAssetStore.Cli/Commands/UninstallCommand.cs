@@ -149,11 +149,14 @@ internal sealed class UninstallCommand : AsyncCommand<UninstallSettings>
         {
             if (Directory.Exists(path))
             {
-                Directory.Delete(path, recursive: true);
+                // Not Directory.Delete: the cache holds git clones, and git marks its pack files
+                // read-only — a plain recursive delete stops at the first one with "access denied"
+                // and leaves the rest of the folder behind.
+                AssetInstaller.ForceDeleteDirectory(path);
             }
             else
             {
-                File.Delete(path);
+                ForceDeleteFile(path);
             }
 
             AnsiConsole.MarkupLineInterpolated($"[green]✓ Removed[/] {path}");
@@ -166,6 +169,18 @@ internal sealed class UninstallCommand : AsyncCommand<UninstallSettings>
             AnsiConsole.MarkupLineInterpolated($"[red]✗ Couldn't remove {path}:[/] {ex.Message}");
             return false;
         }
+    }
+
+    /// <summary>Deletes a file that may carry the read-only attribute, for the same reason as above.</summary>
+    private static void ForceDeleteFile(string path)
+    {
+        var attributes = File.GetAttributes(path);
+        if ((attributes & FileAttributes.ReadOnly) != 0)
+        {
+            File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
+        }
+
+        File.Delete(path);
     }
 
     /// <summary>

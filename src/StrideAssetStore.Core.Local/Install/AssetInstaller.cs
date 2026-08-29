@@ -792,7 +792,7 @@ public sealed class AssetInstaller(GitClient? git = null)
     /// <c>.git</c> (pack/object files) read-only, which makes a plain <see cref="Directory.Delete(string, bool)"/>
     /// throw <see cref="UnauthorizedAccessException"/> on Windows.
     /// </summary>
-    internal static void ForceDeleteDirectory(string path)
+    public static void ForceDeleteDirectory(string path)
     {
         foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
         {
