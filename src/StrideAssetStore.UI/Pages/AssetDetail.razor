@@ -43,10 +43,13 @@ else
     <div class="detail">
         <div class="detail-head">
             <div class="detail-thumb">
-                @(m.Name.Length > 0 ? m.Name[..1].ToUpperInvariant() : "?")
+                @* Fallback, not a backdrop — a thumbnail with transparency would show it through. *@
+                <span class="thumb-initial">@(m.Name.Length > 0 ? m.Name[..1].ToUpperInvariant() : "?")</span>
                 @if (ThumbUrl is not null)
                 {
-                    <img class="thumb-img" src="@ThumbUrl" alt="" onload="this.style.display=''" onerror="this.style.display='none'" />
+                    <img class="thumb-img" src="@ThumbUrl" alt=""
+                         onload="this.style.display=''; this.parentElement.classList.add('has-thumb')"
+                         onerror="this.style.display='none'; this.parentElement.classList.remove('has-thumb')" />
                 }
             </div>
             <div>

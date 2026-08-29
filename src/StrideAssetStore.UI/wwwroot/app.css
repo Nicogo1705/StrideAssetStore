@@ -118,7 +118,19 @@ a.theme-toggle:hover { text-decoration: none; }
     background: linear-gradient(135deg, var(--accent), var(--accent-2));
 }
 .thumb-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* Once a thumbnail has painted, the placeholder letter must go: half the thumbnails have
+   transparent pixels and the letter would read as part of the artwork. */
+.has-thumb .thumb-initial { display: none; }
 .hover-media { z-index: 1; background: #000; }
+/* Corner marker: this asset ships a demo the app can run. */
+.thumb-demo {
+    position: absolute; top: .4rem; right: .4rem; z-index: 2;
+    font-size: .62rem; font-weight: 600; letter-spacing: .02em;
+    padding: .1rem .4rem; border-radius: 999px;
+    background: rgba(10, 12, 18, .72); color: #fff;
+    border: 1px solid rgba(255, 255, 255, .28);
+    backdrop-filter: blur(2px);
+}
 .card-body { padding: .8rem .9rem; display: flex; flex-direction: column; gap: .4rem; }
 .card-title { font-weight: 600; color: var(--text); }
 .card-desc { color: var(--muted); font-size: .82rem; line-height: 1.35; min-height: 2.4em; }

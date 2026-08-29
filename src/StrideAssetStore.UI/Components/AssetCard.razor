@@ -7,11 +7,20 @@
      @onpointerenter="() => _hover = true" @onpointerleave="() => _hover = false">
     <a class="card-link" href="@($"a/{Uri.EscapeDataString(Asset.Id)}")">
     <div class="card-thumb">
-        @Initial
+        @* The initial is the fallback, not a backdrop: a thumbnail with transparency would show the
+           letter straight through it. It stays visible while the image loads and if it never does,
+           and the image hides it the moment it paints. *@
+        <span class="thumb-initial">@Initial</span>
         @if (ThumbUrl is not null)
         {
             <img class="thumb-img" src="@ThumbUrl" alt="" loading="lazy"
-                 onload="this.style.display=''" onerror="this.style.display='none'" />
+                 onload="this.style.display=''; this.parentElement.classList.add('has-thumb')"
+                 onerror="this.style.display='none'; this.parentElement.classList.remove('has-thumb')" />
+        }
+        @* Corner marker for the assets the desktop app can build and launch in one click. *@
+        @if (HasDemo)
+        {
+            <span class="thumb-demo" title="Ships a runnable demo — the desktop app can build and launch it.">▶ demo</span>
         }
         @* Motion sells: on hover, the first animated media of the manifest plays over the
            static thumbnail (loaded lazily — nothing is fetched until the first hover). *@
@@ -112,6 +121,9 @@
     /// <summary>Raised when a tag chip is clicked (the grid filters on it).</summary>
     [Parameter]
     public EventCallback<string> OnTagClick { get; set; }
+
+    /// <summary>Whether the indexed commit carries a runnable demo project.</summary>
+    private bool HasDemo => !string.IsNullOrEmpty(Asset.Latest.DemoProject);
 
     private string Initial =>
         string.IsNullOrEmpty(Asset.Manifest.Name) ? "?" : Asset.Manifest.Name[..1].ToUpperInvariant();
